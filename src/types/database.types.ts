@@ -673,6 +673,7 @@ export type Database = {
           avatar_url: string | null;
           avatar_theme: string | null;
           bio: string | null;
+          vendor_portfolio: Json;
           handle: string | null;
           email: string | null;
           college: string | null;
@@ -699,6 +700,7 @@ export type Database = {
           avatar_url?: string | null;
           avatar_theme?: string | null;
           bio?: string | null;
+          vendor_portfolio?: Json;
           handle?: string | null;
           email?: string | null;
           college?: string | null;
@@ -723,6 +725,7 @@ export type Database = {
           avatar_url?: string | null;
           avatar_theme?: string | null;
           bio?: string | null;
+          vendor_portfolio?: Json;
           handle?: string | null;
           email?: string | null;
           college?: string | null;
@@ -738,6 +741,123 @@ export type Database = {
           show_on_leaderboard?: boolean;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      vendor_rfps: {
+        Row: {
+          id: string;
+          club_id: string;
+          event_id: string | null;
+          title: string;
+          category: string;
+          description: string;
+          budget_max: number;
+          deadline: string;
+          status: string;
+          accepted_bid_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          event_id?: string | null;
+          title: string;
+          category: string;
+          description: string;
+          budget_max: number;
+          deadline: string;
+          status?: string | null;
+          accepted_bid_id?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          event_id?: string | null;
+          title?: string;
+          category?: string;
+          description?: string;
+          budget_max?: number;
+          deadline?: string;
+          status?: string | null;
+          accepted_bid_id?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      rfp_bids: {
+        Row: {
+          id: string;
+          rfp_id: string;
+          vendor_user_id: string | null;
+          vendor_name: string;
+          vendor_email: string;
+          quoted_price: number;
+          proposal_pdf_url: string | null;
+          notes: string | null;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          rfp_id: string;
+          vendor_user_id?: string | null;
+          vendor_name: string;
+          vendor_email: string;
+          quoted_price: number;
+          proposal_pdf_url?: string | null;
+          notes?: string | null;
+          status?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          rfp_id?: string;
+          vendor_user_id?: string | null;
+          vendor_name?: string;
+          vendor_email?: string;
+          quoted_price?: number;
+          proposal_pdf_url?: string | null;
+          notes?: string | null;
+          status?: string | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+      vendor_portfolio_reviews: {
+        Row: {
+          id: string;
+          vendor_user_id: string;
+          rfp_bid_id: string;
+          event_id: string | null;
+          reviewer_user_id: string;
+          rating: number;
+          comment: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_user_id: string;
+          rfp_bid_id: string;
+          event_id?: string | null;
+          reviewer_user_id: string;
+          rating: number;
+          comment?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          vendor_user_id?: string;
+          rfp_bid_id?: string;
+          event_id?: string | null;
+          reviewer_user_id?: string;
+          rating?: number;
+          comment?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -3944,6 +4064,7 @@ export type Database = {
           winning_bid: number;
           message: string;
         }[];
+      };
       start_event_broadcast_session: {
         Args: {
           p_event_id: string;
@@ -3970,6 +4091,37 @@ export type Database = {
           p_metadata?: Json;
         };
         Returns: Database["public"]["Tables"]["event_broadcast_sessions"]["Row"];
+      };
+      submit_vendor_rfp_bid: {
+        Args: {
+          p_rfp_id: string;
+          p_vendor_name: string;
+          p_vendor_email: string;
+          p_quoted_price: number;
+          p_proposal_pdf_url?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["rfp_bids"]["Row"];
+      };
+      save_vendor_portfolio: {
+        Args: { p_portfolio: Json };
+        Returns: Database["public"]["Tables"]["profiles"]["Row"];
+      };
+      get_vendor_portfolio_for_bid: {
+        Args: { p_bid_id: string };
+        Returns: {
+          bid_id: string;
+          vendor_user_id: string | null;
+          vendor_name: string;
+          vendor_email: string;
+          vendor_portfolio: Json;
+          average_rating: number;
+          rating_count: number;
+        }[];
+      };
+      submit_vendor_portfolio_review: {
+        Args: { p_bid_id: string; p_rating: number; p_comment?: string | null };
+        Returns: Database["public"]["Tables"]["vendor_portfolio_reviews"]["Row"];
       };
       get_open_feedback_safety_alerts: {
         Args: Record<string, never>;
