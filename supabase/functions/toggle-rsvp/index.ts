@@ -268,6 +268,10 @@ serve(async (req: Request) => {
       const { data: eventData, error: eventErr } = await supabase
         .from("events")
  feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+
+ feature/assistant-persistence-2044
+ main
 
 
         .select("prerequisite_event_id, title, has_photography, is_high_demand")
@@ -369,6 +373,10 @@ serve(async (req: Request) => {
               error: `You must attend the prerequisite event before registering for this event.`,
             },
  feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+
+ feature/assistant-persistence-2044
+ main
  HEAD
 
  feature/waitlist-churn-predictor
