@@ -35,40 +35,51 @@ export const TicketCard: React.FC<TicketCardProps> = ({
     minute: "2-digit",
   });
 
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700 max-w-sm mx-auto">
-      {/* Ticket Header / Stub */}
-      <div className="bg-indigo-600 dark:bg-indigo-800 p-4 text-white relative">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-        <p className="text-xs font-bold uppercase tracking-wider text-indigo-200 mb-1">
-          Admission Ticket
-        </p>
-        <h3 className="text-xl font-black leading-tight mb-2">{ticket.event_title}</h3>
-        <div className="flex items-center gap-4 text-sm text-indigo-100">
-          <div className="flex items-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            {formattedDate}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {formattedTime}
-          </div>
-        </div>
-      </div>
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700 max-w-sm mx-auto">
+            {/* Ticket Header / Stub */}
+            <div className="bg-indigo-600 dark:bg-indigo-800 p-4 text-white relative">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
+                <p className="text-xs font-bold uppercase tracking-wider text-indigo-200 mb-1">
+                    Admission Ticket
+                </p>
+                <h3 className="text-xl font-black leading-tight mb-2">
+                    {ticket.event_title}
+                </h3>
+                {ticket.assigned_dietary_meal && (
+                    <div className="bg-yellow-350 text-black border-2 border-black px-2.5 py-1 text-xs font-mono font-bold uppercase inline-block mb-3 shadow-[2px_2px_0_0_#000]" data-testid="dietary-yield-badge">
+                        🎉 You get a {ticket.assigned_dietary_meal} meal!
+                    </div>
+                )}
+                <div className="flex items-center gap-4 text-sm text-indigo-100">
+                    <div className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {formattedDate}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {formattedTime}
+                    </div>
+                </div>
+            </div>
+
+            {/* Perforated Edge Effect */}
+            <div className="relative h-4 bg-gray-50 dark:bg-gray-900">
+                <div className="absolute left-0 top-0 w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-full -translate-x-1/2 -translate-y-1/2 border-4 border-white dark:border-gray-800"></div>
+                <div className="absolute right-0 top-0 w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-full translate-x-1/2 -translate-y-1/2 border-4 border-white dark:border-gray-800"></div>
+                <div className="absolute inset-x-8 top-1/2 border-t-2 border-dashed border-gray-300 dark:border-gray-700"></div>
+            </div>
+
+            {/* QR Code Body */}
+            <div className="bg-gray-50 dark:bg-gray-900 p-6 flex flex-col items-center">
+                <div className="relative w-56 h-56 bg-white p-4 rounded-xl shadow-inner mb-4">
+                    {!imageLoaded && !imageError && (
+                        <div className="absolute inset-4 animate-pulse bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    )}
 
       {/* Perforated Edge Effect */}
       <div className="relative h-4 bg-gray-50 dark:bg-gray-900">

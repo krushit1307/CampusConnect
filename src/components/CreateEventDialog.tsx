@@ -22,6 +22,14 @@ import type { DateRange } from "react-day-picker";
 import format from "date-fns/format";
 import { createClient } from "@/lib/supabase/client";
 import {
+  checkOrganizerPostMortemGate,
+  searchClubPostMortems,
+  findHistoricalRetrospectiveSuggestions,
+  type PendingPostMortemEvent,
+  type EventPostMortem,
+} from "@/services/eventPostMortemService";
+import { PostMortemGatingModal } from "@/components/events/PostMortemGatingModal";
+import {
   eventFormSchema,
   TITLE_MAX_LENGTH,
   hasDraftContent,
@@ -243,6 +251,31 @@ export function CreateEventDialog({
 
     return () => window.clearTimeout(timer);
   }, [watchedTitle, watchedDescription, clubId]);
+
+  // Post-Mortem Gating & Historical Retrospective Suggestions
+  const [showGatingModal, setShowGatingModal] = useState(false);
+
+  const { data: gatingStatus, refetch: refetchGating } = useQuery({
+    queryKey: ["organizer_post_mortem_gate", user?.id, clubId],
+    queryFn: () => (user ? checkOrganizerPostMortemGate(user.id, clubId) : null),
+    enabled: Boolean(user && open),
+  });
+
+  const { data: pastRetrospectives } = useQuery<EventPostMortem[]>({
+    queryKey: ["club_past_retrospectives", clubId],
+    queryFn: () => (clubId ? searchClubPostMortems(clubId) : []),
+    enabled: Boolean(clubId && open),
+  });
+
+  const historicalSuggestions = useMemo(() => {
+    if (!pastRetrospectives || pastRetrospectives.length === 0) return [];
+    return findHistoricalRetrospectiveSuggestions(
+      String(watchedTitle || ""),
+      String(watchedDescription || ""),
+      pastRetrospectives,
+    );
+  }, [watchedTitle, watchedDescription, pastRetrospectives]);
+
   const isUndoingRedoingRef = useRef(false);
   const {
     state: undoableState,
@@ -356,6 +389,13 @@ export function CreateEventDialog({
     mutationFn: async (values: EventFormValues) => {
       if (!user) {
         throw new Error("You must be logged in to create an event.");
+      }
+
+      if (gatingStatus?.is_locked && gatingStatus.pending_events?.length > 0) {
+        setShowGatingModal(true);
+        throw new Error(
+          `Event creation locked: You have ${gatingStatus.pending_count} pending post-mortem retrospective(s) to complete first.`,
+        );
       }
 
       const payload = eventFormToDbPayload(values, user.id, clubId);
@@ -655,6 +695,22 @@ export function CreateEventDialog({
                     </FormItem>
                   )}
                 />
+
+                {/* Historical Retrospective Institutional Memory Suggestions */}
+                {historicalSuggestions.length > 0 && (
+                  <div className="border-2 border-amber-500 bg-amber-50 p-3 shadow-[2px_2px_0_0_#000]">
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-black uppercase text-amber-950 mb-1">
+                      <span>💡 Institutional Memory Tip</span>
+                    </div>
+                    <div className="space-y-1 font-mono text-[11px] text-amber-900">
+                      {historicalSuggestions.map((s, idx) => (
+                        <p key={idx}>
+                          • From <strong>{s.eventTitle}</strong> ({s.keyword}): &quot;{s.advice}&quot;
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <FormField
                   control={control}
                   name="category"
@@ -1431,6 +1487,17 @@ export function CreateEventDialog({
           </form>
         </Form>
       </DialogContent>
+      {gatingStatus?.pending_events && (
+        <PostMortemGatingModal
+          isOpen={showGatingModal}
+          pendingEvents={gatingStatus.pending_events}
+          onClose={() => setShowGatingModal(false)}
+          onSuccess={() => {
+            setShowGatingModal(false);
+            refetchGating();
+          }}
+        />
+      )}
     </Dialog>
   );
 }
