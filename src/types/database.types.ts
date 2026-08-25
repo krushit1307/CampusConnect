@@ -467,6 +467,7 @@ export type Database = {
           signature_hash: string | null;
           bylaws_version_signed: number | null;
           signed_ip: string | null;
+          reports_to_user_id: string | null;
         };
         Insert: {
           id?: string;
@@ -479,6 +480,7 @@ export type Database = {
           signature_hash?: string | null;
           bylaws_version_signed?: number | null;
           signed_ip?: string | null;
+          reports_to_user_id?: string | null;
         };
         Update: {
           id?: string;
@@ -491,6 +493,7 @@ export type Database = {
           signature_hash?: string | null;
           bylaws_version_signed?: number | null;
           signed_ip?: string | null;
+          reports_to_user_id?: string | null;
         };
         Relationships: [];
       };
@@ -4278,6 +4281,24 @@ export type Database = {
       };
     };
     Functions: {
+      set_club_role_manager: {
+        Args: { p_role_id: string; p_reports_to_user_id?: string };
+        Returns: Database["public"]["Tables"]["club_roles"]["Row"];
+      };
+      get_public_club_hierarchy: {
+        Args: { p_club_id: string };
+        Returns: {
+          role_id: string;
+          user_id: string;
+          reports_to_user_id: string | null;
+          full_name: string;
+          handle: string;
+          avatar_url: string | null;
+          role_title: string;
+          department: string | null;
+          depth: number;
+        }[];
+      };
       is_event_organizer: {
         Args: { p_event_id: string; p_user_id?: string };
         Returns: boolean;
