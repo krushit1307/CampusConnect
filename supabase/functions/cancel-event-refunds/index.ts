@@ -161,6 +161,7 @@ serve(async (req: Request) => {
         return data;
       });
 
+      let claimsCount = 0;
       let refundedCount = 0;
       let totalRefundedCents = 0;
 
@@ -170,64 +171,40 @@ serve(async (req: Request) => {
         ? null
         : new Stripe(stripeSecretKey, { apiVersion: "2023-10-16" });
 
-      // 5. Refund ticket holders without flipping RSVP status yet. Cancelling
-      //    attending rows first would fire promote_waitlist_on_cancel and move
-      //    waitlisted users onto this already-cancelled event.
-      await tracer.startActiveSpan("process_refunds", async (span) => {
+      // 5. Create Cancellation Refund Claims (10% Bonus Platform Credit vs Card Refund)
+      //    This avoids automatic Stripe transaction fees and retains platform capital (#4522).
+      await tracer.startActiveSpan("process_cancellation_claims", async (span) => {
         span.setAttribute("app.rsvps_to_process", rsvps?.length || 0);
         for (const rsvp of rsvps || []) {
-          await tracer.startActiveSpan("process_single_refund", async (rsvpSpan) => {
+          await tracer.startActiveSpan("process_single_claim", async (rsvpSpan) => {
             rsvpSpan.setAttribute("app.rsvp_id", rsvp.id);
             rsvpSpan.setAttribute("app.user_id", rsvp.user_id);
 
-            let stripeRefundId = null;
+            if (rsvp.paid_amount_cents > 0) {
+              const bonusPercentage = 10;
+              const bonusAmountCents = Math.round(rsvp.paid_amount_cents * (bonusPercentage / 100));
+              const creditAmountCents = rsvp.paid_amount_cents + bonusAmountCents;
 
-            // Execute Stripe Refund if paid
-            if (rsvp.paid_amount_cents > 0 && rsvp.payment_intent_id) {
-              await tracer.startActiveSpan("stripe.refund", async (stripeSpan) => {
-                stripeSpan.setAttribute("app.payment_intent_id", rsvp.payment_intent_id);
-                stripeSpan.setAttribute("app.refund_amount_cents", rsvp.paid_amount_cents);
+              // Create or update cancellation refund claim
+              await tracer.startActiveSpan("supabase.insert_cancellation_claim", async (dbSpan) => {
+                dbSpan.setAttribute("db.system", "postgresql");
+                dbSpan.setAttribute("db.operation", "INSERT");
+                dbSpan.setAttribute("db.sql.table", "cancellation_refund_claims");
 
-                if (isMockStripe) {
-                  stripeRefundId = `re_mock_${crypto.randomUUID().replace(/-/g, "").substring(0, 24)}`;
-                  stripeSpan.setAttribute("app.is_mock", true);
-                } else {
-                  try {
-                    const refund = await stripe!.refunds.create({
-                      payment_intent: rsvp.payment_intent_id,
-                      amount: rsvp.paid_amount_cents,
-                    });
-                    stripeRefundId = refund.id;
-                    stripeSpan.setAttribute("app.stripe_refund_id", stripeRefundId);
-                  } catch (err: any) {
-                    stripeSpan.recordException(err);
-                    stripeSpan.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
-                    console.error(`Stripe refund failed for RSVP ${rsvp.id}:`, err);
-                  }
-                }
-                stripeSpan.end();
+                await supabase.from("cancellation_refund_claims").upsert({
+                  event_id: eventId,
+                  rsvp_id: rsvp.id,
+                  user_id: rsvp.user_id,
+                  original_amount_cents: rsvp.paid_amount_cents,
+                  bonus_percentage: bonusPercentage,
+                  credit_amount_cents: creditAmountCents,
+                  status: "pending_choice",
+                  created_at: new Date().toISOString(),
+                }, { onConflict: "rsvp_id" });
+
+                claimsCount++;
+                dbSpan.end();
               });
-
-              if (stripeRefundId) {
-                refundedCount++;
-                totalRefundedCents += rsvp.paid_amount_cents;
-
-                // Log refund
-                await tracer.startActiveSpan("supabase.insert_refund_log", async (dbSpan) => {
-                  dbSpan.setAttribute("db.system", "postgresql");
-                  dbSpan.setAttribute("db.operation", "INSERT");
-                  dbSpan.setAttribute("db.sql.table", "refund_logs");
-                  await supabase.from("refund_logs").insert({
-                    rsvp_id: rsvp.id,
-                    payment_intent_id: rsvp.payment_intent_id,
-                    refund_amount_cents: rsvp.paid_amount_cents,
-                    stripe_refund_id: stripeRefundId,
-                    refund_status: "completed",
-                    refunded_at: new Date().toISOString(),
-                  });
-                  dbSpan.end();
-                });
-              }
             }
 
             rsvpSpan.end();
@@ -236,7 +213,7 @@ serve(async (req: Request) => {
         span.end();
       });
 
-      // 6. After refunding ticket holders, query waitlisted users, bulk-cancel
+      // 6. After registering claims, query waitlisted users, bulk-cancel
       //    them, and send the waitlist-specific cancellation email (#4422).
       const waitlisted = await tracer.startActiveSpan("supabase.fetch_waitlisted", async (span) => {
         span.setAttribute("db.system", "postgresql");
@@ -301,7 +278,7 @@ serve(async (req: Request) => {
         span.end();
       });
 
-      // 7. Invalidate ticket-holder RSVPs and notify them (waitlist already cleared).
+      // 7. Invalidate ticket-holder RSVPs and dispatch choice notification / email (#4522).
       await tracer.startActiveSpan("process_ticket_holder_cancellations", async (span) => {
         span.setAttribute("app.rsvps_to_process", rsvps?.length || 0);
         for (const rsvp of rsvps || []) {
@@ -321,23 +298,33 @@ serve(async (req: Request) => {
               dbSpan.end();
             });
 
-            // Dispatch Notification / Email
+            // Dispatch Choice Notification / Email
             await tracer.startActiveSpan("supabase.insert_notification", async (dbSpan) => {
               dbSpan.setAttribute("db.system", "postgresql");
               dbSpan.setAttribute("db.operation", "INSERT");
               dbSpan.setAttribute("db.sql.table", "notifications");
-              const amountStr =
-                rsvp.paid_amount_cents > 0
-                  ? `Your refund of $${(rsvp.paid_amount_cents / 100).toFixed(2)} has been issued to your card.`
-                  : "";
-              const message = `The event "${event.title}" was cancelled (${reason}). ${amountStr}`;
+
+              let message = `The event "${event.title}" was cancelled (${reason}).`;
+              let notificationType = "event_cancelled";
+              let link = "/events";
+
+              if (rsvp.paid_amount_cents > 0) {
+                const cardDollars = (rsvp.paid_amount_cents / 100).toFixed(2);
+                const bonusPercentage = 10;
+                const bonusAmountCents = Math.round(rsvp.paid_amount_cents * (bonusPercentage / 100));
+                const creditDollars = ((rsvp.paid_amount_cents + bonusAmountCents) / 100).toFixed(2);
+
+                message = `Event Cancelled. Choose your refund: 1) Full Refund to Card ($${cardDollars}). 2) $${creditDollars} in CampusConnect Credit (10% Bonus).`;
+                notificationType = "event_cancellation_refund_choice";
+                link = `/events/refund-choice?event_id=${eventId}&rsvp_id=${rsvp.id}`;
+              }
 
               await supabase.from("notifications").insert({
                 user_id: rsvp.user_id,
-                type: "event_cancelled",
+                type: notificationType,
                 title: `Event Cancelled: ${event.title}`,
                 message,
-                link: "/events",
+                link,
               });
               dbSpan.end();
               console.log(`[Email Dispatched] To: User ${rsvp.user_id} | Message: ${message}`);
@@ -350,6 +337,7 @@ serve(async (req: Request) => {
       });
 
       rootSpan.setAttribute("http.status_code", 200);
+      rootSpan.setAttribute("app.claims_count", claimsCount);
       rootSpan.setAttribute("app.refunded_count", refundedCount);
       rootSpan.setAttribute("app.total_refunded_cents", totalRefundedCents);
       rootSpan.setAttribute("app.waitlisted_cleared", waitlisted?.length || 0);
@@ -359,7 +347,10 @@ serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: `Successfully cancelled event and orchestrated ${refundedCount} refunds.`,
+          message: `Successfully cancelled event and dispatched refund choices for ${claimsCount} paid attendees.`,
+          claimsCount,
+          total_claims_created: claimsCount,
+          total_rsvps_cancelled: (rsvps?.length || 0) + (waitlisted?.length || 0),
           refundedCount,
           totalRefundedCents,
         }),

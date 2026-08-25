@@ -138,8 +138,7 @@ const AdminDlqPage = lazy(() => import("./routes/admin.dlq"));
 const AdminEmergencyBroadcast = lazy(() => import("./routes/admin.emergency-broadcast"));
 const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));
 const NotFound = lazy(() => import("./routes/NotFound"));
-const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));
-const NotFound = lazy(() => import("./routes/NotFound"));
+const EventRefundChoicePage = lazy(() => import("./routes/events.refund-choice"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
@@ -373,6 +372,7 @@ const router = createBrowserRouter(
           <Route path="/skill-swap" element={<SkillSwapMarketplace />} />
           <Route path="/wellness" element={<CampusWellnessHub />} />
           <Route path="/accessibility-tracker" element={<AccessibilityTrackerRoute />} />
+          <Route path="/events/refund-choice" element={<EventRefundChoicePage />} />
           <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
