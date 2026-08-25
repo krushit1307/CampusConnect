@@ -1,14 +1,11 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
-import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
-import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
 import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
-import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
-import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
@@ -18,6 +15,7 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
+import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
 import { InteractiveSeatingChart } from "@/components/events/InteractiveSeatingChart";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { useBannerColor } from "@/hooks/useBannerColor";
@@ -28,6 +26,9 @@ const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ defau
 import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
+import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
+import { FlashSaleBanner } from "@/components/events/FlashSaleBanner";
+import { FlashSaleControl } from "@/components/events/FlashSaleControl";
 import { formatDateLong } from "@/lib/dateFormatter";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
@@ -64,10 +65,12 @@ import {
 import LiveQA from "@/components/qa/LiveQA";
 import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
+import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
 import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
 import Ticket from "lucide-react/dist/esm/icons/ticket";
+import Send from "lucide-react/dist/esm/icons/send";
 import { useTicketDownload } from "@/hooks/useTicketDownload";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -82,6 +85,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { DietaryAllergenWarning } from "@/components/events/DietaryAllergenWarning";
+import { detectAbsoluteAllergenCollision } from "@/lib/dietaryAllergenCollision";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SeatingCanvas } from "@/components/events/SeatingCanvas";
 import { SponsorManager } from "@/components/events/SponsorManager";
@@ -97,6 +102,7 @@ import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
 import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
+import { EventSeriesCatchUpCard } from "@/components/events/EventSeriesCatchUpCard";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
@@ -124,17 +130,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import DynamicQRCode from "@/components/events/DynamicQRCode";
-import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
+import { isHighDemandEvent, normalizeDeviceFingerprint } from "@/lib/ticketScalping";
 import { EditEventDialog } from "@/components/EditEventDialog";
 import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
+import { EventCoSponsorshipPortal } from "@/components/events/EventCoSponsorshipPortal";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
 
 /**
  * Hero banner for the event detail page.
@@ -435,6 +443,7 @@ export default function EventDetailsPage() {
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rsvpDialogOpen, setRsvpDialogOpen] = useState(false);
+  const [acknowledgeAllergenWarning, setAcknowledgeAllergenWarning] = useState(false);
   const [needAccommodations, setNeedAccommodations] = useState(false);
   const [accommodationsText, setAccommodationsText] = useState("");
   const [validationError, setValidationError] = useState("");
@@ -448,6 +457,61 @@ export default function EventDetailsPage() {
   const [decryptError, setDecryptError] = useState<string | null>(null);
   const [isDecryptedModalOpen, setIsDecryptedModalOpen] = useState(false);
   const { downloadTicket, isGenerating: isTicketGenerating } = useTicketDownload();
+  const { visitorId } = useDeviceFingerprint();
+  const [hasTiersOrSurge, setHasTiersOrSurge] = useState(false);
+
+  useEffect(() => {
+    if (!event?.id) return;
+    const checkPricing = async () => {
+      if (event.base_price !== null && event.base_price !== undefined) {
+        setHasTiersOrSurge(true);
+        return;
+      }
+      const { count } = await supabase
+        .from("ticket_tiers")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", event.id);
+      if (count && count > 0) {
+        setHasTiersOrSurge(true);
+      }
+    };
+    void checkPricing();
+  }, [event?.id, event?.base_price, supabase]);
+
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferEmail, setTransferEmail] = useState("");
+
+  const transferMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Please log in to transfer your ticket.");
+      if (!myRsvp?.ticket_id && !myRsvp?.id) {
+        throw new Error("You do not have a ticket to transfer.");
+      }
+
+      const ticketId = myRsvp.ticket_id || myRsvp.id;
+      const { data, error } = await supabase.rpc("transfer_ticket_transaction", {
+        p_ticket_id: ticketId,
+        p_sender_id: user.id,
+        p_recipient_email: transferEmail.trim(),
+      });
+
+      if (error) throw error;
+      if (data && !data.success) {
+        throw new Error(data.message || "Failed to transfer ticket.");
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Ticket transferred successfully!");
+      setIsTransferDialogOpen(false);
+      setTransferEmail("");
+      refetch();
+      refetchMyRsvp();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to transfer ticket.");
+    },
+  });
 
   const handleViewAccommodation = async (rsvpId: string) => {
     setIsDecrypting(true);
@@ -628,7 +692,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_rsv
           venues (
             name, building, capacity, accessibility_features
           )
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code, base_price, surge_multiplier,
           profiles (full_name, email),
 clubs (name, slug, logo_url, primary_color, secondary_color),          event_metrics (views)
         `,
@@ -668,6 +732,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
             banner_url: null as string | null,
             max_attendees: eventId === "mock-1" ? 1 : null,
+            is_high_demand: false,
             latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
             longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
             geofencing_enabled: eventId === "mock-1",
@@ -795,6 +860,38 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     },
     enabled: !!user?.id && !!eventId,
   });
+
+  const { data: dietaryRestrictions = [] } = useQuery<string[]>({
+    queryKey: ["profile_dietary_restrictions", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("dietary_restrictions")
+        .eq("id", user!.id)
+        .single();
+      if (error) throw error;
+      return (data?.dietary_restrictions as string[]) || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: eventMenuItems = [] } = useQuery({
+    queryKey: ["event_menu_items", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_menu_items")
+        .select("is_vegan, is_gluten_free, contains_nuts, contains_dairy")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId && !eventId.startsWith("mock-"),
+  });
+
+  const allergenCollision = useMemo(
+    () => detectAbsoluteAllergenCollision(dietaryRestrictions, eventMenuItems),
+    [dietaryRestrictions, eventMenuItems],
+  );
 
   const { data: adminRsvps, refetch: refetchAdminRsvps } = useQuery({
     queryKey: ["admin_rsvps", eventId],
@@ -973,6 +1070,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       }
 
       const idempotencyKey = getRsvpIdempotencyKey(eventId);
+      const deviceFingerprint = normalizeDeviceFingerprint(visitorId);
+      const highDemandClaim = !hasRsvpd && isHighDemandEvent(event);
 
       const {
         data: { session },
@@ -985,6 +1084,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
           headers: {
             Authorization: `Bearer ${session?.access_token}`,
             "Idempotency-Key": idempotencyKey,
+            ...(deviceFingerprint ? { "X-Device-Fingerprint": deviceFingerprint } : {}),
           },
         });
         funcError = error;
@@ -995,6 +1095,9 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
           err.message.includes("network") ||
           err.message.includes("Failed to fetch")
         ) {
+          if (highDemandClaim) {
+            throw new Error("HIGH_DEMAND_REQUIRES_ONLINE");
+          }
           await queueRsvpSubmission({
             eventId,
             hasRsvpd,
@@ -1010,8 +1113,6 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
         }
       }
       if (funcError) throw funcError;
-
-      if (error) throw error;
       clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ hasRsvpd }) => {
@@ -1050,19 +1151,29 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       }
 
       const err = error as Record<string, unknown>;
-      if (err?.message === "OFFLINE_SAVED" || error?.message === "OFFLINE_SAVED") {
+      if (err?.message === "HIGH_DEMAND_REQUIRES_ONLINE") {
+        toast.error(
+          "High-demand RSVPs require an active internet connection and fresh verification.",
+        );
+      } else if (
+        err?.message === "OFFLINE_SAVED" ||
+        (error as Error)?.message === "OFFLINE_SAVED"
+      ) {
         toast.success(
           "You're offline. Your RSVP is saved and will sync automatically when you reconnect.",
           { duration: 5000 },
         );
       } else if (
-        (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
-        (typeof err?.details === "string" && err.details.includes("Rate limit")) ||
-        (typeof err?.context === "string" && err.context.includes("Rate limit")) ||
-        (typeof error === "string" && error.includes("Rate limit"))
+        (typeof err?.status === "number" && err.status === 429) ||
+        (typeof (err?.context as { status?: unknown })?.status === "number" &&
+          (err.context as { status: number }).status === 429) ||
+        (typeof err?.message === "string" &&
+          (err.message.includes("Rate limit") || err.message.includes("Too many ticket claims")))
       ) {
-        toast.error("Please wait a minute before toggling RSVP again.");
+        setCaptchaToken(undefined);
+        toast.error("Too many claims for this event. Please try again after the cooldown.");
       } else {
+        if (requiresHighDemandCaptcha) setCaptchaToken(undefined);
         toast.error(
           (err?.message as string) ||
             (error as Error)?.message ||
@@ -1077,6 +1188,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       setNeedAccommodations(false);
       setAccommodationsText("");
       setValidationError("");
+      setCaptchaToken(undefined);
     },
   });
 
@@ -1418,11 +1530,10 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     ? parseCoordinates(event.location)
     : { isCoordinates: false, isValid: true };
 
+  const requiresHighDemandCaptcha = isHighDemandEvent(event);
   const captchaSiteKey =
     import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
-  const captchaSecretKey =
-    import.meta.env.VITE_TURNSTILE_SECRET_KEY || import.meta.env.VITE_HCAPTCHA_SECRET_KEY;
-  const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
+  const captchaConfigured = Boolean(captchaSiteKey);
   const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
 
   const isAfterDeadline = useMemo(() => {
@@ -1520,15 +1631,18 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       return;
     }
 
-    if (captchaEnabled && !shouldRequireCaptcha(captchaSiteKey, captchaSecretKey, captchaToken)) {
-      toast.error("Please complete the CAPTCHA challenge to RSVP.");
+    if (requiresHighDemandCaptcha && !captchaConfigured) {
+      toast.error("High-demand ticket verification is temporarily unavailable.");
       return;
     }
+    // The challenge is rendered in the RSVP dialog and checked again at submit time.
 
     // Open accommodations dialog instead of immediate submit
     setNeedAccommodations(false);
     setAccommodationsText("");
     setValidationError("");
+    setCaptchaToken(undefined);
+    setAcknowledgeAllergenWarning(false);
     setRsvpDialogOpen(true);
   };
 
@@ -1756,6 +1870,16 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               />
             </div>
 
+            <div id="ticket-pricing-section" className="mt-6 max-w-2xl">
+              <FlashSaleBanner eventId={event.id} />
+              <TicketPricingTimeline eventId={event.id} isOrganizer={isOrganizer} />
+              {isOrganizer && (
+                <div className="mt-4">
+                  <FlashSaleControl eventId={event.id} />
+                </div>
+              )}
+            </div>
+
             {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
               <div className="mt-6 max-w-md">
                 <GeofencedCheckInButton
@@ -1767,7 +1891,11 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             )}
 
             <div className="mt-8 hidden items-center gap-4 md:flex">
-              {hasRsvpd ? (
+              {hasTiersOrSurge ? (
+                <div className="text-sm font-mono text-slate-500 bg-slate-50 border-2 border-black p-3 rounded-lg">
+                  🎟️ Paid Ticketed Event — See Pricing Timeline to buy a ticket
+                </div>
+              ) : hasRsvpd ? (
                 <Button
                   onClick={handleRsvpClick}
                   disabled={toggleRsvp.isPending}
@@ -1884,7 +2012,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : hasTiersOrSurge ? null : (
                 <div className="flex flex-col gap-1">
                   <Button
                     onClick={handleRsvpClick}
@@ -1894,22 +2022,6 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   >
                     {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
                   </Button>
-                  {captchaEnabled && (
-                    <div className="flex flex-col gap-2">
-                      <span
-                        className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
-                      >
-                        Verification required before RSVP
-                      </span>
-                      <CaptchaWidget
-                        siteKey={captchaSiteKey}
-                        provider={captchaProvider}
-                        onToken={(token) => setCaptchaToken(token)}
-                        onError={() => setCaptchaToken(undefined)}
-                        onExpire={() => setCaptchaToken(undefined)}
-                      />
-                    </div>
-                  )}
                 </div>
               )}
               <span
@@ -1950,15 +2062,25 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
 
               {/* Download Ticket — visible to confirmed attendees of upcoming/ongoing events */}
               {hasRsvpd && !hasEnded && (
-                <Button
-                  onClick={() => downloadTicket(event)}
-                  disabled={isTicketGenerating}
-                  variant="outline"
-                  className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
-                >
-                  <Ticket className="mr-2 h-4 w-4" />
-                  {isTicketGenerating ? "Generating…" : "Download Ticket"}
-                </Button>
+                <>
+                  <Button
+                    onClick={() => downloadTicket(event)}
+                    disabled={isTicketGenerating}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
+                  >
+                    <Ticket className="mr-2 h-4 w-4" />
+                    {isTicketGenerating ? "Generating…" : "Download Ticket"}
+                  </Button>
+                  <Button
+                    onClick={() => setIsTransferDialogOpen(true)}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-rose-600 hover:bg-rose-500 text-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Send className="mr-2 h-4 w-4 text-white" />
+                    Transfer Ticket
+                  </Button>
+                </>
               )}
 
               {isOrganizer && (
@@ -1996,6 +2118,12 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   >
                     Layout Builder
                   </Link>
+                  <Link
+                    to={`/events/${eventId}/floorplan`}
+                    className="neu-border neu-press flex h-12 items-center justify-center bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    Floor Plan
+                  </Link>
                 </>
               )}
 
@@ -2023,6 +2151,69 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   Report Event
                 </Button>
               )}
+
+              {/* Peer-to-Peer Ticket Transfer Dialog */}
+              <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+                <DialogContent className="neu-border border-black bg-cream rounded-none p-6 text-black">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-xl font-bold uppercase text-rose-950 flex items-center gap-2">
+                      <Send className="w-5 h-5 text-rose-950" />
+                      Transfer Event Ticket
+                    </DialogTitle>
+                    <DialogDescription className="font-mono text-xs text-gray-700">
+                      Transfer your ticket to another student. This action is irreversible. The
+                      recipient must have an active account on CampusConnect.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 font-mono text-sm my-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold uppercase text-gray-700">
+                        Recipient Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={transferEmail}
+                        onChange={(e) => setTransferEmail(e.target.value)}
+                        placeholder="e.g. student@university.edu"
+                        className="neu-border bg-white p-2 font-mono text-sm w-full focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="border border-dashed border-red-400 bg-red-50/50 p-3 text-xs text-red-900 space-y-1">
+                      <p className="font-bold uppercase">⚠️ Scalper Prevention Policies:</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        <li>
+                          Only **Paid** tickets can be transferred. Free tickets cannot be
+                          transferred to prevent boarding/hoarding.
+                        </li>
+                        <li>
+                          Your current QR code / ticket PDF will be immediately and permanently
+                          invalidated.
+                        </li>
+                        <li>This transfer is completely free of charge on the platform.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <DialogFooter className="flex gap-2">
+                    <button
+                      onClick={() => setIsTransferDialogOpen(false)}
+                      className="neu-border border-black bg-white text-black hover:bg-gray-50 font-bold uppercase px-4 py-2 font-mono text-xs shadow-[2px_2px_0_0_#000] focus:outline-none"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => transferMutation.mutate()}
+                      disabled={transferMutation.isPending || !transferEmail.trim()}
+                      className="neu-border border-black bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase px-4 py-2 font-mono text-xs shadow-[2px_2px_0_0_#000] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+                    >
+                      {transferMutation.isPending ? "Transferring..." : "Confirm Transfer"}
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               {isCheckedIn && hasEnded && (
                 <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
@@ -2145,6 +2336,12 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             <div className="mt-8">
               <EventLiveChat eventId={eventId} user={user} />
             </div>
+            {/* Realtime A/V failover broadcaster (Issue #4298) */}
+            <EventBroadcastFallbackPanel
+              eventId={eventId}
+              isOrganizer={isOrganizer}
+              presenterUserId={user?.id}
+            />
 
             {/* Public Guest List */}
             <div className="mt-8">
@@ -2188,6 +2385,13 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
 
             <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
 
+            <SilentAuctionSection
+              eventId={event.id}
+              eventEndDate={event.end_date}
+              userId={user?.id}
+              isOrganizer={Boolean(isOrganizer)}
+            />
+
             <InteractiveSeatingChart eventId={event.id} user={user} />
 
             {/* Interactive venue map layout for attendees */}
@@ -2199,6 +2403,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 <AttendeeVenueMap
                   nodes={venueMapData.nodes}
                   backgroundImageUrl={venueMapData.map?.background_image_url}
+                  venueId={event.venue_id}
+                  eventId={event.id}
                 />
               </div>
             ) : event.map_layout &&
@@ -2355,6 +2561,15 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 )}
               </div>
             )}
+
+            {/* Event Series Catch-Up Hub */}
+            <EventSeriesCatchUpCard
+              eventId={event.id}
+              eventTitle={event.title}
+              recordingUrl={(event as any).recording_url}
+              materialsUrl={(event as any).materials_url}
+              seriesId={(event as any).series_id}
+            />
 
             {/* Event Feedback (Only if ended and user RSVP'd) */}
             {user &&
@@ -2562,6 +2777,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             </div>
 
             <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
+            {user && <EventCoSponsorshipPortal eventId={event.id} isOrganizer={isOrganizer} />}
             {/* Kanban Board for Organizer */}
             {isOrganizer && (
               <div className="mt-12 border-t-4 border-black pt-10">
@@ -2985,7 +3201,17 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               </span>
             )}
           </div>
-          {hasRsvpd ? (
+          {hasTiersOrSurge ? (
+            <Button
+              onClick={() => {
+                const el = document.getElementById("ticket-pricing-section");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+              variant="primary"
+            >
+              Buy Ticket
+            </Button>
+          ) : hasRsvpd ? (
             <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
               {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
             </Button>
@@ -3030,6 +3256,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               setNeedAccommodations(false);
               setAccommodationsText("");
               setValidationError("");
+              setCaptchaToken(undefined);
+              setAcknowledgeAllergenWarning(false);
             }
             setRsvpDialogOpen(open);
           }}
@@ -3045,6 +3273,34 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {allergenCollision.hasAbsoluteCollision && allergenCollision.warningMessage && (
+                <DietaryAllergenWarning
+                  message={allergenCollision.warningMessage}
+                  acknowledged={acknowledgeAllergenWarning}
+                  onAcknowledgeChange={setAcknowledgeAllergenWarning}
+                  disabled={toggleRsvp.isPending}
+                />
+              )}
+              {requiresHighDemandCaptcha && (
+                <div className="space-y-2 border-2 border-black bg-yellow-100 p-3">
+                  <p className="font-mono text-xs font-bold uppercase">
+                    High-demand event verification
+                  </p>
+                  {captchaConfigured ? (
+                    <CaptchaWidget
+                      siteKey={captchaSiteKey}
+                      provider={captchaProvider}
+                      onToken={(token) => setCaptchaToken(token)}
+                      onError={() => setCaptchaToken(undefined)}
+                      onExpire={() => setCaptchaToken(undefined)}
+                    />
+                  ) : (
+                    <p className="font-mono text-xs text-red-700">
+                      Verification is temporarily unavailable. Please try again later.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <input
                   id="req-accommodations-checkbox"
@@ -3125,6 +3381,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   setNeedAccommodations(false);
                   setAccommodationsText("");
                   setValidationError("");
+                  setCaptchaToken(undefined);
+                  setAcknowledgeAllergenWarning(false);
                   setRsvpDialogOpen(false);
                 }}
                 disabled={toggleRsvp.isPending}
@@ -3135,6 +3393,17 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               <Button
                 variant="primary"
                 onClick={() => {
+                  if (allergenCollision.hasAbsoluteCollision && !acknowledgeAllergenWarning) {
+                    return;
+                  }
+                  if (requiresHighDemandCaptcha && !captchaConfigured) {
+                    setValidationError("High-demand verification is temporarily unavailable.");
+                    return;
+                  }
+                  if (requiresHighDemandCaptcha && !captchaToken) {
+                    setValidationError("Complete the CAPTCHA verification before confirming RSVP.");
+                    return;
+                  }
                   if (needAccommodations) {
                     if (!accommodationsText.trim()) {
                       setValidationError("Accommodation description is required when requested.");
@@ -3153,10 +3422,18 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                     accommodationsRequested: needAccommodations ? accommodationsText : null,
                   });
                 }}
-                disabled={toggleRsvp.isPending}
+                disabled={
+                  toggleRsvp.isPending ||
+                  (requiresHighDemandCaptcha && (!captchaConfigured || !captchaToken)) ||
+                  (allergenCollision.hasAbsoluteCollision && !acknowledgeAllergenWarning)
+                }
                 className="neu-border font-mono text-xs font-bold uppercase"
               >
-                {toggleRsvp.isPending ? "Submitting..." : "Confirm RSVP"}
+                {toggleRsvp.isPending
+                  ? "Submitting..."
+                  : requiresHighDemandCaptcha && !captchaToken
+                    ? "Complete verification"
+                    : "Confirm RSVP"}
               </Button>
             </DialogFooter>
           </DialogContent>

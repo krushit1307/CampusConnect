@@ -5,8 +5,7 @@
 //              geospatial distance tracking, and eco-equivalency statistics.
 // =============================================================================
 
-export type VehicleFuelType =
-  "gasoline_sedan" | "gasoline_suv" | "hybrid" | "electric_ev" | "diesel_van";
+export type VehicleFuelType = "gasoline_sedan" | "gasoline_suv" | "hybrid" | "electric_ev" | "diesel_van";
 
 export interface GeoLocation {
   label: string;

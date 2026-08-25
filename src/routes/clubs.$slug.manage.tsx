@@ -13,24 +13,24 @@ import {
   XCircle,
   CheckCircle,
   Download,
-  BarChart2,
-  ShoppingBag,
-  Key,
-  Code,
-  Gavel,
-  DollarSign,
+  Trash2,
+  RefreshCw,
+  BarChart3,
+  LayoutGrid,
 } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
-import { ClubRolesManager } from "@/components/Clubs/ClubRolesManager";
-import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
-import { ClubBudgetDashboard } from "@/components/Clubs/ClubBudgetDashboard";
-import { ManageMerch } from "@/components/Clubs/Merchandise/ManageMerch";
-import { QuorumPanel } from "@/components/Clubs/QuorumPanel";
-import { FundingRequestBuilder } from "@/components/funding/FundingRequestBuilder";
+import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";
+import { ClubColorPicker } from "@/components/Clubs/ClubColorPicker";
+import { isValidHexColor } from "@/lib/clubTheming";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
+import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
+import PermissionsGrid from "@/components/Clubs/PermissionsGrid";
+import ClubRenewalWizard from "@/components/ClubRenewalWizard"; // <-- NEW IMPORT FOR OUR WIZARD
+import { WidgetConfigEditor } from "@/components/widgets/WidgetConfigEditor";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -69,33 +69,19 @@ export default function ClubManageRoute() {
   const [activeTab, setActiveTab] = useState<
     | "settings"
     | "members"
-    | "roles"
+    | "permissions"
     | "events"
+    | "constitution"
+    | "trash"
     | "analytics"
-    | "meetings"
-    | "merchandise"
-    | "funding"
-    | "developer"
-    | "finances"
-  >(
-    initialTab === "analytics"
-      ? "analytics"
-      : initialTab === "meetings"
-        ? "meetings"
-        : initialTab === "members"
-        ? "members"
-        : initialTab === "roles"
-          ? "roles"
-          : initialTab === "events"
-            ? "events"
-            : initialTab === "merchandise"
-              ? "merchandise"
-              : initialTab === "developer"
-                ? "developer"
-                : initialTab === "finances"
-                  ? "finances"
-                  : "settings",
-  );
+    | "widgets"
+  >("settings");
+
+  // Mock constitution versions for demo
+  const oldConstitution =
+    "# Club Bylaws\n\n1. Be respectful to everyone.\n2. Meetings are on Tuesdays.";
+  const newConstitution =
+    "# Club Bylaws\n\n1. Be respectful to all members.\n2. Meetings are on Wednesdays at 5 PM.\n3. Have fun!";
 
   // Form State
   const [name, setName] = useState("");
@@ -232,9 +218,8 @@ export default function ClubManageRoute() {
         .from("clubs")
         .select(
           `
-          *,
-          club_members (id, role, role_id, status, user_id, joined_at, club_roles (title, permissions_level), profiles (full_name, handle, avatar_url)),
-          club_roles (id, title, permissions_level, permissions),
+          id, name, slug, status, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version, widgets_config,
+          club_members (id, role, status, user_id, joined_at, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date, max_attendees, event_rsvps(id))
         `,
         )
@@ -587,6 +572,16 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <DollarSign size={18} /> Finances
+              </button>
+              <button
+                onClick={() => setActiveTab("widgets")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "widgets"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <LayoutGrid size={18} /> Widgets
               </button>
             </nav>
           </aside>
@@ -1031,6 +1026,23 @@ export default function ClubManageRoute() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+              </div>
+            )}
+            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
+            {activeTab === "widgets" && (
+              <div className="neu-border bg-white p-6 space-y-6">
+                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
+                  Homepage Widgets
+                </h2>
+                <p className="font-mono text-sm text-gray-600">
+                  Add interactive widgets to your club's public page — live weather, event
+                  countdowns, Spotify playlists and more. Drag to reorder; changes save
+                  automatically.
+                </p>
+                <WidgetConfigEditor
+                  clubId={club.id}
+                  initialWidgets={(club as { widgets_config?: unknown }).widgets_config}
+                />
               </div>
             )}
           </main>

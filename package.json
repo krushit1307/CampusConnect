@@ -182,6 +182,7 @@
     "sharp": "^0.35.3",
     "snarkjs": "^0.7.6",
     "sonner": "^2.0.7",
+    "stripe": "^22.5.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",
     "tesseract.js": "^7.0.0",
@@ -273,5 +274,11 @@
     "vite-plugin-pwa": "^1.0.0",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.10"
+  },
+  "allowScripts": {
+    "cypress": true,
+    "esbuild": true,
+    "msgpackr-extract": true,
+    "tesseract.js": true
   }
 }
