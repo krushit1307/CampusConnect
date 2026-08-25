@@ -9,6 +9,8 @@
 // =============================================================================
 
 import {
+  AccessibilityPoi,
+  AccessibilityPoiKind,
   DEFAULT_VENUE,
   FloorplanAsset,
   FloorplanAssetJson,
@@ -67,6 +69,27 @@ export function toFloorplanState(assets: FloorplanAsset[], venue: VenueBounds): 
   };
 }
 
+/** Defensive parse of saved accessibility POIs (#4420); never throws. */
+const POI_KINDS: AccessibilityPoiKind[] = ["ramp", "elevator", "ada_bathroom", "stairs"];
+
+export function parseAccessibilityPois(raw: unknown): AccessibilityPoi[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (p): p is Partial<AccessibilityPoi> =>
+        !!p &&
+        typeof p === "object" &&
+        POI_KINDS.includes((p as Partial<AccessibilityPoi>).kind as AccessibilityPoiKind),
+    )
+    .map((p) => ({
+      id: typeof p.id === "string" ? p.id : `poi_${Math.random().toString(36).slice(2, 10)}`,
+      kind: p.kind as AccessibilityPoiKind,
+      label: typeof p.label === "string" ? p.label : "",
+      x_ft: Number(p.x_ft) || 0,
+      y_ft: Number(p.y_ft) || 0,
+    }));
+}
+
 /** Defensive parse of a saved floorplan_json blob (never throws). */
 export function parseFloorplanState(raw: unknown): {
   assets: FloorplanAsset[];
@@ -83,6 +106,7 @@ export function parseFloorplanState(raw: unknown): {
           fire_exits: Array.isArray(state.venue.fire_exits)
             ? state.venue.fire_exits
             : DEFAULT_VENUE.fire_exits,
+          accessibility_pois: parseAccessibilityPois(state.venue.accessibility_pois),
         }
       : DEFAULT_VENUE;
 

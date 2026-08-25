@@ -2,11 +2,15 @@
 // Route: events/$eventId/floorplan
 // Issues: #4145 - Interactive "Event Layout" Floorplan Builder
 //         #4157 - Interactive "Career Fair" Digital Map
+//         #4420 - Real-Time "Accessibility Need" Venue Map
 // Description: Public attendee map + organizer editor. The attendee view
 // (#4157) adds a career-fair search bar ("Search by Major, Role, or Company"):
 // matching booths pulse while everything else dims, and selecting a booth
 // surfaces its hiring tags plus the sponsor's Digital Swag Bag and Lead
-// Scanner links.
+// Scanner links. When the signed-in profile has requires_wheelchair_access
+// (#4044/#4420), accessibility POIs glow bright blue, stairs dim out, and a
+// personalized "Accessible Route" polyline is drawn from the street to the
+// booth they are trying to reach.
 // =============================================================================
 
 import { useEffect, useMemo, useState } from "react";
@@ -19,7 +23,9 @@ import { FloorplanEditor } from "@/components/events/floorplan/FloorplanEditor";
 import { EventCapacityThermalMap } from "@/components/events/EventCapacityThermalMap";
 import { describeAssignment } from "@/lib/floorplan/serialize";
 import { buildSearchIndex, searchBooths } from "@/lib/floorplan/search";
+import { computeAccessibleRoute } from "@/lib/floorplan/accessibility";
 import type { FloorplanAsset } from "@/lib/floorplan/types";
+import Accessibility from "lucide-react/dist/esm/icons/accessibility";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import Gift from "lucide-react/dist/esm/icons/gift";
 import Pencil from "lucide-react/dist/esm/icons/pencil";
@@ -37,6 +43,9 @@ export default function EventFloorplanPage() {
   const [selected, setSelected] = useState<FloorplanAsset | null>(null);
   // #4157 career-fair search over company / role / major hiring tags
   const [searchQuery, setSearchQuery] = useState("");
+  // #4420 wheelchair routing: profile flag (auto) + manual toggle override
+  const [wheelchairRequired, setWheelchairRequired] = useState(false);
+  const [a11yManual, setA11yManual] = useState<boolean | null>(null);
 
   // Editing is available to signed-in users (organizers); attendees get the map.
   useEffect(() => {
@@ -52,7 +61,22 @@ export default function EventFloorplanPage() {
           p_event_id: eventId,
           p_user_id: data.user.id,
         });
-        if (!cancelled) setCanEdit(Boolean(isOrganizer));
+        // #4420: profiles.requires_wheelchair_access predates the generated
+        // types, so narrow the row explicitly (same pattern as service.ts).
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("requires_wheelchair_access")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        if (!cancelled) {
+          setCanEdit(Boolean(isOrganizer));
+          setWheelchairRequired(
+            Boolean(
+              (profile as { requires_wheelchair_access?: boolean } | null)
+                ?.requires_wheelchair_access,
+            ),
+          );
+        }
       })
 
       .catch(() => {
@@ -83,6 +107,28 @@ export default function EventFloorplanPage() {
   );
   const isSearching = highlightIds != null;
   const matchCount = highlightIds?.size ?? 0;
+
+  // #4420: accessibility mode auto-on for wheelchair profiles, overridable.
+  const a11yMode = a11yManual ?? wheelchairRequired;
+  const routeTarget = useMemo<FloorplanAsset | null>(() => {
+    if (!a11yMode) return null;
+    if (selected) return selected;
+    const firstMatchId = highlightIds?.values().next().value;
+    return firstMatchId ? (floorplan.assets.find((a) => a.id === firstMatchId) ?? null) : null;
+  }, [a11yMode, selected, highlightIds, floorplan.assets]);
+
+  const accessibleRoute = useMemo(() => {
+    if (!a11yMode || !routeTarget) return null;
+    return computeAccessibleRoute({
+      venue: floorplan.venue,
+      assets: floorplan.assets,
+      targetAssetId: routeTarget.id,
+      target: {
+        x_ft: routeTarget.x + routeTarget.width / 2,
+        y_ft: routeTarget.y + routeTarget.height / 2,
+      },
+    });
+  }, [a11yMode, routeTarget, floorplan.venue, floorplan.assets]);
 
   return (
     <SiteShell>
@@ -148,6 +194,10 @@ export default function EventFloorplanPage() {
                 onRemove={floorplan.removeAsset}
                 onVenueSize={floorplan.setVenueSize}
                 onSave={floorplan.save}
+                onAddPoi={floorplan.addPoi}
+                onMovePoi={floorplan.movePoi}
+                onUpdatePoi={floorplan.updatePoi}
+                onRemovePoi={floorplan.removePoi}
               />
               <EventCapacityThermalMap eventId={eventId} />
             </div>
@@ -187,6 +237,20 @@ export default function EventFloorplanPage() {
                   )}
                 </div>
 
+                {/* #4420 accessibility view toggle (auto-on for wheelchair profiles) */}
+                <button
+                  type="button"
+                  onClick={() => setA11yManual(!a11yMode)}
+                  aria-pressed={a11yMode}
+                  data-testid="a11y-mode-toggle"
+                  className={`neu-border neu-press flex h-9 items-center gap-1.5 px-3 font-mono text-[11px] font-bold uppercase tracking-wide shadow-[2px_2px_0_0_#000] ${
+                    a11yMode ? "bg-blue-600 text-white" : "bg-white"
+                  }`}
+                >
+                  <Accessibility size={14} />
+                  Accessible routes
+                </button>
+
                 <FloorplanCanvas
                   venue={floorplan.venue}
                   assets={floorplan.assets}
@@ -194,6 +258,8 @@ export default function EventFloorplanPage() {
                   selectedId={selected?.id ?? null}
                   onSelect={(asset) => setSelected(asset)}
                   highlightIds={highlightIds}
+                  accessibilityMode={a11yMode}
+                  accessibleRoute={accessibleRoute}
                 />
               </div>
 
@@ -252,6 +318,40 @@ export default function EventFloorplanPage() {
                 ) : (
                   <div className="neu-border bg-white p-4 font-mono text-xs text-gray-600 shadow-[2px_2px_0_0_#000]">
                     Click a table on the map to find a sponsor.
+                  </div>
+                )}
+
+                {/* #4420 accessible route summary */}
+                {a11yMode && (
+                  <div
+                    className="neu-border border-blue-500 bg-blue-50 p-4 font-mono text-xs shadow-[2px_2px_0_0_#000]"
+                    data-testid="a11y-route-summary"
+                  >
+                    <p className="font-bold uppercase tracking-wide text-blue-800">
+                      Accessible routing
+                    </p>
+                    {accessibleRoute ? (
+                      <p className="mt-1.5 leading-relaxed text-gray-700">
+                        Step-free path via your{" "}
+                        <span className="font-bold">
+                          {(accessibleRoute.entryKind ?? "accessible").replace("_", " ")}
+                        </span>{" "}
+                        — about{" "}
+                        <span className="font-bold">
+                          {Math.round(accessibleRoute.totalDistanceFt)} ft
+                        </span>{" "}
+                        from the street
+                        {routeTarget ? ` to ${routeTarget.label}` : ""}. Stairs are never used.
+                      </p>
+                    ) : (
+                      <p
+                        className="mt-1.5 leading-relaxed text-gray-700"
+                        data-testid="a11y-empty-note"
+                      >
+                        No wheelchair-accessible entrances are mapped for this venue yet — ask the
+                        organizers to add ramps or elevators in the layout editor.
+                      </p>
+                    )}
                   </div>
                 )}
 

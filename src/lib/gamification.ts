@@ -1,3 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
+import { CheckInResponse } from '@/types/gamification';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 export interface PointEntry {
   userId: string;
   amount: number;
@@ -73,4 +80,43 @@ export function rankLeaderboardUsers(
     ...user,
     rank: index + 1,
   }));
+}
+
+/**
+ * Awards points to a user for checking into an event.
+ * Handles the exponential streak multiplier logic via the backend RPC.
+ * 
+ * @param userId - The ID of the user checking in
+ * @param eventId - The ID of the event being checked into
+ * @param basePoints - The base points awarded for this event
+ * @returns Promise<CheckInResponse>
+ */
+export async function awardEventPoints(
+  userId: string,
+  eventId: string,
+  basePoints: number
+): Promise<CheckInResponse> {
+  const { data, error } = await supabase.functions.invoke('award_points', {
+    body: { userId, eventId, basePoints },
+  });
+
+  if (error) {
+    console.error('Failed to award points:', error);
+    throw new Error(error.message || 'Failed to process check-in rewards');
+  }
+
+  return data as CheckInResponse;
+}
+
+/**
+ * Calculates the projected points for the next event in a series.
+ * 
+ * @param basePoints - The base points of the event
+ * @param currentStreak - The user's current consecutive attendance count
+ * @returns number - The projected final points
+ */
+export function calculateProjectedStreakPoints(basePoints: number, currentStreak: number): number {
+  const nextStreak = currentStreak + 1;
+  const multiplier = Math.pow(1.5, nextStreak);
+  return Math.round(basePoints * multiplier);
 }

@@ -43,12 +43,22 @@ const savedDoc = {
       },
     },
   ],
-  venue: { width_ft: 100, height_ft: 60, fire_exits: [] },
+  venue: {
+    width_ft: 100,
+    height_ft: 60,
+    fire_exits: [],
+    // #4420 static accessibility features authored by the venue manager
+    accessibility_pois: [
+      { id: "poi_ramp", kind: "ramp", label: "North Ramp", x_ft: 20, y_ft: 2 },
+      { id: "poi_stairs", kind: "stairs", label: "Grand Stairs", x_ft: 50, y_ft: 0 },
+    ],
+  },
   updatedAt: "2026-08-01T00:00:00Z",
 };
 
 const sb = vi.hoisted(() => ({
   eventsMaybeSingle: vi.fn(),
+  profilesMaybeSingle: vi.fn(),
   updateEq: vi.fn(),
   rpc: vi.fn(),
 }));
@@ -71,6 +81,14 @@ vi.mock("@/lib/supabase/client", () => {
           updatePayload = payload;
           return { eq: sb.updateEq };
         },
+      };
+    }
+    if (table === "profiles") {
+      // #4420: requires_wheelchair_access drives the accessibility overlay
+      return {
+        select: () => ({
+          eq: () => ({ maybeSingle: sb.profilesMaybeSingle }),
+        }),
       };
     }
     return {
@@ -127,6 +145,8 @@ describe("EventFloorplanPage (#4145)", () => {
       data: { title: "Engineering Career Fair", floorplan_json: savedDoc },
       error: null,
     });
+    // #4420: default profile has no accessibility flag
+    sb.profilesMaybeSingle.mockResolvedValue({ data: null, error: null });
     sb.updateEq.mockResolvedValue({ error: null });
     // #4375 introduced an organizer RPC check; the mocked user organizes this
     // event. Every other RPC (e.g. the capacity thermal map) returns rows.
@@ -256,5 +276,96 @@ describe("EventFloorplanPage (#4145)", () => {
     expect(swag).toHaveAttribute("href", "/events/event-123/swag-bag?sponsor=99");
     const scanner = screen.getByTestId("callout-lead-scanner-link");
     expect(scanner).toHaveAttribute("href", "/sponsor/events/event-123?sponsor=99");
+  });
+});
+
+describe("EventFloorplanPage accessibility overlay (#4420)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updatePayload = undefined;
+    sb.eventsMaybeSingle.mockResolvedValue({
+      data: { title: "Engineering Career Fair", floorplan_json: savedDoc },
+      error: null,
+    });
+    sb.profilesMaybeSingle.mockResolvedValue({ data: null, error: null });
+    sb.updateEq.mockResolvedValue({ error: null });
+    sb.rpc.mockImplementation((fn: string) =>
+      fn === "is_event_organizer"
+        ? Promise.resolve({ data: true, error: null })
+        : Promise.resolve({ data: [], error: null }),
+    );
+  });
+
+  it("hides POIs for attendees until accessible routes are enabled", async () => {
+    await loadPage();
+
+    await screen.findByTestId("floorplan-asset-asset_1");
+    // Toggle starts off; no blue markers on the attendee map
+    expect(screen.getByTestId("a11y-mode-toggle")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByTestId("a11y-poi-poi_ramp")).not.toBeInTheDocument();
+
+    // Enabling the view reveals POIs and dims the stairs
+    fireEvent.click(screen.getByTestId("a11y-mode-toggle"));
+    const ramp = await screen.findByTestId("a11y-poi-poi_ramp");
+    expect(ramp).toHaveAttribute("data-accessible", "true");
+    expect(ramp).not.toHaveAttribute("data-dimmed");
+    const stairs = screen.getByTestId("a11y-poi-poi_stairs");
+    expect(stairs).toHaveAttribute("data-accessible", "false");
+    expect(stairs).toHaveAttribute("data-dimmed", "true");
+  });
+
+  it("auto-enables for requires_wheelchair_access profiles and routes to a searched booth", async () => {
+    // profiles.requires_wheelchair_access = true (#4044 column)
+    sb.profilesMaybeSingle.mockResolvedValue({
+      data: { requires_wheelchair_access: true },
+      error: null,
+    });
+    await loadPage();
+
+    const toggle = await screen.findByTestId("a11y-mode-toggle");
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "true"));
+
+    // No target yet -> the panel explains what is missing
+    expect(await screen.findByTestId("a11y-empty-note")).toBeInTheDocument();
+
+    // Searching isolates TacoCorp's table and draws the street->ramp->booth polyline
+    fireEvent.change(screen.getByTestId("floorplan-search"), {
+      target: { value: "internship" },
+    });
+    const route = await screen.findByTestId("a11y-route");
+    expect(route).toHaveTextContent("STREET");
+
+    const summary = screen.getByTestId("a11y-route-summary");
+    expect(summary).toHaveTextContent(/via your ramp/i);
+    expect(summary).not.toHaveTextContent(/not mapped yet/i);
+  });
+
+  it("#4420: lets organizers place accessibility POIs and persist them in the venue JSON", async () => {
+    await loadPage();
+
+    fireEvent.click(await screen.findByTestId("floorplan-edit-toggle"));
+    await screen.findByTestId("floorplan-palette");
+
+    // The dedicated accessibility palette exists with all four kinds
+    expect(screen.getByTestId("a11y-palette")).toBeInTheDocument();
+    expect(screen.getByTestId("palette-chip-ramp")).toBeInTheDocument();
+    expect(screen.getByTestId("palette-chip-elevator")).toBeInTheDocument();
+    expect(screen.getByTestId("palette-chip-ada_bathroom")).toBeInTheDocument();
+    expect(screen.getByTestId("palette-chip-stairs")).toBeInTheDocument();
+
+    // Existing fixture POIs render in editor mode and are selectable
+    fireEvent.pointerDown(screen.getByTestId("a11y-poi-poi_ramp"));
+    const inspector = await screen.findByTestId("a11y-poi-inspector");
+    expect(inspector).toHaveTextContent(/Accessibility Point — Ramp/i);
+
+    // Dropping another ramp grows the venue JSON on save
+    fireEvent.click(screen.getByTestId("palette-chip-ramp"));
+    fireEvent.click(screen.getByTestId("floorplan-save"));
+    await waitFor(() => {
+      expect(sb.updateEq).toHaveBeenCalled();
+    });
+    const doc = (updatePayload as { floorplan_json: { venue: { accessibility_pois: unknown[] } } })
+      .floorplan_json.venue;
+    expect(doc.accessibility_pois).toHaveLength(3);
   });
 });
