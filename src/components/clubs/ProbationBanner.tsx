@@ -22,11 +22,15 @@ export default function ProbationBanner({ club }: ProbationBannerProps) {
                         <h2 className="text-xl font-bold uppercase tracking-wide">
                             Your club is on Probation
                         </h2>
-                        <p className="mt-1 text-red-100">
-                            Financial and Event privileges are suspended.
-                            {club.probation_reason && <span className="block mt-1 font-medium">Reason: {club.probation_reason}</span>}
+                        <div className="mt-2 p-2.5 bg-black/30 border border-red-300/40 rounded-lg text-sm font-semibold text-amber-200 flex items-center gap-2">
+                            <span>❄️</span>
+                            <span>Point Accumulation is FROZEN due to active Disciplinary Probation.</span>
+                        </div>
+                        <p className="mt-2 text-red-100 text-sm">
+                            Financial, Event, and Gamification Leaderboard privileges are suspended.
+                            {club.probation_reason && <span className="block mt-1 font-medium text-white">Reason: {club.probation_reason}</span>}
                             {club.probation_end_date && (
-                                <span className="block text-sm text-red-200">
+                                <span className="block text-xs text-red-200 mt-1">
                                     Probation ends: {new Date(club.probation_end_date).toLocaleDateString()}
                                 </span>
                             )}

@@ -1,9 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from './supabase/client';
 import { CheckInResponse } from '@/types/gamification';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+function getSupabase() {
+  return createClient();
+}
 
 export interface PointEntry {
   userId: string;
@@ -94,10 +94,12 @@ export function rankLeaderboardUsers(
 export async function awardEventPoints(
   userId: string,
   eventId: string,
-  basePoints: number
+  basePoints: number,
+  clubId?: string,
 ): Promise<CheckInResponse> {
+  const supabase = getSupabase();
   const { data, error } = await supabase.functions.invoke('award_points', {
-    body: { userId, eventId, basePoints },
+    body: { userId, eventId, basePoints, clubId },
   });
 
   if (error) {
