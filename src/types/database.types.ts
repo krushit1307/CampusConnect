@@ -4299,6 +4299,10 @@ export type Database = {
           depth: number;
         }[];
       };
+      get_club_revenue_forecast: {
+        Args: { p_club_id: string; p_event_id: string };
+        Returns: Json;
+      };
       is_event_organizer: {
         Args: { p_event_id: string; p_user_id?: string };
         Returns: boolean;
