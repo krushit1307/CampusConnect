@@ -1,9 +1,9 @@
 // =============================================================================
 // Edge Function: Create Stripe Checkout Session (with Group Discounts)
---Issue: #2902 - Implement 'Group Discounts' for Event Ticketing
---Description: Creates a Stripe Checkout session.Validates the requested
---quantity against remaining capacity, calculates the group discount, and
---applies it as a negative line item(discount) in the Stripe session.
+// Issue: #2902 - Implement 'Group Discounts' for Event Ticketing
+// Description: Creates a Stripe Checkout session. Validates the requested
+// quantity against remaining capacity, calculates the group discount, and
+// applies it as a negative line item (discount) in the Stripe session.
     // =============================================================================
 
     import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -36,6 +36,10 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_URL") ?? "",
             Deno.env.get("SUPABASE_ANON_KEY") ?? "",
             { global: { headers: { Authorization: authHeader } } }
+        );
+        const adminSupabase = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
         );
 
         const { data: { user } } = await supabase.auth.getUser();
@@ -74,8 +78,25 @@ serve(async (req) => {
             throw new Error(`Only ${remainingCapacity} tickets remaining for the current tier.`);
         }
 
-        // 4. Calculate Discount
-        const rules: DiscountRule[] = tier.discount_rules || [];
+        const { data: tierPayment } = await adminSupabase
+            .from("ticket_tiers")
+            .select("stripe_price_id")
+            .eq("id", tier.id)
+            .maybeSingle();
+
+        const { data: activeFlashSale } = await adminSupabase
+            .from("event_flash_sales")
+            .select("id, sale_price_cents, sale_stripe_price_id, discount_percent, expires_at")
+            .eq("event_id", eventId)
+            .eq("status", "active")
+            .gt("expires_at", new Date().toISOString())
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        // 4. Calculate Discount. Flash sales are deliberately not stackable
+        // with group discounts so the organizer's advertised price is exact.
+        const rules: DiscountRule[] = activeFlashSale ? [] : tier.discount_rules || [];
         const sortedRules = [...rules].sort((a, b) => b.min_qty - a.min_qty);
 
         let applicableDiscount = 0;
@@ -86,25 +107,115 @@ serve(async (req) => {
             }
         }
 
-        const basePriceCents = tier.price; // Assuming stored in cents
+        // Check if dynamic pricing is active on this event
+        const { data: eventDetails, error: eventDetailsError } = await supabase
+            .from("events")
+            .select("base_price, surge_multiplier")
+            .eq("id", eventId)
+            .single();
+
+        let basePriceCents = tier.price;
+        let isDynamic = false;
+        if (!eventDetailsError && eventDetails && eventDetails.base_price !== null) {
+            const { data: dynamicPrice, error: priceError } = await supabase.rpc('calculate_current_price', {
+                p_event_id: eventId
+            });
+            if (!priceError && dynamicPrice !== null) {
+                basePriceCents = dynamicPrice;
+                isDynamic = true;
+            }
+        }
+
+        if (activeFlashSale) basePriceCents = activeFlashSale.sale_price_cents;
+
         const subtotal = basePriceCents * quantity;
         const discountAmount = Math.round(subtotal * (applicableDiscount / 100));
-        const totalAmount = subtotal - discountAmount;
+        let totalAmount = subtotal - discountAmount;
 
-        // 5. Build Stripe Line Items
-        const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-            {
+        // 5. Check User Platform Balance & Auto-Deduct before hitting Credit Card (#4522)
+        const { data: userBal } = await adminSupabase
+            .from("user_platform_balances")
+            .select("balance_cents, lifetime_spent_cents")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+        const userBalanceCents = userBal?.balance_cents || 0;
+        const creditToApply = Math.min(userBalanceCents, totalAmount);
+        const remainingToChargeCents = totalAmount - creditToApply;
+
+        // If user platform credit covers 100% of order, bypass Stripe completely
+        if (creditToApply > 0 && remainingToChargeCents === 0) {
+            const newBalance = userBalanceCents - creditToApply;
+            const newSpent = (userBal?.lifetime_spent_cents || 0) + creditToApply;
+
+            await adminSupabase
+                .from("user_platform_balances")
+                .update({
+                    balance_cents: newBalance,
+                    lifetime_spent_cents: newSpent,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("user_id", user.id);
+
+            await adminSupabase
+                .from("user_platform_credit_ledger")
+                .insert({
+                    user_id: user.id,
+                    amount_cents: -creditToApply,
+                    balance_after_cents: newBalance,
+                    transaction_type: "checkout_deduction",
+                    description: `100% Platform credit checkout for ${quantity}x "${event.title}"`,
+                    reference_id: eventId,
+                    bonus_amount_cents: 0,
+                    metadata: {
+                        event_id: eventId,
+                        tier_id: tier.id,
+                        quantity,
+                        total_amount_cents: totalAmount,
+                    },
+                });
+
+            // Create RSVP record for the user
+            await adminSupabase.from("event_rsvps").insert({
+                event_id: eventId,
+                user_id: user.id,
+                status: "attending",
+                ticket_tier_id: tier.id,
+                paid_amount_cents: 0, // Paid with platform credit
+                created_at: new Date().toISOString(),
+            });
+
+            return new Response(
+                JSON.stringify({
+                    paidWithCredit: true,
+                    creditAppliedCents: creditToApply,
+                    remainingAmountCents: 0,
+                    url: `${req.headers.get("origin")}/events/${eventId}/tickets/success?credit_order=true`,
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+            );
+        }
+
+        // 6. Build Stripe Line Items. A sale Price is resolved only on the
+        // server; the browser never supplies an amount or Stripe Price ID.
+        const activeStripePriceId = activeFlashSale?.sale_stripe_price_id || tierPayment?.stripe_price_id;
+        const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = activeStripePriceId && creditToApply === 0
+            ? [{ price: activeStripePriceId, quantity }]
+            : [{
                 price_data: {
                     currency: "usd",
                     product_data: {
-                        name: `${event.title} - ${tier.name}`,
+                        name: activeFlashSale
+                            ? `${event.title} (Flash Sale)`
+                            : isDynamic
+                                ? `${event.title} (Dynamic Price)`
+                                : `${event.title} - ${tier.name}`,
                         description: `${quantity} ticket(s)`,
                     },
                     unit_amount: basePriceCents,
                 },
-                quantity: quantity,
-            }
-        ];
+                quantity,
+            }];
 
         // Apply discount as a negative line item if applicable
         if (discountAmount > 0) {
@@ -120,7 +231,53 @@ serve(async (req) => {
             });
         }
 
-        // 6. Create Stripe Checkout Session
+        // Apply partial platform credit deduction as a negative line item
+        if (creditToApply > 0) {
+            lineItems.push({
+                price_data: {
+                    currency: "usd",
+                    product_data: {
+                        name: "CampusConnect Platform Credit",
+                    },
+                    unit_amount: -creditToApply,
+                },
+                quantity: 1,
+            });
+
+            // Deduct platform credit
+            const newBalance = userBalanceCents - creditToApply;
+            const newSpent = (userBal?.lifetime_spent_cents || 0) + creditToApply;
+
+            await adminSupabase
+                .from("user_platform_balances")
+                .update({
+                    balance_cents: newBalance,
+                    lifetime_spent_cents: newSpent,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("user_id", user.id);
+
+            await adminSupabase
+                .from("user_platform_credit_ledger")
+                .insert({
+                    user_id: user.id,
+                    amount_cents: -creditToApply,
+                    balance_after_cents: newBalance,
+                    transaction_type: "checkout_deduction",
+                    description: `Partial platform credit checkout for ${quantity}x "${event.title}"`,
+                    reference_id: eventId,
+                    bonus_amount_cents: 0,
+                    metadata: {
+                        event_id: eventId,
+                        tier_id: tier.id,
+                        quantity,
+                        credit_applied_cents: creditToApply,
+                        remaining_cents: remainingToChargeCents,
+                    },
+                });
+        }
+
+        // 7. Create Stripe Checkout Session for remaining balance
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             line_items: lineItems,
@@ -132,6 +289,9 @@ serve(async (req) => {
                 tier_id: tier.id,
                 quantity: quantity.toString(),
                 discount_applied: applicableDiscount.toString(),
+                credit_applied_cents: creditToApply.toString(),
+                flash_sale_id: activeFlashSale?.id || "",
+                flash_sale_discount: activeFlashSale?.discount_percent?.toString() || "",
                 event_id: eventId
             },
             // Enforce "All or Nothing" refund policy for group purchases
@@ -141,7 +301,7 @@ serve(async (req) => {
         });
 
         return new Response(
-            JSON.stringify({ sessionId: session.id, url: session.url }),
+            JSON.stringify({ sessionId: session.id, url: session.url, creditAppliedCents: creditToApply }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
 

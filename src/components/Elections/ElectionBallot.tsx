@@ -8,7 +8,7 @@ import {
   type MyVote,
   getCandidates,
   getMyVote,
-  castVote,
+  castAnonymousVote,
   getManifestoUrl,
 } from "@/lib/supabase/elections";
 
@@ -31,6 +31,7 @@ export function ElectionBallot({ election, onVoted }: ElectionBallotProps) {
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [manifestoUrls, setManifestoUrls] = useState<Record<string, string>>({});
+  const [receiptHash, setReceiptHash] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,15 +79,18 @@ export function ElectionBallot({ election, onVoted }: ElectionBallotProps) {
 
   const handleVote = async (candidateId: string) => {
     setSubmittingId(candidateId);
-    const { error } = await castVote(election.id, candidateId);
+    const { data: hash, error } = await castAnonymousVote(election.id, candidateId);
     setSubmittingId(null);
 
     if (error) {
-      toast.error("That vote didn't go through. You may have already voted, or voting may have closed.");
+      toast.error(
+        "That vote didn't go through. You may have already voted, or voting may have closed.",
+      );
       return;
     }
 
     setMyVote({ election_id: election.id, candidate_id: candidateId });
+    setReceiptHash(hash ?? null);
     toast.success("Your vote is in. Results stay hidden until the election closes.");
     onVoted?.();
   };
@@ -118,9 +122,17 @@ export function ElectionBallot({ election, onVoted }: ElectionBallotProps) {
       </div>
 
       {myVote && (
-        <div className="neu-border flex items-center gap-2 bg-lime p-3 font-mono text-xs font-bold uppercase dark:text-black">
-          <CheckCircle2 size={14} aria-hidden="true" />
-          You've cast your vote. It can't be changed.
+        <div className="neu-border flex flex-col gap-3 bg-lime p-3 font-mono text-xs font-bold uppercase dark:text-black">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={14} aria-hidden="true" />
+            You've cast your vote anonymously. It can't be changed.
+          </div>
+          {receiptHash && (
+            <div className="bg-white/60 p-2 font-mono text-[10px] normal-case tracking-normal break-all">
+              Receipt: {receiptHash}
+              <span className="ml-2 text-gray-600">(save this to verify your vote later)</span>
+            </div>
+          )}
         </div>
       )}
 
