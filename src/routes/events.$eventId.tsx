@@ -85,6 +85,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { DietaryAllergenWarning } from "@/components/events/DietaryAllergenWarning";
+import { detectAbsoluteAllergenCollision } from "@/lib/dietaryAllergenCollision";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SeatingCanvas } from "@/components/events/SeatingCanvas";
 import { SponsorManager } from "@/components/events/SponsorManager";
@@ -441,6 +443,7 @@ export default function EventDetailsPage() {
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rsvpDialogOpen, setRsvpDialogOpen] = useState(false);
+  const [acknowledgeAllergenWarning, setAcknowledgeAllergenWarning] = useState(false);
   const [needAccommodations, setNeedAccommodations] = useState(false);
   const [accommodationsText, setAccommodationsText] = useState("");
   const [validationError, setValidationError] = useState("");
@@ -857,6 +860,38 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     },
     enabled: !!user?.id && !!eventId,
   });
+
+  const { data: dietaryRestrictions = [] } = useQuery<string[]>({
+    queryKey: ["profile_dietary_restrictions", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("dietary_restrictions")
+        .eq("id", user!.id)
+        .single();
+      if (error) throw error;
+      return (data?.dietary_restrictions as string[]) || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: eventMenuItems = [] } = useQuery({
+    queryKey: ["event_menu_items", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_menu_items")
+        .select("is_vegan, is_gluten_free, contains_nuts, contains_dairy")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId && !eventId.startsWith("mock-"),
+  });
+
+  const allergenCollision = useMemo(
+    () => detectAbsoluteAllergenCollision(dietaryRestrictions, eventMenuItems),
+    [dietaryRestrictions, eventMenuItems],
+  );
 
   const { data: adminRsvps, refetch: refetchAdminRsvps } = useQuery({
     queryKey: ["admin_rsvps", eventId],
@@ -1607,6 +1642,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     setAccommodationsText("");
     setValidationError("");
     setCaptchaToken(undefined);
+    setAcknowledgeAllergenWarning(false);
     setRsvpDialogOpen(true);
   };
 
@@ -3221,6 +3257,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               setAccommodationsText("");
               setValidationError("");
               setCaptchaToken(undefined);
+              setAcknowledgeAllergenWarning(false);
             }
             setRsvpDialogOpen(open);
           }}
@@ -3236,6 +3273,14 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {allergenCollision.hasAbsoluteCollision && allergenCollision.warningMessage && (
+                <DietaryAllergenWarning
+                  message={allergenCollision.warningMessage}
+                  acknowledged={acknowledgeAllergenWarning}
+                  onAcknowledgeChange={setAcknowledgeAllergenWarning}
+                  disabled={toggleRsvp.isPending}
+                />
+              )}
               {requiresHighDemandCaptcha && (
                 <div className="space-y-2 border-2 border-black bg-yellow-100 p-3">
                   <p className="font-mono text-xs font-bold uppercase">
@@ -3337,6 +3382,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   setAccommodationsText("");
                   setValidationError("");
                   setCaptchaToken(undefined);
+                  setAcknowledgeAllergenWarning(false);
                   setRsvpDialogOpen(false);
                 }}
                 disabled={toggleRsvp.isPending}
@@ -3347,6 +3393,9 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               <Button
                 variant="primary"
                 onClick={() => {
+                  if (allergenCollision.hasAbsoluteCollision && !acknowledgeAllergenWarning) {
+                    return;
+                  }
                   if (requiresHighDemandCaptcha && !captchaConfigured) {
                     setValidationError("High-demand verification is temporarily unavailable.");
                     return;
@@ -3375,7 +3424,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 }}
                 disabled={
                   toggleRsvp.isPending ||
-                  (requiresHighDemandCaptcha && (!captchaConfigured || !captchaToken))
+                  (requiresHighDemandCaptcha && (!captchaConfigured || !captchaToken)) ||
+                  (allergenCollision.hasAbsoluteCollision && !acknowledgeAllergenWarning)
                 }
                 className="neu-border font-mono text-xs font-bold uppercase"
               >
