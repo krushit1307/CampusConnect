@@ -176,6 +176,7 @@ const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"
 const AudioTourRoute = lazy(() => import("./routes/audio-tour"));
 const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id")); // ---------------------------------------------------------------------------
 const DynamicEarlyBirdAnalyticsRoute = lazy(() => import("./routes/events.$id.early-bird-analytics"));
+const StudyGroupsPage = lazy(() => import("@/pages/StudyGroupsPage"));
 const AccessibilityTrackerRoute = lazy(() => import("./routes/accessibility-tracker"));
 
 // ---------------------------------------------------------------------------
@@ -356,6 +357,7 @@ const router = createBrowserRouter(
                   <Route path="/settings/data" element={<SettingsData />} />
                   <Route path="/recap" element={<Recap />} />
                   <Route path="/volunteer-record" element={<VolunteerRecord />} />
+                  <Route path="/study-groups" element={<StudyGroupsPage />} />
                   <Route path="/network" element={<NetworkPage />} />
                   <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
                   <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
