@@ -101,7 +101,7 @@ const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubVaultRoute = lazy(() => import("./routes/clubs.$slug.vault"));
 const ClubHonorariumsRoute = lazy(() => import("./routes/clubs.$slug.honorariums"));
-const ClubResourcesRoute = lazy(() => import("./routes/clubs.$slug.resources"));
+const ClubNewsletterRoute = lazy(() => import("./routes/clubs.$slug.newsletter"));const ClubResourcesRoute = lazy(() => import("./routes/clubs.$slug.resources"));
 const ClubYearbookRoute = lazy(() => import("./routes/clubs.$slug.yearbook"));
 const ScavengerHuntsList = lazy(() => import("./routes/scavenger-hunts"));
 const ScavengerHuntGame = lazy(() => import("./routes/scavenger-hunts.$id"));
@@ -234,7 +234,7 @@ const router = createBrowserRouter(
               <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
               <Route path=":slug/vault" element={<ClubVaultRoute />} />
               <Route path=":slug/honorariums" element={<ClubHonorariumsRoute />} />
-              <Route path=":slug/resources" element={<ClubResourcesRoute />} />
+              <Route path=":slug/newsletter" element={<ClubNewsletterRoute />} />              <Route path=":slug/resources" element={<ClubResourcesRoute />} />
               <Route path=":slug/yearbook/2026" element={<ClubYearbookRoute />} />
               <Route path=":slug/revive" element={<ReviveClubPage />} />{" "}
             </Route>
