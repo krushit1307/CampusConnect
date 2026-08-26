@@ -314,61 +314,114 @@ Deno.serve(async (req) => {
         session.metadata?.event_id &&
         session.metadata?.user_id
       ) {
-        // Dynamic Pricing Tiers (Issue #3293)
-        // Record the purchased ticket tier and price
-        const { error: insertRsvpError } = await supabase.from("event_rsvps").insert({
-          event_id: session.metadata.event_id,
-          user_id: session.metadata.user_id,
-          status: "PAID",
-          ticket_tier_id: session.metadata.tier_id,
-          paid_amount_cents: session.amount_total ?? 0,
-          payment_intent_id:
-            typeof session.payment_intent === "string" ? session.payment_intent : null,
-        });
+        const { data: eventDetails } = await supabase
+          .from("events")
+          .select("title")
+          .eq("id", session.metadata.event_id)
+          .single();
+        const eventTitle = eventDetails?.title || "Upcoming Event";
 
-        if (insertRsvpError) {
-          console.error(`[DB Error] Failed to insert RSVP for dynamic tier:`, insertRsvpError);
-          return new Response("Failed to insert RSVP", { status: 500 });
+        const isGroupCheckout = session.metadata?.group_checkout === "true";
+        const allUserIds = [session.metadata.user_id];
+        const friendEmails = session.metadata?.friend_emails
+          ? session.metadata.friend_emails.split(",")
+          : [];
+        if (isGroupCheckout && session.metadata?.friend_user_ids) {
+          allUserIds.push(...session.metadata.friend_user_ids.split(","));
         }
-        console.log(
-          `[Webhook Ingestion] Successfully recorded RSVP for tier ${session.metadata.tier_id}.`,
-        );
 
-        // Decentralized Ticketing: Sign the new ticket
-        try {
-          // Get the inserted row to get the ticket_id
-          const { data: rsvpData } = await supabase
+        for (const uid of allUserIds) {
+          const isPurchaser = uid === session.metadata.user_id;
+          const { data: rsvp, error: insertRsvpError } = await supabase
             .from("event_rsvps")
+            .insert({
+              event_id: session.metadata.event_id,
+              user_id: uid,
+              status: "PAID",
+              ticket_tier_id: session.metadata.tier_id,
+              paid_amount_cents: isPurchaser ? (session.amount_total ?? 0) : 0,
+              payment_intent_id:
+                typeof session.payment_intent === "string" ? session.payment_intent : null,
+            })
             .select("id, ticket_id, version")
-            .match({ event_id: session.metadata.event_id, user_id: session.metadata.user_id })
             .single();
 
-          if (rsvpData?.ticket_id) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("public_key")
-              .eq("id", session.metadata.user_id)
-              .single();
+          if (insertRsvpError) {
+            console.error(`[DB Error] Failed to insert RSVP for user ${uid}:`, insertRsvpError);
+            continue;
+          }
 
-            if (profile?.public_key) {
-              const signature = await signTicket(
-                rsvpData.ticket_id,
-                session.metadata.event_id,
-                profile.public_key,
-                rsvpData.version || 1,
+          // Decentralized Ticketing: Sign the new ticket
+          try {
+            if (rsvp?.ticket_id) {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("public_key")
+                .eq("id", uid)
+                .single();
+
+              if (profile?.public_key) {
+                const signature = await signTicket(
+                  rsvp.ticket_id,
+                  session.metadata.event_id,
+                  profile.public_key,
+                  rsvp.version || 1,
+                );
+
+                await supabase
+                  .from("event_rsvps")
+                  .update({
+                    owner_public_key: profile.public_key,
+                    signature: signature,
+                  })
+                  .eq("id", rsvp.id);
+              }
+            }
+          } catch (cryptoErr) {
+            console.error(`Failed to sign ticket for user ${uid}:`, cryptoErr);
+          }
+
+          // Transactional email notification for ticket distribution
+          const recipientEmail = isPurchaser
+            ? session.customer_details?.email || ""
+            : friendEmails[allUserIds.indexOf(uid) - 1] || "";
+
+          if (recipientEmail) {
+            const emailBody = {
+              from: "CampusConnect <notifications@campusconnect.app>",
+              to: [recipientEmail],
+              subject: `Your Ticket for ${eventTitle}! 🎟️`,
+              html: `
+                <h2>Ticket Confirmation: ${eventTitle}</h2>
+                <p>Hi there,</p>
+                <p>You have been registered for <strong>${eventTitle}</strong>.</p>
+                <p>Here is your digital ticket ID: <strong>${rsvp?.ticket_id}</strong></p>
+                <p>Show this ticket ID or your user profile QR code at the door for entry.</p>
+                <p>Enjoy the event!</p>
+              `,
+            };
+
+            const resendApiKey = Deno.env.get("RESEND_API_KEY");
+            const mockEmail = Deno.env.get("MOCK_EMAIL") === "true";
+
+            if (!resendApiKey || mockEmail) {
+              console.log(
+                `[Email Mock] Ticket sent to ${recipientEmail} with ticket ID: ${rsvp?.ticket_id}`,
               );
-
-              await supabase
-                .from("event_rsvps")
-                .update({
-                  owner_public_key: profile.public_key,
-                  signature: signature,
-                })
-                .eq("id", rsvpData.id);
+            } else {
+              const emailRes = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${resendApiKey}`,
+                },
+                body: JSON.stringify(emailBody),
+              });
+              if (!emailRes.ok) {
+                console.error("Failed to send ticket email via Resend:", await emailRes.text());
+              }
             }
           }
-        } catch (cryptoErr) {
-          console.error("Failed to sign dynamically priced ticket in webhook:", cryptoErr);
         }
       } else {
         console.warn("[Webhook Ingestion] Missing rsvp_id or tier_id metadata parameter.");
