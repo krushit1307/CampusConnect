@@ -29,6 +29,7 @@ import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { LiveCapacityMeter } from "@/components/events/LiveCapacityMeter";import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
 import { FlashSaleBanner } from "@/components/events/FlashSaleBanner";
 import { FlashSaleControl } from "@/components/events/FlashSaleControl";
+import { FlashSaleTriggerRules } from "@/components/events/FlashSaleTriggerRules";
 import { formatDateLong } from "@/lib/dateFormatter";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
@@ -1975,8 +1976,9 @@ export default function EventDetailsPage() {
               <FlashSaleBanner eventId={event.id} />
               <TicketPricingTimeline eventId={event.id} isOrganizer={isOrganizer} />
               {isOrganizer && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-4">
                   <FlashSaleControl eventId={event.id} />
+                  <FlashSaleTriggerRules eventId={event.id} />
                 </div>
               )}
             </div>
@@ -5010,8 +5012,9 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               <FlashSaleBanner eventId={event.id} />
               <TicketPricingTimeline eventId={event.id} isOrganizer={isOrganizer} />
               {isOrganizer && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-4">
                   <FlashSaleControl eventId={event.id} />
+                  <FlashSaleTriggerRules eventId={event.id} />
                 </div>
               )}
             </div>

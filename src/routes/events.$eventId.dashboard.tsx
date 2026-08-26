@@ -22,6 +22,7 @@ import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroad
 import { EventFeedbackLlmSummaryCard } from "@/components/events/EventFeedbackLlmSummaryCard";
 import { EventWeatherWarningBanner } from "@/components/events/EventWeatherWarningBanner";
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
+import { FlashSaleTriggerRules } from "@/components/events/FlashSaleTriggerRules";
 import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
 import { VendorRfpManager } from "@/components/vendors/VendorRfpManager";
 import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
@@ -714,6 +715,10 @@ export default function EventDashboard() {
 
           <div className="mb-8 border-2 border-black bg-white p-5 shadow-[4px_4px_0_0_#000]">
             <ManageTicketTiers eventId={eventId!} />
+          </div>
+
+          <div className="mb-8">
+            <FlashSaleTriggerRules eventId={eventId!} />
           </div>
 
           <div className="mb-8">
