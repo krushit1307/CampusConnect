@@ -12,6 +12,7 @@ import {
   Building,
   Send,
   Check,
+  XCircle,
 } from "lucide-react";
 import {
   VendorRfp,
@@ -23,71 +24,32 @@ import {
   formatRfpCategoryLabel,
 } from "@/lib/vendorRfp";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import { createTransferEscrow } from "@/lib/ticketTransfer";
 
 export interface VendorRfpManagerProps {
   clubId?: string;
+  eventId?: string;
   clubName?: string;
-  initialRfps?: VendorRfp[];
-  initialBids?: Record<string, RfpBid[]>;
-  onRfpCreated?: (rfp: VendorRfp) => void;
-  onBidAccepted?: (rfpId: string, bidId: string) => void;
+  isVendorView?: boolean;
   className?: string;
 }
 
-export const MOCK_INITIAL_RFPS: VendorRfp[] = [
-  {
-    id: "rfp-1",
-    club_id: "club-eng-1",
-    title: "Catering for 300-Person Annual Gala Banquet",
-    category: "catering",
-    description: "Need dinner catering with vegetarian and vegan options for 300 guests on Friday evening.",
-    budget_max: 2000,
-    deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-    status: "open",
-    created_at: new Date().toISOString(),
-  },
-];
-
-export const MOCK_INITIAL_BIDS: Record<string, RfpBid[]> = {
-  "rfp-1": [
-    {
-      id: "bid-1",
-      rfp_id: "rfp-1",
-      vendor_name: "TacoCorp Catering",
-      vendor_email: "events@tacocorp.com",
-      quoted_price: 1650,
-      proposal_pdf_url: "https://cdn.campus.edu/proposals/tacocorp.pdf",
-      notes: "Includes taco bar setup, server staff, and biodegradable plates.",
-      status: "pending",
-    },
-    {
-      id: "bid-2",
-      rfp_id: "rfp-1",
-      vendor_name: "Gourmet Banquet Pros",
-      vendor_email: "sales@gourmetpros.com",
-      quoted_price: 1950,
-      proposal_pdf_url: "https://cdn.campus.edu/proposals/gourmet.pdf",
-      notes: "Three-course buffet with dessert station.",
-      status: "pending",
-    },
-  ],
-};
-
 export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
-  clubId = "club-eng-1",
-  clubName = "Engineering Society",
-  initialRfps = MOCK_INITIAL_RFPS,
-  initialBids = MOCK_INITIAL_BIDS,
-  onRfpCreated,
-  onBidAccepted,
+  clubId,
+  eventId,
+  clubName = "CampusConnect",
+  isVendorView = false,
   className,
 }) => {
-  const [rfps, setRfps] = useState<VendorRfp[]>(initialRfps);
-  const [bidsByRfp, setBidsByRfp] = useState<Record<string, RfpBid[]>>(initialBids);
-  const [selectedRfpId, setSelectedRfpId] = useState<string>(rfps[0]?.id || "rfp-1");
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+
+  const [selectedRfpId, setSelectedRfpId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showVendorBidModal, setShowVendorBidModal] = useState<boolean>(false);
-  const [awardedNotice, setAwardedNotice] = useState<string | null>(null);
 
   // New RFP Form State
   const [title, setTitle] = useState("");
@@ -103,84 +65,188 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
   const [proposalPdfUrl, setProposalPdfUrl] = useState("");
   const [notes, setNotes] = useState("");
 
+  const { data: rfps = [], isLoading: isLoadingRfps } = useQuery({
+    queryKey: ["vendor_rfps", clubId, eventId],
+    queryFn: async () => {
+      let q = supabase.from("vendor_rfps").select("*").order("created_at", { ascending: false });
+      if (clubId) q = q.eq("club_id", clubId);
+      if (eventId) q = q.eq("event_id", eventId);
+      if (isVendorView) q = q.eq("status", "open");
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as VendorRfp[];
+    },
+  });
+
+  const { data: bids = [], isLoading: isLoadingBids } = useQuery({
+    queryKey: ["rfp_bids", selectedRfpId],
+    queryFn: async () => {
+      if (!selectedRfpId) return [];
+      const { data, error } = await supabase
+        .from("rfp_bids")
+        .select("*")
+        .eq("rfp_id", selectedRfpId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as RfpBid[];
+    },
+    enabled: !!selectedRfpId,
+  });
+
+  // Ensure selectedRfpId is valid or set it to first RFP
+  React.useEffect(() => {
+    if (rfps.length > 0 && !selectedRfpId) {
+      setSelectedRfpId(rfps[0].id);
+    } else if (rfps.length > 0 && selectedRfpId) {
+      const exists = rfps.some((r) => r.id === selectedRfpId);
+      if (!exists) setSelectedRfpId(rfps[0].id);
+    }
+  }, [rfps, selectedRfpId]);
+
   const activeRfp = rfps.find((r) => r.id === selectedRfpId) || rfps[0];
-  const activeBids = rankBidsByValue(bidsByRfp[selectedRfpId] || []);
+  const activeBids = rankBidsByValue(bids);
+
+  const createRfpMutation = useMutation({
+    mutationFn: async (newRfp: any) => {
+      const { data, error } = await supabase.from("vendor_rfps").insert(newRfp).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("RFP Posted Successfully!");
+      queryClient.invalidateQueries({ queryKey: ["vendor_rfps"] });
+      setSelectedRfpId(data.id);
+      setTitle("");
+      setDescription("");
+      setShowCreateModal(false);
+    },
+    onError: (error: any) => toast.error(error.message || "Failed to create RFP"),
+  });
+
+  const submitBidMutation = useMutation({
+    mutationFn: async (newBid: any) => {
+      const { data, error } = await supabase.from("rfp_bids").insert(newBid).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Vendor Bid Submitted!");
+      queryClient.invalidateQueries({ queryKey: ["rfp_bids", selectedRfpId] });
+      setVendorName("");
+      setVendorEmail("");
+      setProposalPdfUrl("");
+      setNotes("");
+      setShowVendorBidModal(false);
+    },
+    onError: (error: any) => toast.error(error.message || "Failed to submit bid"),
+  });
+
+  const acceptBidMutation = useMutation({
+    mutationFn: async ({
+      rfpId,
+      bidId,
+      amount,
+    }: {
+      rfpId: string;
+      bidId: string;
+      amount: number;
+    }) => {
+      // Begin escrow integration simulation
+      // TODO (#4225 integration boundary): Escrow system for vendor bidding should be integrated here.
+      // E.g., await createTransferEscrow(bidId, "organizer-id", "vendor@example.com", amount);
+
+      const { error: rfpError } = await supabase
+        .from("vendor_rfps")
+        .update({ status: "awarded", accepted_bid_id: bidId })
+        .eq("id", rfpId)
+        .eq("status", "open"); // Prevent multiple accepts
+      if (rfpError) throw rfpError;
+
+      const { error: acceptError } = await supabase
+        .from("rfp_bids")
+        .update({ status: "accepted" })
+        .eq("id", bidId);
+      if (acceptError) throw acceptError;
+
+      const { error: rejectError } = await supabase
+        .from("rfp_bids")
+        .update({ status: "rejected" })
+        .eq("rfp_id", rfpId)
+        .neq("id", bidId);
+      if (rejectError) throw rejectError;
+    },
+    onSuccess: () => {
+      toast.success(`Bid accepted! Escrow payment workflow initiated.`);
+      queryClient.invalidateQueries({ queryKey: ["vendor_rfps"] });
+      queryClient.invalidateQueries({ queryKey: ["rfp_bids", selectedRfpId] });
+    },
+    onError: (error: any) => toast.error(error.message || "Failed to accept bid"),
+  });
 
   const handleCreateRfp = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
+    if (budgetMax <= 0) {
+      toast.error("Budget must be greater than 0");
+      return;
+    }
 
-    const newRfp: VendorRfp = {
-      id: `rfp-${Date.now()}`,
+    createRfpMutation.mutate({
       club_id: clubId,
+      event_id: eventId || null,
       title: title.trim(),
       category,
       description: description.trim(),
       budget_max: budgetMax,
       deadline: deadline || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "open",
-      created_at: new Date().toISOString(),
-    };
-
-    const updated = [newRfp, ...rfps];
-    setRfps(updated);
-    setSelectedRfpId(newRfp.id);
-    if (onRfpCreated) onRfpCreated(newRfp);
-
-    // Reset Form
-    setTitle("");
-    setDescription("");
-    setShowCreateModal(false);
+    });
   };
 
   const handleSubmitVendorBid = (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendorName.trim() || !vendorEmail.trim()) return;
+    if (quotedPrice <= 0) {
+      toast.error("Price must be greater than 0");
+      return;
+    }
+    if (activeRfp?.status !== "open") {
+      toast.error("This RFP is no longer open for bids.");
+      return;
+    }
+    if (quotedPrice > activeRfp.budget_max) {
+      toast.error("Your bid exceeds the maximum budget. Please adjust your quote.");
+      return;
+    }
 
-    const newBid: RfpBid = {
-      id: `bid-${Date.now()}`,
+    submitBidMutation.mutate({
       rfp_id: selectedRfpId,
       vendor_name: vendorName.trim(),
       vendor_email: vendorEmail.trim(),
       quoted_price: quotedPrice,
       proposal_pdf_url: proposalPdfUrl.trim() || null,
       notes: notes.trim() || null,
-      status: "pending",
-    };
-
-    const currentBids = bidsByRfp[selectedRfpId] || [];
-    const updatedBids = { ...bidsByRfp, [selectedRfpId]: [...currentBids, newBid] };
-    setBidsByRfp(updatedBids);
-
-    // Reset Form
-    setVendorName("");
-    setVendorEmail("");
-    setProposalPdfUrl("");
-    setNotes("");
-    setShowVendorBidModal(false);
+    });
   };
 
   const handleAcceptBid = (bid: RfpBid) => {
-    // Transition RFP status to awarded and update winning bid
-    const updatedRfps = rfps.map((r) =>
-      r.id === selectedRfpId ? { ...r, status: "awarded" as const, accepted_bid_id: bid.id } : r
-    );
-    setRfps(updatedRfps);
-
-    const currentBids = (bidsByRfp[selectedRfpId] || []).map((b) =>
-      b.id === bid.id ? { ...b, status: "accepted" as const } : { ...b, status: "rejected" as const }
-    );
-    setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: currentBids });
-
-    setAwardedNotice(`Bid awarded to ${bid.vendor_name} for $${bid.quoted_price.toLocaleString()}! Invoice generation workflow initiated.`);
-    if (onBidAccepted) onBidAccepted(selectedRfpId, bid.id);
+    if (window.confirm(`Are you sure you want to accept this bid for $${bid.quoted_price}?`)) {
+      acceptBidMutation.mutate({ rfpId: selectedRfpId!, bidId: bid.id, amount: bid.quoted_price });
+    }
   };
+
+  if (isLoadingRfps) {
+    return (
+      <div className="flex h-[300px] items-center justify-center border-2 border-black rounded-xl bg-gray-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div
       className={cn(
         "border-2 border-black rounded-xl bg-white font-mono shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden space-y-0",
-        className
+        className,
       )}
     >
       {/* Header Bar */}
@@ -188,96 +254,101 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
         <div>
           <div className="flex items-center gap-2 font-bold uppercase text-base text-emerald-950">
             <Briefcase className="w-5 h-5 text-emerald-700" />
-            <span>Vendor "Call for Proposals" (RFP) Portal — {clubName}</span>
+            <span>Vendor "Call for Proposals" (RFP) Portal {clubName && `— ${clubName}`}</span>
           </div>
           <p className="text-xs font-sans text-gray-700 mt-1">
-            Automate event procurement. Broadcast structured requests for food, DJs, and decor to receive competitive vendor bids.
+            Automate event procurement. Broadcast structured requests for food, DJs, and decor to
+            receive competitive vendor bids.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowVendorBidModal(true)}
-            className="px-3.5 py-2 border-2 border-black bg-white hover:bg-gray-100 font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5"
-          >
-            <Send className="w-4 h-4 text-emerald-600" />
-            Submit Vendor Quote
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 border-2 border-black bg-black text-white hover:bg-gray-800 font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            Post New RFP
-          </button>
+          {isVendorView ? (
+            <button
+              type="button"
+              disabled={!activeRfp || activeRfp.status !== "open"}
+              onClick={() => setShowVendorBidModal(true)}
+              className="px-3.5 py-2 border-2 border-black bg-white hover:bg-gray-100 disabled:opacity-50 font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5"
+            >
+              <Send className="w-4 h-4 text-emerald-600" />
+              Submit Vendor Quote
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 border-2 border-black bg-black text-white hover:bg-gray-800 font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              Post New RFP
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Awarded Confirmation Banner */}
-      {awardedNotice && (
-        <div className="p-3.5 bg-emerald-50 border-b-2 border-black text-xs font-bold text-emerald-900 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{awardedNotice}</span>
-        </div>
-      )}
 
       {/* Main Grid: RFPs List & Bid Comparison Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
         {/* RFPs Sidebar */}
-        <div className="lg:col-span-1 p-5 border-b-2 lg:border-b-0 lg:border-r-2 border-black space-y-3 bg-slate-50">
+        <div className="lg:col-span-1 p-5 border-b-2 lg:border-b-0 lg:border-r-2 border-black space-y-3 bg-slate-50 min-h-[400px]">
           <h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">
             Active Procurement Jobs ({rfps.length})
           </h4>
 
-          <div className="space-y-2.5">
-            {rfps.map((rfp) => {
-              const isSelected = rfp.id === selectedRfpId;
-              const bidsCount = (bidsByRfp[rfp.id] || []).length;
+          {rfps.length === 0 ? (
+            <div className="text-center p-6 border-2 border-dashed border-gray-300 rounded-lg text-xs text-gray-500">
+              No RFPs found.
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
+              {rfps.map((rfp) => {
+                const isSelected = rfp.id === selectedRfpId;
 
-              return (
-                <div
-                  key={rfp.id}
-                  onClick={() => setSelectedRfpId(rfp.id)}
-                  className={cn(
-                    "p-3.5 border-2 rounded-lg cursor-pointer transition-all space-y-1.5",
-                    isSelected
-                      ? "border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ring-1 ring-emerald-400"
-                      : "border-gray-300 bg-gray-50/70 hover:border-gray-500"
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
-                      {formatRfpCategoryLabel(rfp.category)}
-                    </span>
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border",
-                        rfp.status === "awarded"
-                          ? "bg-purple-100 text-purple-900 border-purple-400"
-                          : "bg-emerald-100 text-emerald-900 border-emerald-400"
-                      )}
-                    >
-                      {rfp.status}
-                    </span>
+                return (
+                  <div
+                    key={rfp.id}
+                    onClick={() => setSelectedRfpId(rfp.id)}
+                    className={cn(
+                      "p-3.5 border-2 rounded-lg cursor-pointer transition-all space-y-1.5",
+                      isSelected
+                        ? "border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ring-1 ring-emerald-400"
+                        : "border-gray-300 bg-gray-50/70 hover:border-gray-500",
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                        {formatRfpCategoryLabel(rfp.category)}
+                      </span>
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border",
+                          rfp.status === "awarded"
+                            ? "bg-purple-100 text-purple-900 border-purple-400"
+                            : rfp.status === "closed"
+                              ? "bg-gray-200 text-gray-800 border-gray-400"
+                              : "bg-emerald-100 text-emerald-900 border-emerald-400",
+                        )}
+                      >
+                        {rfp.status}
+                      </span>
+                    </div>
+
+                    <h5 className="font-bold text-xs text-black">{rfp.title}</h5>
+
+                    <div className="flex items-center justify-between text-[11px] font-sans text-gray-600 pt-1">
+                      <span>
+                        Budget: <strong>${rfp.budget_max.toLocaleString()}</strong>
+                      </span>
+                    </div>
                   </div>
-
-                  <h5 className="font-bold text-xs text-black">{rfp.title}</h5>
-
-                  <div className="flex items-center justify-between text-[11px] font-sans text-gray-600 pt-1">
-                    <span>Budget: <strong>${rfp.budget_max.toLocaleString()}</strong></span>
-                    <span>{bidsCount} Bids</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Selected RFP & Bid Comparison Matrix (#3559) */}
         <div className="lg:col-span-2 p-5 bg-white space-y-5">
-          {activeRfp && (
+          {activeRfp ? (
             <>
               {/* Selected RFP Details Card */}
               <div className="p-4 border-2 border-black rounded-lg bg-emerald-50/50 space-y-2">
@@ -307,22 +378,34 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                   <span className="text-[11px] font-sans text-gray-500">Sorted by best value</span>
                 </div>
 
-                {activeBids.length === 0 ? (
+                {isLoadingBids ? (
+                  <div className="p-8 text-center text-xs text-gray-500 animate-pulse">
+                    Loading bids...
+                  </div>
+                ) : activeBids.length === 0 ? (
                   <div className="p-8 text-center border-2 border-dashed border-gray-300 rounded-xl text-xs text-gray-500">
-                    No vendor proposals received yet. Share the public RFP link with local restaurants, DJs, or suppliers.
+                    No vendor proposals received yet.{" "}
+                    {isVendorView
+                      ? "Be the first to bid!"
+                      : "Share the public RFP link with local restaurants, DJs, or suppliers."}
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {activeBids.map((bid) => {
                       const savings = calculateBidSavings(activeRfp.budget_max, bid.quoted_price);
                       const isAccepted = bid.status === "accepted";
+                      const isRejected = bid.status === "rejected";
 
                       return (
                         <div
                           key={bid.id}
                           className={cn(
                             "p-4 border-2 border-black rounded-lg space-y-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
-                            isAccepted ? "bg-emerald-50 border-emerald-600 ring-2 ring-emerald-400" : "bg-white"
+                            isAccepted
+                              ? "bg-emerald-50 border-emerald-600 ring-2 ring-emerald-400"
+                              : isRejected
+                                ? "bg-gray-100 opacity-70"
+                                : "bg-white",
                           )}
                         >
                           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -332,6 +415,11 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                                 {isAccepted && (
                                   <span className="px-2 py-0.5 bg-emerald-600 text-white font-bold text-[10px] rounded-full uppercase">
                                     Winning Bid
+                                  </span>
+                                )}
+                                {isRejected && (
+                                  <span className="px-2 py-0.5 bg-gray-500 text-white font-bold text-[10px] rounded-full uppercase">
+                                    Rejected
                                   </span>
                                 )}
                               </div>
@@ -345,7 +433,7 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                               <span
                                 className={cn(
                                   "text-[11px] font-bold",
-                                  savings.isUnderBudget ? "text-emerald-700" : "text-rose-700"
+                                  savings.isUnderBudget ? "text-emerald-700" : "text-rose-700",
                                 )}
                               >
                                 {savings.isUnderBudget
@@ -376,16 +464,19 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                               <span className="text-[11px] text-gray-400">No PDF attached</span>
                             )}
 
-                            {activeRfp.status === "open" && (
-                              <button
-                                type="button"
-                                onClick={() => handleAcceptBid(bid)}
-                                className="px-3.5 py-1.5 border-2 border-black bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                Accept Bid
-                              </button>
-                            )}
+                            {!isVendorView &&
+                              activeRfp.status === "open" &&
+                              bid.status === "pending" && (
+                                <button
+                                  type="button"
+                                  disabled={acceptBidMutation.isPending}
+                                  onClick={() => handleAcceptBid(bid)}
+                                  className="px-3.5 py-1.5 border-2 border-black bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  Accept Bid
+                                </button>
+                              )}
                           </div>
                         </div>
                       );
@@ -394,12 +485,16 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                 )}
               </div>
             </>
+          ) : (
+            <div className="flex items-center justify-center h-full min-h-[300px] text-xs text-gray-500">
+              Select an RFP to view details and bids.
+            </div>
           )}
         </div>
       </div>
 
       {/* Create RFP Modal */}
-      {showCreateModal && (
+      {showCreateModal && !isVendorView && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <form
             onSubmit={handleCreateRfp}
@@ -437,7 +532,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="rfp-category-select" className="text-xs font-bold uppercase block mb-1">
+                  <label
+                    htmlFor="rfp-category-select"
+                    className="text-xs font-bold uppercase block mb-1"
+                  >
                     Category *
                   </label>
                   <select
@@ -455,7 +553,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="rfp-budget-input" className="text-xs font-bold uppercase block mb-1">
+                  <label
+                    htmlFor="rfp-budget-input"
+                    className="text-xs font-bold uppercase block mb-1"
+                  >
                     Maximum Budget ($) *
                   </label>
                   <input
@@ -489,9 +590,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
             <div className="flex justify-end gap-2 pt-3 border-t-2 border-black/10">
               <button
                 type="submit"
-                className="px-4 py-2 border-2 border-black bg-emerald-600 text-white font-bold text-xs uppercase rounded-md hover:bg-emerald-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                disabled={createRfpMutation.isPending}
+                className="px-4 py-2 border-2 border-black bg-emerald-600 text-white font-bold text-xs uppercase rounded-md hover:bg-emerald-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
               >
-                Broadcast RFP to Vendors
+                {createRfpMutation.isPending ? "Posting..." : "Broadcast RFP to Vendors"}
               </button>
             </div>
           </form>
@@ -499,7 +601,7 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       )}
 
       {/* Submit Vendor Bid Modal */}
-      {showVendorBidModal && (
+      {showVendorBidModal && activeRfp && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <form
             onSubmit={handleSubmitVendorBid}
@@ -519,9 +621,17 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
               </button>
             </div>
 
+            <div className="p-3 bg-emerald-50 border-2 border-emerald-200 rounded-lg text-xs font-sans">
+              <span className="font-bold uppercase text-emerald-800">Bidding on:</span>{" "}
+              {activeRfp.title} (Max Budget: ${activeRfp.budget_max})
+            </div>
+
             <div className="space-y-3">
               <div>
-                <label htmlFor="vendor-name-input" className="text-xs font-bold uppercase block mb-1">
+                <label
+                  htmlFor="vendor-name-input"
+                  className="text-xs font-bold uppercase block mb-1"
+                >
                   Vendor / Business Name *
                 </label>
                 <input
@@ -537,7 +647,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="vendor-email-input" className="text-xs font-bold uppercase block mb-1">
+                  <label
+                    htmlFor="vendor-email-input"
+                    className="text-xs font-bold uppercase block mb-1"
+                  >
                     Contact Email *
                   </label>
                   <input
@@ -552,7 +665,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="vendor-quote-input" className="text-xs font-bold uppercase block mb-1">
+                  <label
+                    htmlFor="vendor-quote-input"
+                    className="text-xs font-bold uppercase block mb-1"
+                  >
                     Total Quoted Price ($) *
                   </label>
                   <input
@@ -568,7 +684,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
               </div>
 
               <div>
-                <label htmlFor="vendor-pdf-input" className="text-xs font-bold uppercase block mb-1">
+                <label
+                  htmlFor="vendor-pdf-input"
+                  className="text-xs font-bold uppercase block mb-1"
+                >
                   Proposal PDF URL (Optional)
                 </label>
                 <input
@@ -582,7 +701,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
               </div>
 
               <div>
-                <label htmlFor="vendor-notes-input" className="text-xs font-bold uppercase block mb-1">
+                <label
+                  htmlFor="vendor-notes-input"
+                  className="text-xs font-bold uppercase block mb-1"
+                >
                   Proposal Notes / Inclusions
                 </label>
                 <textarea
@@ -599,9 +721,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
             <div className="flex justify-end gap-2 pt-3 border-t-2 border-black/10">
               <button
                 type="submit"
-                className="px-4 py-2 border-2 border-black bg-emerald-600 text-white font-bold text-xs uppercase rounded-md hover:bg-emerald-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                disabled={submitBidMutation.isPending}
+                className="px-4 py-2 border-2 border-black bg-emerald-600 text-white font-bold text-xs uppercase rounded-md hover:bg-emerald-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
               >
-                Submit Automated Bid
+                {submitBidMutation.isPending ? "Submitting..." : "Submit Automated Bid"}
               </button>
             </div>
           </form>
