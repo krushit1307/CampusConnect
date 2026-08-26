@@ -12,21 +12,70 @@ serve(async (req) => {
     }
 
     try {
-        const { userId, eventId, basePoints } = await req.json();
+        const { userId, eventId, basePoints, clubId } = await req.json();
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
-        // 1. Check if the event belongs to an event_series_id
+        // 1. Fetch Event and Club info
         const { data: event, error: eventError } = await supabase
             .from('events')
-            .select('id, name, event_series_id, event_series(name)')
+            .select('id, name, club_id, event_series_id, event_series(name)')
             .eq('id', eventId)
             .single();
 
         if (eventError || !event) {
             throw new Error('Event not found');
+        }
+
+        const targetClubId = event.club_id || clubId;
+
+        // 2. Intercept: Check if the organizing club is currently on Active Probation (#4533)
+        if (targetClubId) {
+            // Check club_probations table
+            const { data: activeProbations } = await supabase
+                .from('club_probations')
+                .select('id, status, expires_at, reason')
+                .eq('club_id', targetClubId)
+                .eq('status', 'active')
+                .gt('expires_at', new Date().toISOString())
+                .limit(1);
+
+            // Also check clubs table status
+            const { data: clubRecord } = await supabase
+                .from('clubs')
+                .select('status')
+                .eq('id', targetClubId)
+                .maybeSingle();
+
+            const isProbation = (activeProbations && activeProbations.length > 0) || (clubRecord?.status === 'probation');
+
+            if (isProbation) {
+                // Log blocked attempt in ledger
+                await supabase.from('ledger_transactions').insert({
+                    user_id: userId,
+                    event_id: eventId,
+                    club_id: targetClubId,
+                    amount: 0,
+                    transaction_type: 'probation_blocked',
+                    base_points: basePoints,
+                    streak_multiplier: 0,
+                    is_streak_bonus: false,
+                    description: 'Point Accumulation is FROZEN due to active Disciplinary Probation.',
+                });
+
+                return new Response(
+                    JSON.stringify({
+                        success: false,
+                        frozen: true,
+                        points_awarded: 0,
+                        club_id: targetClubId,
+                        message: 'Point Accumulation is FROZEN due to active Disciplinary Probation.',
+                    }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+                );
+            }
         }
 
         let multiplier = 1.0;

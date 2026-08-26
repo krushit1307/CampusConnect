@@ -18,6 +18,8 @@ export interface EventCancellationResult {
   total_rsvps_cancelled?: number;
   total_paid_refunds?: number;
   total_refunded_amount_cents?: number;
+  total_claims_created?: number;
+  total_credit_options_dispatched?: number;
   vendor_summary?: VendorCancellationSummary;
   message?: string;
   error?: string;

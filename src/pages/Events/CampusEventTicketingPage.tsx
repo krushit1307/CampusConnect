@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import {
   Calendar,
   Ticket,
@@ -22,6 +23,9 @@ import EventActivityTimeline from "../../components/events/EventActivityTimeline
 import { TicketExchangeBoard } from "../../components/tickets/TicketExchangeBoard";
 import { RealtimeCapacityHeatmap } from "../../components/events/RealtimeCapacityHeatmap";
 import { CancelEventDangerModal } from "../../components/events/CancelEventDangerModal";
+
+// 🔥 Import the custom subscription hook
+import { useSupabaseSubscription } from "../../hooks/useSupabaseSubscription";
 
 const INITIAL_EVENTS: CampusEvent[] = [
   {
@@ -66,7 +70,7 @@ const INITIAL_EVENTS: CampusEvent[] = [
     dateSchedule: "Wednesday, Nov 2 @ 4:00 PM",
     venueLocation: "Business School Auditorium 101",
     ticketPriceUSD: 5,
-    availableTickets: 18,
+    availableTickets: 8, // Set low to trigger FOMO badge for testing
     totalCapacity: 150,
     organizerAvatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
     verificationStatus: "Official Organization",
@@ -86,6 +90,27 @@ export default function CampusEventTicketingPage() {
   >("events");
   const [selectedEventModal, setSelectedEventModal] = useState<CampusEvent | null>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+
+  // 🔥 REAL-TIME WEBSOCKET LISTENER (Using Custom Hook) 🔥
+  useSupabaseSubscription<CampusEvent>({
+    table: "events",
+    event: "UPDATE",
+    onData: (payload) => {
+      console.log("Real-time ticket update received via hook!", payload);
+
+      const updatedEvent = payload.new;
+
+      if (updatedEvent && updatedEvent.id) {
+        setEvents((prevEvents) =>
+          prevEvents.map((evt) =>
+            evt.id === updatedEvent.id
+              ? { ...evt, availableTickets: updatedEvent.availableTickets }
+              : evt,
+          ),
+        );
+      }
+    },
+  });
 
   const categories = [
     "All",
@@ -337,6 +362,19 @@ export default function CampusEventTicketingPage() {
               {selectedEventModal.description}
             </p>
 
+            {/* 🔥 FOMO Badge Integration 🔥 */}
+            {selectedEventModal.availableTickets > 0 &&
+              selectedEventModal.availableTickets <= 10 && (
+                <motion.div
+                  animate={{ opacity: [1, 0.6, 1], scale: [1, 1.02, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="mb-4 bg-red-500/20 text-red-400 border border-red-500/50 font-bold px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 text-sm"
+                >
+                  <Flame className="w-4 h-4" />
+                  <span>ONLY {selectedEventModal.availableTickets} EARLY BIRD TICKETS LEFT!</span>
+                </motion.div>
+              )}
+
             <div className="space-y-2 bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-6 text-xs font-mono">
               <div className="flex items-center gap-2 text-slate-300">
                 <MapPin className="w-4 h-4 text-violet-400" />
@@ -346,12 +384,29 @@ export default function CampusEventTicketingPage() {
                 <Clock className="w-4 h-4 text-amber-400" />
                 <span>Date: {selectedEventModal.dateSchedule}</span>
               </div>
-              <div className="flex items-center justify-between text-slate-300 pt-2 border-t border-slate-900">
-                <span>
+
+              {/* Early Bird vs General Admission Logic */}
+              <div className="flex items-center justify-between text-slate-300 pt-2 border-t border-slate-900 mt-2">
+                <span className="flex items-center gap-2">
                   Pass Price:{" "}
-                  {selectedEventModal.ticketPriceUSD === 0
-                    ? "FREE"
-                    : `$${selectedEventModal.ticketPriceUSD}`}
+                  {selectedEventModal.availableTickets === 0 ? (
+                    <>
+                      <span className="line-through text-slate-500">
+                        ${selectedEventModal.ticketPriceUSD}
+                      </span>
+                      <span className="text-emerald-400 font-bold">
+                        $
+                        {selectedEventModal.ticketPriceUSD === 0
+                          ? 15
+                          : selectedEventModal.ticketPriceUSD + 15}{" "}
+                        (General Admission)
+                      </span>
+                    </>
+                  ) : selectedEventModal.ticketPriceUSD === 0 ? (
+                    "FREE"
+                  ) : (
+                    `$${selectedEventModal.ticketPriceUSD} (Early Bird)`
+                  )}
                 </span>
                 <span>
                   {selectedEventModal.availableTickets} of {selectedEventModal.totalCapacity} Passes
@@ -372,14 +427,21 @@ export default function CampusEventTicketingPage() {
                   toggleRSVP(selectedEventModal.id);
                   setSelectedEventModal(null);
                 }}
+                disabled={selectedEventModal.isRSVPed && selectedEventModal.availableTickets === 0}
                 className={`px-5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
                   selectedEventModal.isRSVPed
                     ? "bg-rose-600 hover:bg-rose-500 text-white"
-                    : "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-600/30"
+                    : selectedEventModal.availableTickets === 0
+                      ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30"
+                      : "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-600/30"
                 }`}
               >
                 <Ticket className="w-4 h-4" />
-                {selectedEventModal.isRSVPed ? "Cancel Event Pass" : "RSVP Digital Ticket"}
+                {selectedEventModal.isRSVPed
+                  ? "Cancel Event Pass"
+                  : selectedEventModal.availableTickets === 0
+                    ? "Buy General Admission"
+                    : "RSVP Early Bird Ticket"}
               </button>
             </div>
           </div>

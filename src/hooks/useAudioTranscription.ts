@@ -1,19 +1,16 @@
 /**
  * useAudioTranscription.ts — Broadcast real-time transcripts via Supabase
- * Realtime (Issue #3925).
- *
- * Bridges the Web Speech API with Supabase Realtime broadcast channels.
- * Only the organizer (broadcaster) runs this hook.
+ * Realtime and Deepgram (Issue #4505).
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useSpeechRecognition, type SpeechRecognitionOptions } from "./useSpeechRecognition";
 
-export interface AudioTranscriptionOptions extends SpeechRecognitionOptions {
+export interface AudioTranscriptionOptions {
   eventId: string | null;
   isOrganizer: boolean;
   enabled: boolean;
+  lang?: string;
 }
 
 export interface AudioTranscriptionState {
@@ -30,88 +27,153 @@ export interface AudioTranscriptionState {
 export function useAudioTranscription(
   options: AudioTranscriptionOptions,
 ): AudioTranscriptionState {
-  const { eventId, isOrganizer, enabled, ...speechOptions } = options;
+  const { eventId, isOrganizer, enabled, lang } = options;
 
-  const supabase = createClient();
-  const lastBroadcastRef = useRef<string>("");
+  const [supabase] = useState(() => createClient());
+  const [isListening, setIsListening] = useState(false);
+  const [finalTranscript, setFinalTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const speech = useSpeechRecognition(speechOptions);
-
-  // Broadcast final transcript chunks
-  useEffect(() => {
-    if (!isOrganizer || !enabled || !eventId || !speech.finalTranscript) return;
-
-    const newText = speech.finalTranscript.slice(lastBroadcastRef.current.length);
-    if (!newText.trim()) return;
-
-    lastBroadcastRef.current = speech.finalTranscript;
-
-    const channel = supabase.channel(`event-captions:${eventId}`);
-    channel.send({
-      type: "broadcast",
-      event: "transcript",
-      payload: {
-        channel: { alternatives: [{ transcript: newText.trim() }] },
-        is_final: true,
-        timestamp: Date.now(),
-      },
-    });
-  }, [speech.finalTranscript, isOrganizer, enabled, eventId, supabase]);
-
-  // Broadcast interim transcript chunks
-  useEffect(() => {
-    if (!isOrganizer || !enabled || !eventId || !speech.interimTranscript) return;
-
-    const channel = supabase.channel(`event-captions:${eventId}`);
-    channel.send({
-      type: "broadcast",
-      event: "transcript",
-      payload: {
-        channel: { alternatives: [{ transcript: speech.interimTranscript.trim() }] },
-        is_final: false,
-        timestamp: Date.now(),
-      },
-    });
-  }, [speech.interimTranscript, isOrganizer, enabled, eventId, supabase]);
-
-  // Auto-start / auto-stop
-  useEffect(() => {
-    if (!isOrganizer) return;
-
-    if (enabled && speech.isSupported) {
-      speech.start();
-    } else {
-      speech.stop();
-    }
-
-    return () => {
-      speech.stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, isOrganizer, speech.isSupported]);
-
-  const startTranscription = useCallback(() => {
-    if (!isOrganizer || !speech.isSupported) return;
-    speech.start();
-  }, [isOrganizer, speech]);
+  const wsRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const stopTranscription = useCallback(() => {
-    speech.stop();
-  }, [speech]);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current = null;
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    streamRef.current = null;
+    
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    wsRef.current = null;
+    
+    setIsListening(false);
+  }, []);
 
-  const setLanguage = useCallback(
-    (lang: string) => {
-      speech.setLang(lang);
-    },
-    [speech],
-  );
+  const startTranscription = useCallback(async () => {
+    if (!isOrganizer || !eventId) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || "anonymous";
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const baseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+      const wsUrl = `${baseUrl.replace(/^http/, "ws")}/functions/v1/live-transcript-relay?eventId=${eventId}&userId=${userId}`;
+      const ws = new WebSocket(wsUrl, ["bearer", import.meta.env.VITE_SUPABASE_ANON_KEY || ""]);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setIsListening(true);
+        setError(null);
+        
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.addEventListener("dataavailable", (event) => {
+          if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+            ws.send(event.data);
+          }
+        });
+
+        mediaRecorder.start(250);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.channel?.alternatives?.[0]) {
+            const alt = data.channel.alternatives[0];
+            const transcript = alt.transcript;
+
+            if (transcript) {
+              if (data.is_final) {
+                setFinalTranscript((prev) => prev + (prev ? " " : "") + transcript);
+                setInterimTranscript("");
+
+                // Broadcast final to viewers via dedicated data channel
+                const channel = supabase.channel(`event-captions:${eventId}`);
+                channel.send({
+                  type: "broadcast",
+                  event: "transcript",
+                  payload: {
+                    channel: { alternatives: [{ transcript, words: alt.words }] },
+                    is_final: true,
+                    timestamp: Date.now(),
+                  },
+                });
+              } else {
+                setInterimTranscript(transcript);
+
+                // Broadcast interim
+                const channel = supabase.channel(`event-captions:${eventId}`);
+                channel.send({
+                  type: "broadcast",
+                  event: "transcript",
+                  payload: {
+                    channel: { alternatives: [{ transcript, words: alt.words }] },
+                    is_final: false,
+                    timestamp: Date.now(),
+                  },
+                });
+              }
+            }
+          }
+        } catch (err) {
+          // Ignore non-JSON Deepgram messages or parse errors
+        }
+      };
+
+      ws.onerror = (e) => {
+        console.error("Deepgram WebSocket error", e);
+        setError("WebSocket connection failed");
+        stopTranscription();
+      };
+
+      ws.onclose = () => {
+        stopTranscription();
+      };
+    } catch (err: any) {
+      console.error("Transcription error:", err);
+      setError(err.message || "Failed to start transcription");
+      setIsListening(false);
+    }
+  }, [eventId, isOrganizer, supabase, stopTranscription]);
+
+  useEffect(() => {
+    if (enabled && !isListening) {
+      startTranscription();
+    } else if (!enabled && isListening) {
+      stopTranscription();
+    }
+  }, [enabled, isListening, startTranscription, stopTranscription]);
+
+  useEffect(() => {
+    return () => {
+      stopTranscription();
+    };
+  }, [stopTranscription]);
+
+  const setLanguage = useCallback((_lang: string) => {
+    // Language handled via Deepgram URL query params if needed
+  }, []);
 
   return {
-    isSupported: speech.isSupported,
-    isListening: speech.isListening,
-    finalTranscript: speech.finalTranscript,
-    interimTranscript: speech.interimTranscript,
-    error: speech.error,
+    isSupported: typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia,
+    isListening,
+    finalTranscript,
+    interimTranscript,
+    error,
     startTranscription,
     stopTranscription,
     setLanguage,

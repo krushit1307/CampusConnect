@@ -10,6 +10,7 @@ import { Request, Response } from "express";
 import { primaryClient, runPrimaryTransaction } from "../lib/prisma/primaryClient";
 import { trackMutation } from "../lib/prisma/dbRouter";
 import { enqueueWebhookDispatch, buildEventCreatedPayload } from "../services/webhookDispatcher";
+import { lintEventDescription } from "../utils/eventAccessibilityLinter";
 
 /**
  * POST /api/events
@@ -25,6 +26,17 @@ export async function createEvent(req: Request, res: Response) {
     // 1. Validate input
     if (!title || !startDate || !clubId) {
       return res.status(400).json({ success: false, error: "Missing required fields" });
+    }
+
+    if (status === "PUBLISHED" && description) {
+      const accessibilityErrors = lintEventDescription(description);
+      if (accessibilityErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Fix these accessibility issues to publish.",
+          details: accessibilityErrors,
+        });
+      }
     }
 
     // 2. Create the event in the Primary Database
@@ -100,6 +112,24 @@ export async function updateEvent(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const { title, description, status } = req.body;
+
+    if (status === "PUBLISHED") {
+      const eventToValidate = await primaryClient.event.findUnique({ where: { id } });
+      if (!eventToValidate) {
+        return res.status(404).json({ success: false, error: "Event not found" });
+      }
+      const finalDescription = description !== undefined ? description : eventToValidate.description;
+      if (finalDescription) {
+        const accessibilityErrors = lintEventDescription(finalDescription);
+        if (accessibilityErrors.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: "Fix these accessibility issues to publish.",
+            details: accessibilityErrors,
+          });
+        }
+      }
+    }
 
     // Use the transaction helper for strict Primary node execution
     const updatedEvent = await runPrimaryTransaction(async (tx) => {
@@ -191,6 +221,21 @@ export async function deleteEvent(req: Request, res: Response) {
 export async function publishEvent(req: Request, res: Response) {
   try {
     const { id } = req.params;
+
+    const eventToValidate = await primaryClient.event.findUnique({ where: { id } });
+    if (!eventToValidate) {
+      return res.status(404).json({ success: false, error: "Event not found" });
+    }
+    if (eventToValidate.description) {
+      const accessibilityErrors = lintEventDescription(eventToValidate.description);
+      if (accessibilityErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Fix these accessibility issues to publish.",
+          details: accessibilityErrors,
+        });
+      }
+    }
 
     const event = await primaryClient.event.update({
       where: { id },

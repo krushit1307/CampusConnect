@@ -8,6 +8,8 @@ export interface ClubOrgNode {
   bio?: string;
   email?: string;
   avatar_url?: string;
+  user_id?: string;
+  handle?: string;
   order_index?: number;
   children?: ClubOrgNode[];
 }
@@ -29,19 +31,35 @@ export function getDepartmentBadgeColor(department: string = "Executive"): {
 } {
   const d = department.toLowerCase();
   if (d.includes("exec") || d.includes("presid")) {
-    return { bgClass: "bg-purple-100", borderClass: "border-purple-400", textClass: "text-purple-950" };
+    return {
+      bgClass: "bg-purple-100",
+      borderClass: "border-purple-400",
+      textClass: "text-purple-950",
+    };
   }
   if (d.includes("market") || d.includes("comm") || d.includes("social")) {
-    return { bgClass: "bg-fuchsia-100", borderClass: "border-fuchsia-400", textClass: "text-fuchsia-950" };
+    return {
+      bgClass: "bg-fuchsia-100",
+      borderClass: "border-fuchsia-400",
+      textClass: "text-fuchsia-950",
+    };
   }
   if (d.includes("tech") || d.includes("dev") || d.includes("eng")) {
     return { bgClass: "bg-sky-100", borderClass: "border-sky-400", textClass: "text-sky-950" };
   }
   if (d.includes("finan") || d.includes("treasur") || d.includes("sponsor")) {
-    return { bgClass: "bg-amber-100", borderClass: "border-amber-400", textClass: "text-amber-950" };
+    return {
+      bgClass: "bg-amber-100",
+      borderClass: "border-amber-400",
+      textClass: "text-amber-950",
+    };
   }
   if (d.includes("event") || d.includes("logist") || d.includes("operat")) {
-    return { bgClass: "bg-emerald-100", borderClass: "border-emerald-400", textClass: "text-emerald-950" };
+    return {
+      bgClass: "bg-emerald-100",
+      borderClass: "border-emerald-400",
+      textClass: "text-emerald-950",
+    };
   }
   return { bgClass: "bg-slate-100", borderClass: "border-slate-300", textClass: "text-slate-900" };
 }
@@ -74,7 +92,9 @@ export function buildOrgHierarchyTree(nodes: ClubOrgNode[]): ClubOrgNode[] {
 
   // Sort children by order_index or title
   const sortRecursive = (list: ClubOrgNode[]) => {
-    list.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0) || a.title.localeCompare(b.title));
+    list.sort(
+      (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0) || a.title.localeCompare(b.title),
+    );
     list.forEach((item) => {
       if (item.children && item.children.length > 0) {
         sortRecursive(item.children);
@@ -114,7 +134,7 @@ export function getAllDescendantIds(nodes: ClubOrgNode[], parentId: string): Set
 export function updateNodeReportsTo(
   nodes: ClubOrgNode[],
   nodeId: string,
-  newReportsToId: string | null
+  newReportsToId: string | null,
 ): { updatedNodes: ClubOrgNode[]; success: boolean; error?: string } {
   if (nodeId === newReportsToId) {
     return {
@@ -136,7 +156,7 @@ export function updateNodeReportsTo(
   }
 
   const updatedNodes = nodes.map((node) =>
-    node.id === nodeId ? { ...node, reports_to_id: newReportsToId } : node
+    node.id === nodeId ? { ...node, reports_to_id: newReportsToId } : node,
   );
 
   return {

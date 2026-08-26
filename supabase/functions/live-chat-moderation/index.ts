@@ -1,13 +1,20 @@
 // =============================================================================
 // Edge Function: Live Chat Moderation & Auto-Ban
 // Issue: #4221 - Automated "Profanity/Harassment" Auto-Ban
+// Issue: #4419 - Contextual AI for Violence Flag De-escalation
 // Description: Triggered via Database Webhook on event_chat_messages INSERT.
 // Analyzes content via OpenAI Moderations API and local wordlists.
-// Deletes toxic messages, increments violation strikes, and auto-shadowbans.
+// When flagged for violence, routes through Contextual AI to distinguish
+// literal threats from harmless slang before issuing bans.
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  requiresContextualAnalysis,
+  analyzeContextually,
+  logContextualAnalysis,
+} from "../_shared/contextual-ai-analyzer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,22 +22,40 @@ const corsHeaders = {
 };
 
 const PROFANITY_LIST = [
-  "fuck", "shit", "cunt", "nigger", "faggot", "bitch", "asshole",
-  "dickhead", "motherfucker", "cock", "pussy", "retard", "tranny",
-  "chink", "kike", "wetback", "abuse", "toxic", "hate", "harass", "slur"
+  "fuck",
+  "shit",
+  "cunt",
+  "nigger",
+  "faggot",
+  "bitch",
+  "asshole",
+  "dickhead",
+  "motherfucker",
+  "cock",
+  "pussy",
+  "retard",
+  "tranny",
+  "chink",
+  "kike",
+  "wetback",
+  "abuse",
+  "toxic",
+  "hate",
+  "harass",
+  "slur",
 ];
 
 const BYPASS_PATTERNS = [
   /\b[f][\W_]*[u][\W_]*[c][\W_]*[k]\b/i,
   /\b[s][\W_]*[h][\W_]*[i][\W_]*[t]\b/i,
   /\b[n][\W_]*[i][\W_]*[g][\W_]*[g][\W_]*[e][\W_]*[r]\b/i,
-  /\b[f][\W_]*[a][\W_]*[g][\W_]*[g][\W_]*[o][\W_]*[t]\b/i
+  /\b[f][\W_]*[a][\W_]*[g][\W_]*[g][\W_]*[o][\W_]*[t]\b/i,
 ];
 
 function checkLocalProfanity(text: string): boolean {
   if (!text) return false;
   const lower = text.toLowerCase();
-  
+
   // 1. Exact match against profanity list
   const words = lower.split(/\s+/);
   for (const word of words) {
@@ -48,6 +73,20 @@ function checkLocalProfanity(text: string): boolean {
   }
 
   return false;
+}
+
+/**
+ * Determine if the flagged reason corresponds to a violence-related category.
+ * Violence flags are candidates for contextual AI de-escalation.
+ */
+function isViolenceFlag(reason: string): boolean {
+  const violenceCategories = [
+    "violence",
+    "threat",
+    "violence/threatening",
+    "harassment/threatening",
+  ];
+  return violenceCategories.some((cat) => reason.toLowerCase().includes(cat));
 }
 
 export async function handler(req: Request): Promise<Response> {
@@ -81,17 +120,19 @@ export async function handler(req: Request): Promise<Response> {
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     let isToxic = false;
     let toxicityScore = 0;
+    let flaggedReason = "";
 
     // 1. Run local word boundary check
     const isLocalProfane = checkLocalProfanity(content);
     if (isLocalProfane) {
       isToxic = true;
       toxicityScore = 1.0;
+      flaggedReason = "profanity";
     }
 
     // 2. Run OpenAI Moderation check if API key exists
@@ -114,17 +155,76 @@ export async function handler(req: Request): Promise<Response> {
           scores.harassment || 0,
           scores["harassment/threatening"] || 0,
           scores.hate || 0,
-          scores["hate/threatening"] || 0
+          scores["hate/threatening"] || 0,
         );
 
         if (result.flagged || score > 0.9) {
           isToxic = true;
           toxicityScore = score;
+
+          // Identify which category triggered the flag for contextual analysis
+          if ((scores["harassment/threatening"] || 0) > 0.9) {
+            flaggedReason = "harassment/threatening";
+          } else if ((scores["hate/threatening"] || 0) > 0.9) {
+            flaggedReason = "violence/threatening";
+          } else if ((scores.harassment || 0) > 0.9) {
+            flaggedReason = "harassment";
+          } else if ((scores.hate || 0) > 0.9) {
+            flaggedReason = "hate";
+          } else {
+            flaggedReason = "moderation";
+          }
         }
       }
     }
 
     if (isToxic) {
+      // ================================================================
+      // Issue #4419: Contextual AI Analysis for Violence Flags
+      // When the basic filter flags content for violence-related categories,
+      // route through contextual AI to check if it's slang/exaggeration.
+      // ================================================================
+      const shouldAnalyzeContext =
+        requiresContextualAnalysis(content) || isViolenceFlag(flaggedReason);
+
+      if (shouldAnalyzeContext && openaiApiKey) {
+        console.log(
+          `[ContextualAI] Routing message ${messageId} for contextual analysis (flag: ${flaggedReason})`,
+        );
+
+        const contextResult = await analyzeContextually(content, openaiApiKey, flaggedReason);
+
+        await logContextualAnalysis(supabaseAdmin, {
+          message_id: messageId,
+          user_id: userId,
+          source_table: "event_chat_messages",
+          original_flag_reason: flaggedReason,
+          is_threat: contextResult.isThreat,
+          confidence: contextResult.confidence,
+          reasoning: contextResult.reasoning,
+          original_content: content,
+        });
+
+        if (!contextResult.isThreat) {
+          console.log(
+            `[ContextualAI] Message ${messageId} de-escalated: ${contextResult.reasoning} (confidence: ${contextResult.confidence})`,
+          );
+          return new Response(
+            JSON.stringify({
+              success: true,
+              toxic: false,
+              shadowbanned: false,
+              contextual_analysis: { de_escalated: true, reasoning: contextResult.reasoning },
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        console.log(
+          `[ContextualAI] Message ${messageId} confirmed as threat: ${contextResult.reasoning} (confidence: ${contextResult.confidence})`,
+        );
+      }
+
       console.log(`Flagging chat message ${messageId} as toxic (${toxicityScore})`);
 
       // A. Silently delete the message
@@ -132,7 +232,7 @@ export async function handler(req: Request): Promise<Response> {
         .from("event_chat_messages")
         .delete()
         .eq("id", messageId);
-      
+
       if (deleteError) throw deleteError;
 
       // B. Increment strikes on user profile
@@ -141,7 +241,7 @@ export async function handler(req: Request): Promise<Response> {
         .select("violation_strikes")
         .eq("id", userId)
         .single();
-      
+
       const newStrikes = (profile?.violation_strikes || 0) + 1;
       await supabaseAdmin
         .from("profiles")
@@ -149,13 +249,11 @@ export async function handler(req: Request): Promise<Response> {
         .eq("id", userId);
 
       // C. Log strike inside moderation_flags
-      await supabaseAdmin
-        .from("moderation_flags")
-        .insert({
-          user_id: userId,
-          violation_type: "chat_moderation",
-          flagged_content: content,
-        });
+      await supabaseAdmin.from("moderation_flags").insert({
+        user_id: userId,
+        violation_type: "chat_moderation",
+        flagged_content: content,
+      });
 
       // D. Check 1-hour rolling strikes
       const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
@@ -170,17 +268,12 @@ export async function handler(req: Request): Promise<Response> {
       if ((count || 0) >= 3) {
         shadowbanned = true;
         // Global shadowban update
-        await supabaseAdmin
-          .from("profiles")
-          .update({ is_shadowbanned: true })
-          .eq("id", userId);
+        await supabaseAdmin.from("profiles").update({ is_shadowbanned: true }).eq("id", userId);
 
-        await supabaseAdmin
-          .from("shadowbanned_users")
-          .upsert({
-            user_id: userId,
-            reason: "Automated auto-ban: 3 chat violations in 1 hour.",
-          });
+        await supabaseAdmin.from("shadowbanned_users").upsert({
+          user_id: userId,
+          reason: "Automated auto-ban: 3 chat violations in 1 hour.",
+        });
       }
 
       // E. Alert Student Union Admins (system_admin role)
@@ -200,16 +293,16 @@ export async function handler(req: Request): Promise<Response> {
         await supabaseAdmin.from("notifications").insert(notifications);
       }
 
-      return new Response(
-        JSON.stringify({ success: true, toxic: true, shadowbanned }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ success: true, toxic: true, shadowbanned }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(
-      JSON.stringify({ success: true, toxic: false, shadowbanned: false }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ success: true, toxic: false, shadowbanned: false }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: any) {
     console.error("[live-chat-moderation] Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
