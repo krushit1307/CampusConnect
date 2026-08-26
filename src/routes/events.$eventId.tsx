@@ -25,7 +25,7 @@ import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
-import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
+import { LiveCapacityMeter } from "@/components/events/LiveCapacityMeter";import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
 import { FlashSaleBanner } from "@/components/events/FlashSaleBanner";
 import { FlashSaleControl } from "@/components/events/FlashSaleControl";
 import { formatDateLong } from "@/lib/dateFormatter";
@@ -1890,6 +1890,9 @@ export default function EventDetailsPage() {
               />
             </div>
 
+            <div className="mt-4 max-w-md">
+              <LiveCapacityMeter eventId={event.id} />
+            </div>
             <div id="ticket-pricing-section" className="mt-6 max-w-2xl">
               <FlashSaleBanner eventId={event.id} />
               <TicketPricingTimeline eventId={event.id} isOrganizer={isOrganizer} />
