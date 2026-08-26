@@ -4152,6 +4152,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      banned_signatures: {
+        Row: {
+          id: string;
+          source_user_id: string;
+          ip_hash: string | null;
+          device_fingerprint_hash: string | null;
+          reason: string;
+          active: boolean;
+          last_seen_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          source_user_id: string;
+          ip_hash?: string | null;
+          device_fingerprint_hash?: string | null;
+          reason: string;
+          active?: boolean;
+          last_seen_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          source_user_id?: string;
+          ip_hash?: string | null;
+          device_fingerprint_hash?: string | null;
+          reason?: string;
+          active?: boolean;
+          last_seen_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       auction_item_public_state: {
