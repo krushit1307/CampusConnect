@@ -246,152 +246,150 @@ export default function EventDashboard() {
     ],
   };
 
-function EventLiveSupportPanel({ eventId }: { eventId: string }) {
-  const supabase = createClient();
-  const [tickets, setTickets] = useState<any[]>([]);
+  function EventLiveSupportPanel({ eventId }: { eventId: string }) {
+    const supabase = createClient();
+    const [tickets, setTickets] = useState<any[]>([]);
 
-  useEffect(() => {
-    if (!eventId) return;
+    useEffect(() => {
+      if (!eventId) return;
 
-    supabase
-      .from("event_live_tickets")
-      .select("id, message, status, created_at, user_id")
-      .eq("event_id", eventId)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (data) setTickets(data);
-      });
+      supabase
+        .from("event_live_tickets")
+        .select("id, message, status, created_at, user_id")
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: false })
+        .then(({ data }) => {
+          if (data) setTickets(data);
+        });
 
-    const channel = supabase
-      .channel("event_live_tickets_channel")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "event_live_tickets",
-          filter: `event_id=eq.${eventId}`,
-        },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setTickets((prev) => [payload.new, ...prev]);
-            toast.error(`New Support Ticket: "${payload.new.message}"`, {
-              duration: 8000,
-            });
+      const channel = supabase
+        .channel("event_live_tickets_channel")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "event_live_tickets",
+            filter: `event_id=eq.${eventId}`,
+          },
+          (payload) => {
+            if (payload.eventType === "INSERT") {
+              setTickets((prev) => [payload.new, ...prev]);
+              toast.error(`New Support Ticket: "${payload.new.message}"`, {
+                duration: 8000,
+              });
 
-            // Web Audio API beep sound
-            try {
-              const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-              const osc = audioCtx.createOscillator();
-              const gain = audioCtx.createGain();
-              osc.type = "sine";
-              osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-              gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-              osc.connect(gain);
-              gain.connect(audioCtx.destination);
-              osc.start();
-              osc.stop(audioCtx.currentTime + 0.25);
-            } catch (e) {
-              console.warn("Audio Context block: ", e);
+              // Web Audio API beep sound
+              try {
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+              } catch (e) {
+                console.warn("Audio Context block: ", e);
+              }
+            } else if (payload.eventType === "UPDATE") {
+              setTickets((prev) => prev.map((t) => (t.id === payload.new.id ? payload.new : t)));
             }
-          } else if (payload.eventType === "UPDATE") {
-            setTickets((prev) =>
-              prev.map((t) => (t.id === payload.new.id ? payload.new : t))
-            );
-          }
-        }
-      )
-      .subscribe();
+          },
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [eventId, supabase]);
+
+    const resolveTicket = async (ticketId: string) => {
+      const { error } = await supabase
+        .from("event_live_tickets")
+        .update({ status: "resolved", updated_at: new Date().toISOString() })
+        .eq("id", ticketId);
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Ticket resolved!");
+      }
     };
-  }, [eventId, supabase]);
 
-  const resolveTicket = async (ticketId: string) => {
-    const { error } = await supabase
-      .from("event_live_tickets")
-      .update({ status: "resolved", updated_at: new Date().toISOString() })
-      .eq("id", ticketId);
+    const openTickets = tickets.filter((t) => t.status === "open");
+    const resolvedTickets = tickets.filter((t) => t.status === "resolved");
 
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Ticket resolved!");
-    }
-  };
+    return (
+      <div className="neu-border bg-white p-5 shadow-[4px_4px_0_0_#000] text-black">
+        <h2 className="font-display text-xl font-black uppercase mb-4 flex items-center gap-2">
+          🚨 Live Support Ticketing
+        </h2>
+        <p className="font-mono text-xs text-black/60 mb-4">
+          Incoming real-time issues reported by attendees during the event.
+        </p>
 
-  const openTickets = tickets.filter((t) => t.status === "open");
-  const resolvedTickets = tickets.filter((t) => t.status === "resolved");
-
-  return (
-    <div className="neu-border bg-white p-5 shadow-[4px_4px_0_0_#000] text-black">
-      <h2 className="font-display text-xl font-black uppercase mb-4 flex items-center gap-2">
-        🚨 Live Support Ticketing
-      </h2>
-      <p className="font-mono text-xs text-black/60 mb-4">
-        Incoming real-time issues reported by attendees during the event.
-      </p>
-
-      {/* Alert Banner for Open Tickets */}
-      {openTickets.length > 0 && (
-        <div className="border-2 border-black bg-red-100 p-3 mb-4 animate-pulse font-mono text-xs font-bold text-red-800 uppercase flex items-center justify-between">
-          <span>⚠️ {openTickets.length} unresolved issue(s) reported!</span>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Open tickets column */}
-        <div className="border-2 border-black p-4 space-y-3 bg-gray-50">
-          <h3 className="font-mono text-xs font-bold uppercase text-red-600">
-            Open Tickets ({openTickets.length})
-          </h3>
-          <div className="space-y-2">
-            {openTickets.length > 0 ? (
-              openTickets.map((t) => (
-                <div key={t.id} className="border border-black bg-white p-3 space-y-2">
-                  <p className="font-mono text-xs font-bold">{t.message}</p>
-                  <div className="flex items-center justify-between text-[9px] text-gray-500 font-mono">
-                    <span>{new Date(t.created_at).toLocaleTimeString()}</span>
-                    <button
-                      onClick={() => resolveTicket(t.id)}
-                      className="border border-black bg-green-200 px-2 py-1 font-bold uppercase text-green-800 hover:bg-green-300 transition-colors"
-                    >
-                      Resolve
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="font-mono text-xs text-gray-400 italic">No open issues.</p>
-            )}
+        {/* Alert Banner for Open Tickets */}
+        {openTickets.length > 0 && (
+          <div className="border-2 border-black bg-red-100 p-3 mb-4 animate-pulse font-mono text-xs font-bold text-red-800 uppercase flex items-center justify-between">
+            <span>⚠️ {openTickets.length} unresolved issue(s) reported!</span>
           </div>
-        </div>
+        )}
 
-        {/* Resolved tickets column */}
-        <div className="border-2 border-black p-4 space-y-3 bg-gray-50">
-          <h3 className="font-mono text-xs font-bold uppercase text-green-600">
-            Resolved Tickets ({resolvedTickets.length})
-          </h3>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {resolvedTickets.length > 0 ? (
-              resolvedTickets.map((t) => (
-                <div key={t.id} className="border border-black bg-white p-3 opacity-60">
-                  <p className="font-mono text-xs line-through">{t.message}</p>
-                  <p className="text-[9px] text-gray-400 font-mono mt-1">
-                    Resolved at {new Date(t.updated_at || t.created_at).toLocaleTimeString()}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <p className="font-mono text-xs text-gray-400 italic">No resolved issues yet.</p>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Open tickets column */}
+          <div className="border-2 border-black p-4 space-y-3 bg-gray-50">
+            <h3 className="font-mono text-xs font-bold uppercase text-red-600">
+              Open Tickets ({openTickets.length})
+            </h3>
+            <div className="space-y-2">
+              {openTickets.length > 0 ? (
+                openTickets.map((t) => (
+                  <div key={t.id} className="border border-black bg-white p-3 space-y-2">
+                    <p className="font-mono text-xs font-bold">{t.message}</p>
+                    <div className="flex items-center justify-between text-[9px] text-gray-500 font-mono">
+                      <span>{new Date(t.created_at).toLocaleTimeString()}</span>
+                      <button
+                        onClick={() => resolveTicket(t.id)}
+                        className="border border-black bg-green-200 px-2 py-1 font-bold uppercase text-green-800 hover:bg-green-300 transition-colors"
+                      >
+                        Resolve
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="font-mono text-xs text-gray-400 italic">No open issues.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Resolved tickets column */}
+          <div className="border-2 border-black p-4 space-y-3 bg-gray-50">
+            <h3 className="font-mono text-xs font-bold uppercase text-green-600">
+              Resolved Tickets ({resolvedTickets.length})
+            </h3>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {resolvedTickets.length > 0 ? (
+                resolvedTickets.map((t) => (
+                  <div key={t.id} className="border border-black bg-white p-3 opacity-60">
+                    <p className="font-mono text-xs line-through">{t.message}</p>
+                    <p className="text-[9px] text-gray-400 font-mono mt-1">
+                      Resolved at {new Date(t.updated_at || t.created_at).toLocaleTimeString()}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="font-mono text-xs text-gray-400 italic">No resolved issues yet.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <SiteShell>
@@ -422,7 +420,9 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
                     if (error) {
                       toast.error(error.message);
                     } else {
-                      toast.success(checked ? "Added to Public Showcase!" : "Removed from Public Showcase.");
+                      toast.success(
+                        checked ? "Added to Public Showcase!" : "Removed from Public Showcase.",
+                      );
                       refetchEventData();
                     }
                   }}
@@ -450,6 +450,13 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
               >
                 Duplicate Event
               </button>
+
+              <button
+                onClick={() => navigate(`/events/${eventId}/scoreboard`)}
+                className="neu-border neu-press bg-blue-400 text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform whitespace-nowrap"
+              >
+                Scoreboard Admin
+              </button>
             </div>
           </div>
 
@@ -461,7 +468,8 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
                   Google Sheets Live Sync 📊
                 </h2>
                 <p className="font-mono text-xs text-emerald-700/80 mt-1">
-                  Keep your catering team, club officers, and spreadsheet tools up to date with automatic live RSVP exports.
+                  Keep your catering team, club officers, and spreadsheet tools up to date with
+                  automatic live RSVP exports.
                 </p>
               </div>
               {sheetLink?.linked ? (
@@ -653,7 +661,7 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
               </Suspense>
             </div>
           </div>
-          
+
           <div className="mb-8 border-2 border-black bg-white p-5 shadow-[4px_4px_0_0_#000]">
             <ManageTicketTiers eventId={eventId!} />
           </div>
