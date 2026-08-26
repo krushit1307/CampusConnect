@@ -5,58 +5,73 @@
 import { supabase } from "./supabase/client";
 
 export interface InventoryItem {
-    id: string;
-    name: string;
-    barcode: string;
-    category: string;
-    condition: "good" | "damaged" | "maintenance";
-    damage_notes: string | null;
-    is_active: boolean;
+  id: string;
+  name: string;
+  barcode: string;
+  category: string;
+  condition: "good" | "damaged" | "maintenance";
+  damage_notes: string | null;
+  is_active: boolean;
+  owner_club_id?: string | null;
+  is_rentable: boolean;
+  daily_rental_rate: number;
+  rental_price_per_day: number;
+}
+
+export interface EquipmentRentalContract {
+  id: string;
+  rental_id: string;
+  contract_text: string;
+  renter_club_id: string;
+  owner_club_id: string;
+  item_id: string;
+  liability_limit_cents: number;
+  created_at: string;
 }
 
 export interface EquipmentReservation {
-    id: string;
-    item_id: string;
-    club_id: string;
-    reserved_by: string;
-    start_date: string;
-    end_date: string;
-    status: "pending" | "approved" | "checked_out" | "returned" | "overdue" | "cancelled";
-    checked_out_at: string | null;
-    returned_at: string | null;
-    notes: string | null;
+  id: string;
+  item_id: string;
+  club_id: string;
+  reserved_by: string;
+  start_date: string;
+  end_date: string;
+  status: "pending" | "approved" | "checked_out" | "returned" | "overdue" | "cancelled";
+  checked_out_at: string | null;
+  returned_at: string | null;
+  notes: string | null;
 }
 
 export interface AvailabilityResult {
-    available: boolean;
+  available: boolean;
 }
 
 /**
  * Fetch all active inventory items.
  */
 export async function fetchInventory(): Promise<InventoryItem[]> {
-    const { data, error } = await supabase
-        .from("inventory_items")
-        .select("*")
-        .eq("is_active", true)
-        .order("name");
+  const { data, error } = await supabase
+    .from("inventory_items")
+    .select("*")
+    .eq("is_active", true)
+    .order("name");
 
-    if (error || !data) return [];
-    return data as InventoryItem[];
+  if (error || !data) return [];
+  return data as InventoryItem[];
 }
 
 /**
  * Fetch all reservations for a specific item.
  */
 export async function fetchReservations(itemId: string): Promise<EquipmentReservation[]> {
-    const { data, error } = await supabase
-        .from("equipment_reservations")
-        .select("*")
-        .eq("item_id", itemId)
-        .order("start_date", { ascending: true });
+  const { data, error } = await supabase
+    .from("equipment_reservations")
+    .select("*")
+    .eq("item_id", itemId)
+    .order("start_date", { ascending: true });
 
-    if (error || !data) return [];
-    return data as EquipmentReservation[];
+  if (error || !data) return [];
+  return data as EquipmentReservation[];
 }
 
 /**
@@ -64,66 +79,66 @@ export async function fetchReservations(itemId: string): Promise<EquipmentReserv
  * Calls the `check_equipment_availability` RPC.
  */
 export async function checkAvailability(
-    itemId: string,
-    startDate: string,
-    endDate: string
+  itemId: string,
+  startDate: string,
+  endDate: string,
 ): Promise<boolean> {
-    const { data, error } = await supabase.rpc("check_equipment_availability", {
-        p_item_id: itemId,
-        p_start_date: startDate,
-        p_end_date: endDate,
-    });
+  const { data, error } = await supabase.rpc("check_equipment_availability", {
+    p_item_id: itemId,
+    p_start_date: startDate,
+    p_end_date: endDate,
+  });
 
-    if (error || data === null) return false;
-    return Boolean(data);
+  if (error || data === null) return false;
+  return Boolean(data);
 }
 
 /**
  * Create a new reservation.
  */
 export async function createReservation(
-    itemId: string,
-    clubId: string,
-    userId: string,
-    startDate: string,
-    endDate: string,
-    notes?: string
+  itemId: string,
+  clubId: string,
+  userId: string,
+  startDate: string,
+  endDate: string,
+  notes?: string,
 ): Promise<{ success: boolean; error?: string }> {
-    const { error } = await supabase.from("equipment_reservations").insert({
-        item_id: itemId,
-        club_id: clubId,
-        reserved_by: userId,
-        start_date: startDate,
-        end_date: endDate,
-        status: "pending",
-        notes: notes ?? null,
-    });
+  const { error } = await supabase.from("equipment_reservations").insert({
+    item_id: itemId,
+    club_id: clubId,
+    reserved_by: userId,
+    start_date: startDate,
+    end_date: endDate,
+    status: "pending",
+    notes: notes ?? null,
+  });
 
-    if (error) {
-        return { success: false, error: error.message };
-    }
-    return { success: true };
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  return { success: true };
 }
 
 /**
  * Scan a barcode and check out the item for the given reservation.
  */
 export async function checkOutEquipment(
-    barcode: string,
-    reservationId: string
+  barcode: string,
+  reservationId: string,
 ): Promise<{ success: boolean; message: string }> {
-    const { data, error } = await supabase.rpc("check_out_equipment", {
-        p_barcode: barcode,
-        p_reservation_id: reservationId,
-    });
+  const { data, error } = await supabase.rpc("check_out_equipment", {
+    p_barcode: barcode,
+    p_reservation_id: reservationId,
+  });
 
-    if (error || !data || data.success === false) {
-        return {
-            success: false,
-            message: data?.error ?? error?.message ?? "Checkout failed.",
-        };
-    }
-    return { success: true, message: data.message };
+  if (error || !data || data.success === false) {
+    return {
+      success: false,
+      message: data?.error ?? error?.message ?? "Checkout failed.",
+    };
+  }
+  return { success: true, message: data.message };
 }
 
 /**
@@ -131,21 +146,21 @@ export async function checkOutEquipment(
  * Supports damage reporting.
  */
 export async function checkInEquipment(
-    barcode: string,
-    condition: "good" | "damaged" = "good",
-    damageNotes?: string
+  barcode: string,
+  condition: "good" | "damaged" = "good",
+  damageNotes?: string,
 ): Promise<{ success: boolean; message: string }> {
-    const { data, error } = await supabase.rpc("check_in_equipment", {
-        p_barcode: barcode,
-        p_condition: condition,
-        p_damage_notes: damageNotes ?? null,
-    });
+  const { data, error } = await supabase.rpc("check_in_equipment", {
+    p_barcode: barcode,
+    p_condition: condition,
+    p_damage_notes: damageNotes ?? null,
+  });
 
-    if (error || !data || data.success === false) {
-        return {
-            success: false,
-            message: data?.error ?? error?.message ?? "Check-in failed.",
-        };
-    }
-    return { success: true, message: data.message };
+  if (error || !data || data.success === false) {
+    return {
+      success: false,
+      message: data?.error ?? error?.message ?? "Check-in failed.",
+    };
+  }
+  return { success: true, message: data.message };
 }
