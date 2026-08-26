@@ -30,6 +30,16 @@ export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map((tag) => ({
   label: tag,
 }));
 
+export const RESOURCE_OPTIONS = [
+  { value: "projector", label: "Projector & Screen" },
+  { value: "pa_system", label: "PA System / Microphones" },
+  { value: "hdmi_cables", label: "HDMI / A/V Cables" },
+  { value: "extension_cords", label: "Extension Cords" },
+  { value: "chairs", label: "Extra Chairs" },
+  { value: "tables", label: "Folding Tables" },
+  { value: "whiteboard", label: "Whiteboard & Markers" },
+];
+
 export const TITLE_MAX_LENGTH = 100;
 
 export const accessibilityFeaturesSchema = z.object({
@@ -88,6 +98,7 @@ export const eventFormSchema = z
       .optional()
       .nullable()
       .or(z.literal("")),
+    resourceNeeds: z.array(z.string()).optional().default([]),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",

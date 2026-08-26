@@ -33,6 +33,7 @@ import {
   removeFaq,
   updateFaq,
   DEFAULT_EVENT_TAG_OPTIONS,
+  RESOURCE_OPTIONS,
   type EventFormValues,
 } from "@/lib/eventUtils";
 import { EventLogisticsService } from "@/services/eventLogisticsService";
@@ -377,6 +378,28 @@ export function CreateEventDialog({
 
         if (error) {
           throw new Error(error.message);
+        }
+
+        if (createdData?.id && values.resourceNeeds && values.resourceNeeds.length > 0) {
+          try {
+            const { error: resourceError } = await supabase.from("event_resource_requests").insert({
+              event_id: createdData.id,
+              resources: values.resourceNeeds,
+              status: "pending",
+              provider: "zendesk", // Default extensible provider
+            });
+            if (resourceError) {
+              console.warn("Failed to log resource request:", resourceError);
+            } else {
+              supabase.functions
+                .invoke("submit-resource-ticket", {
+                  body: { eventId: createdData.id },
+                })
+                .catch((err) => console.warn("Failed to invoke submit-resource-ticket:", err));
+            }
+          } catch (e) {
+            console.warn("Resource req fail", e);
+          }
         }
 
         if (createdData?.id) {
@@ -1174,6 +1197,35 @@ export function CreateEventDialog({
                     />
                   </div>
                 </div>
+
+                <FormField
+                  control={control}
+                  name="resourceNeeds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                        Resource Needs (IT & Facilities)
+                      </FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          value={(field.value || []).map((res: string) => {
+                            const option = RESOURCE_OPTIONS.find((o) => o.value === res);
+                            return { value: res, label: option?.label || res };
+                          })}
+                          onChange={(resources) => field.onChange(resources.map((r) => r.value))}
+                          options={RESOURCE_OPTIONS}
+                          placeholder="Select required resources..."
+                          allowCustom={true}
+                        />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-black/50">
+                        Automatically opens a ticket with the provider (e.g. Zendesk) for requested
+                        items.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
 
