@@ -274,6 +274,16 @@ serve(async (req: Request) => {
  feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
+ feature/club-vitality-monitor-3949
+
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ main
 
  feature/double-booking-penalty-4045
  feature/double-booking-penalty-4045
@@ -408,6 +418,16 @@ serve(async (req: Request) => {
  feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
+ feature/club-vitality-monitor-3949
+
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+ main
 
  feature/double-booking-penalty-4045
  feature/double-booking-penalty-4045
