@@ -41,6 +41,8 @@ export function TicketPricingTimeline({
   const [dynamicPrice, setDynamicPrice] = useState<number | null>(null);
   const [ticketsUntilIncrease, setTicketsUntilIncrease] = useState<number | null>(null);
   const [flashSale, setFlashSale] = useState<ActiveFlashSale | null>(null);
+  const [isGroupRsvp, setIsGroupRsvp] = useState(false);
+  const [friendEmails, setFriendEmails] = useState<string[]>(["", "", "", ""]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,6 +177,15 @@ export function TicketPricingTimeline({
 
   const handlePurchase = async () => {
     setPurchasing(true);
+    const activeEmails = isGroupRsvp ? friendEmails.filter((e) => e.trim() !== "") : [];
+    if (isGroupRsvp && activeEmails.length !== 4) {
+      toast.error(
+        "Please provide exactly 4 friend emails to receive the Buy 4, Get 1 Free discount!",
+      );
+      setPurchasing(false);
+      return;
+    }
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL || "http://localhost:54321"}/functions/v1/create-stripe-checkout`,
@@ -186,7 +197,8 @@ export function TicketPricingTimeline({
           },
           body: JSON.stringify({
             eventId,
-            quantity: 1,
+            quantity: isGroupRsvp ? 5 : 1,
+            friendEmails: isGroupRsvp ? activeEmails : [],
           }),
         },
       );
@@ -355,6 +367,60 @@ export function TicketPricingTimeline({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Group RSVP Discount Section */}
+      {(activeTier || isDynamic || flashSale) && (
+        <div className="mt-6 border-t-2 border-black/10 pt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              type="checkbox"
+              id="group-rsvp-checkbox"
+              checked={isGroupRsvp}
+              onChange={(e) => setIsGroupRsvp(e.target.checked)}
+              className="w-4 h-4 rounded border-2 border-black text-lime focus:ring-0 focus:ring-offset-0 cursor-pointer"
+            />
+            <label
+              htmlFor="group-rsvp-checkbox"
+              className="font-mono text-sm font-bold uppercase tracking-wider cursor-pointer"
+            >
+              👥 Buy for a Group (Buy 4, Get 1 Ticket Free!)
+            </label>
+          </div>
+
+          {isGroupRsvp && (
+            <div className="bg-cream border-2 border-black p-4 rounded-lg flex flex-col gap-3 font-mono text-sm">
+              <p className="text-xs text-black/70 font-semibold uppercase tracking-wide">
+                Enter your 4 friends' emails to invite them. They must be registered platform users.
+              </p>
+              {friendEmails.map((email, idx) => (
+                <div key={idx} className="flex flex-col gap-1">
+                  <label
+                    htmlFor={`friend-email-${idx}`}
+                    className="text-[10px] font-bold uppercase"
+                  >
+                    Friend {idx + 1} Email
+                  </label>
+                  <input
+                    id={`friend-email-${idx}`}
+                    type="email"
+                    placeholder="friend@college.edu"
+                    value={email}
+                    onChange={(e) => {
+                      const updated = [...friendEmails];
+                      updated[idx] = e.target.value;
+                      setFriendEmails(updated);
+                    }}
+                    className="border-2 border-black rounded-md px-3 py-1.5 bg-white text-sm focus:outline-none"
+                  />
+                </div>
+              ))}
+              <div className="bg-lime/20 border border-black/30 p-2 rounded text-xs text-center font-bold">
+                🎉 Buy 4, Get 1 Free coupon discount will be automatically applied at checkout!
+              </div>
+            </div>
+          )}
         </div>
       )}
 
