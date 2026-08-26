@@ -30,6 +30,7 @@ DECLARE
   v_events JSON;
   v_retention JSON;
   v_super_fans JSON;
+  v_churn_reasons JSON; -- NEW: Added variable for churn analytics
 BEGIN
 
   -- ----------------------------------------------------------
@@ -80,9 +81,6 @@ BEGIN
   -- ----------------------------------------------------------
   -- Only non-cancelled events are considered actual series
   -- instances.
-  --
-  -- A cancelled/rescheduled instance therefore does not create
-  -- a false 0% retention point.
   -- ----------------------------------------------------------
   WITH series_events AS (
     SELECT
@@ -106,7 +104,6 @@ BEGIN
 
   -- ----------------------------------------------------------
   -- Total unique attendees across the complete series.
-  -- Attendance is based on checked_in = true.
   -- ----------------------------------------------------------
   SELECT COUNT(DISTINCT r.user_id)
   INTO v_total_unique_attendees
@@ -122,8 +119,7 @@ BEGIN
 
 
   -- ----------------------------------------------------------
-  -- Core cohort:
-  -- users who attended every non-cancelled series event.
+  -- Core cohort
   -- ----------------------------------------------------------
   WITH series_events AS (
     SELECT e.id
@@ -151,8 +147,7 @@ BEGIN
 
 
   -- ----------------------------------------------------------
-  -- One-time drop-ins:
-  -- users who attended exactly one series event.
+  -- One-time drop-ins
   -- ----------------------------------------------------------
   WITH series_events AS (
     SELECT e.id
@@ -180,7 +175,7 @@ BEGIN
 
 
   -- ----------------------------------------------------------
-  -- Event-level summary.
+  -- Event-level summary
   -- ----------------------------------------------------------
   WITH series_events AS (
     SELECT
@@ -228,11 +223,7 @@ BEGIN
 
 
   -- ----------------------------------------------------------
-  -- Retention:
-  --
-  -- Week 1 = 100%.
-  -- Each following week represents the percentage of the
-  -- original Week 1 cohort that attended that week.
+  -- Retention
   -- ----------------------------------------------------------
   WITH series_events AS (
     SELECT
@@ -300,8 +291,7 @@ BEGIN
 
 
   -- ----------------------------------------------------------
-  -- Super Fans:
-  -- users who attended every valid series instance.
+  -- Super Fans
   -- ----------------------------------------------------------
   WITH series_events AS (
     SELECT e.id
@@ -338,6 +328,40 @@ BEGIN
   INTO v_super_fans
   FROM super_fans sf;
 
+  -- ----------------------------------------------------------
+  -- NEW: Churn Reasons Aggregation
+  -- ----------------------------------------------------------
+  WITH series_events AS (
+    SELECT e.id
+    FROM public.events e
+    WHERE e.series_id = p_series_id
+      AND LOWER(COALESCE(e.status, '')) NOT IN (
+        'cancelled',
+        'canceled'
+      )
+  ),
+  churn_stats AS (
+    SELECT
+      ef.churn_reason AS reason,
+      COUNT(*) AS count
+    FROM public.event_feedback ef
+    JOIN series_events se ON se.id = ef.event_id
+    WHERE ef.churn_reason IS NOT NULL
+    GROUP BY ef.churn_reason
+  )
+  SELECT COALESCE(
+    json_agg(
+      json_build_object(
+        'reason', cs.reason,
+        'count', cs.count
+      )
+      ORDER BY cs.count DESC
+    ),
+    '[]'::json
+  )
+  INTO v_churn_reasons
+  FROM churn_stats cs;
+
 
   RETURN json_build_object(
     'series_id', p_series_id,
@@ -347,7 +371,8 @@ BEGIN
     'one_time_dropins', COALESCE(v_one_time_dropins, 0),
     'events', COALESCE(v_events, '[]'::json),
     'retention', COALESCE(v_retention, '[]'::json),
-    'super_fans', COALESCE(v_super_fans, '[]'::json)
+    'super_fans', COALESCE(v_super_fans, '[]'::json),
+    'churn_reasons', COALESCE(v_churn_reasons, '[]'::json) -- NEW: Return the churn reasons array
   );
 END;
 $$;

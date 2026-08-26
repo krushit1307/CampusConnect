@@ -32,9 +32,17 @@ const createMockInventory = (): InventoryItemWithValuation[] => [
         purchase_price: 1200.00, asset_class: 'FURNITURE', condition_status: 'FAIR',
         net_book_value: 582.86, percent_lifespan_used: 57.14,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    },
+    {
+        id: '3', club_id: 'club-1', name: 'Canon EOS DSLR Camera',
+        purchase_date: new Date(Date.now() - 3.154e9).toISOString(),
+        purchase_price: 1000.00, asset_class: 'ELECTRONICS', condition_status: 'GOOD',
+        net_book_value: 890.00, percent_lifespan_used: 11,
+        due_date: new Date(Date.now() - 2 * 86400000).toISOString(), // 2 days overdue
+        checked_out_to: 'a Photography Club member', is_overdue: true,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     }
 ];
-
 export const useDepreciation = (clubId: string) => {
     const [balanceSheet, setBalanceSheet] = useState<ClubBalanceSheet | null>(null);
     const [inventory, setInventory] = useState<InventoryItemWithValuation[]>([]);
