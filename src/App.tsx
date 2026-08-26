@@ -32,6 +32,7 @@ import { EmergencyBroadcastOverlay } from "@/components/EmergencyBroadcastOverla
 import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
 import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
 import { ComplianceCheckGuard } from "@/components/auth/ComplianceCheckGuard";
+import { ShadowbanEvasionCheck } from "@/components/Auth/ShadowbanEvasionCheck";
 import UnsubscribeRoute from "./routes/unsubscribe";
 function RemoteLoadingScreen() {
   return (
@@ -633,6 +634,7 @@ export default function App() {
                   <BreadcrumbProvider>
                     <MotionConfig reducedMotion="user">
                       <PushDeepLinkListener router={router} />
+                      <ShadowbanEvasionCheck />
                       <RouterProvider router={router} />
                     </MotionConfig>
                   </BreadcrumbProvider>
