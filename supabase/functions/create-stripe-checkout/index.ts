@@ -9,6 +9,13 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@13.0.0?target=deno";
+import {
+  AFFILIATE_SOURCE_METADATA_KEY,
+  buildAffiliateSourceMetadata,
+  calculateMultiCampusRevenueSplit,
+  formatAffiliateConnectCharge,
+  shouldApplyAffiliateSplit,
+} from "../_shared/multiCampusRevenueSplit.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2023-10-16",
@@ -22,6 +29,80 @@ const corsHeaders = {
 interface DiscountRule {
   min_qty: number;
   discount_pct: number;
+}
+
+type AdminClient = ReturnType<typeof createClient>;
+
+async function resolveBuyerCampusInstanceId(
+  admin: AdminClient,
+  userId: string,
+): Promise<string> {
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("college, campus_instance_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profile?.campus_instance_id) return profile.campus_instance_id;
+
+  const college = (profile?.college || "").trim();
+  if (!college) return "";
+
+  const { data: campus } = await admin
+    .from("campus_instances")
+    .select("id")
+    .ilike("institution_name", college)
+    .limit(1)
+    .maybeSingle();
+
+  return campus?.id || "";
+}
+
+async function resolveAffiliateCheckout(opts: {
+  admin: AdminClient;
+  userId: string;
+  event: { club_id?: string | null; clubs?: unknown };
+  grossCents: number;
+}) {
+  const clubRow = opts.event.clubs;
+  const club = (Array.isArray(clubRow) ? clubRow[0] : clubRow) as {
+    id?: string;
+    campus_instance_id?: string | null;
+    stripe_account_id?: string | null;
+  } | null;
+
+  const buyerInstanceId = await resolveBuyerCampusInstanceId(opts.admin, opts.userId);
+  const hostInstanceId =
+    (club?.campus_instance_id || "").trim() ||
+    (Deno.env.get("CAMPUS_INSTANCE_ID") || "").trim();
+
+  if (!shouldApplyAffiliateSplit(buyerInstanceId, hostInstanceId)) {
+    return null;
+  }
+
+  const split = calculateMultiCampusRevenueSplit(opts.grossCents);
+  let affiliateStripeAccount = "";
+  const { data: affiliateCampus } = await opts.admin
+    .from("campus_instances")
+    .select("student_union_stripe_account_id")
+    .eq("id", buyerInstanceId)
+    .maybeSingle();
+  affiliateStripeAccount = affiliateCampus?.student_union_stripe_account_id || "";
+
+  const hostStripeAccountId = club?.stripe_account_id || "";
+  const connect = hostStripeAccountId
+    ? formatAffiliateConnectCharge(split, hostStripeAccountId)
+    : null;
+
+  return {
+    buyerInstanceId,
+    hostInstanceId,
+    hostClubId: club?.id || opts.event.club_id || "",
+    affiliateStripeAccount,
+    split,
+    connect,
+    affiliateSourceMetadata: buildAffiliateSourceMetadata(buyerInstanceId),
+  };
 }
 
 serve(async (req) => {
@@ -98,7 +179,7 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabase
       .from("events")
-      .select("title")
+      .select("title, club_id, clubs ( id, campus_instance_id, stripe_account_id )")
       .eq("id", eventId)
       .single();
 
@@ -403,6 +484,28 @@ serve(async (req) => {
     }
 
     // 7. Create Stripe Checkout Session for remaining balance
+    const affiliate = remainingToChargeCents > 0
+      ? await resolveAffiliateCheckout({
+          admin: adminSupabase,
+          userId: user.id,
+          event,
+          grossCents: remainingToChargeCents,
+        })
+      : null;
+
+    const paymentIntentData: Record<string, unknown> = {
+      setup_future_usage: "off_session",
+    };
+    if (affiliate) {
+      paymentIntentData.metadata = affiliate.affiliateSourceMetadata;
+      if (affiliate.connect) {
+        paymentIntentData.application_fee_amount = affiliate.connect.applicationFeeAmountCents;
+        paymentIntentData.transfer_data = {
+          destination: affiliate.connect.destinationAccountId,
+        };
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: lineItems,
@@ -421,11 +524,21 @@ serve(async (req) => {
         group_checkout: (friendUserIds.length > 0).toString(),
         friend_user_ids: friendUserIds.join(","),
         friend_emails: (friendEmails || []).join(","),
+        ...(affiliate
+          ? {
+              [AFFILIATE_SOURCE_METADATA_KEY]: affiliate.buyerInstanceId,
+              host_instance_id: affiliate.hostInstanceId,
+              host_club_id: affiliate.hostClubId,
+              affiliate_stripe_account: affiliate.affiliateStripeAccount,
+              gross_cents: affiliate.split.grossCents.toString(),
+              host_club_cents: affiliate.split.hostClubCents.toString(),
+              affiliate_cents: affiliate.split.affiliateCents.toString(),
+              platform_fee_cents: affiliate.split.platformFeeCents.toString(),
+            }
+          : {}),
       },
       // Enforce "All or Nothing" refund policy for group purchases
-      payment_intent_data: {
-        setup_future_usage: "off_session",
-      },
+      payment_intent_data: paymentIntentData,
     });
 
     return new Response(

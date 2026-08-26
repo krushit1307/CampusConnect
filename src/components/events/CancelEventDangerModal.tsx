@@ -5,13 +5,15 @@
 // to unlock automated mass cancellation, Stripe refund batching, and attendee alerts.
 // =============================================================================
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   validateCancellationConfirmation,
   cancelEventAndRefund,
   processBatchRefunds,
+  getEventInsurancePolicyId,
   EventCancellationResult,
 } from "../../services/eventCancellationService";
+import { EVENT_CANCELLATION_REASONS, FILE_CLAIM_PROMPT } from "../../lib/eventInsuranceClaim";
 
 interface CancelEventDangerModalProps {
   eventId: string;
@@ -33,13 +35,38 @@ export const CancelEventDangerModal: React.FC<CancelEventDangerModalProps> = ({
   onSuccess,
 }) => {
   const [typedConfirmation, setTypedConfirmation] = useState("");
-  const [reason, setReason] = useState("Severe Weather Emergency / Event Cancelled");
+  const [reason, setReason] = useState<(typeof EVENT_CANCELLATION_REASONS)[number]>(
+    EVENT_CANCELLATION_REASONS[0],
+  );
+  const [insurancePolicyId, setInsurancePolicyId] = useState<string | null>(null);
+  const [fileInsuranceClaim, setFileInsuranceClaim] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
   const [result, setResult] = useState<EventCancellationResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setInsurancePolicyId(null);
+      setFileInsuranceClaim(false);
+      return;
+    }
+
+    let cancelled = false;
+    getEventInsurancePolicyId(eventId)
+      .then((policyId) => {
+        if (!cancelled) setInsurancePolicyId(policyId);
+      })
+      .catch(() => {
+        if (!cancelled) setInsurancePolicyId(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, eventId]);
 
   if (!isOpen) return null;
 
@@ -63,7 +90,12 @@ export const CancelEventDangerModal: React.FC<CancelEventDangerModalProps> = ({
       setBatchProgress({ current: processed, total });
     });
 
-    const res = await cancelEventAndRefund(eventId, reason, eventTitle);
+    const res = await cancelEventAndRefund(
+      eventId,
+      reason,
+      eventTitle,
+      Boolean(insurancePolicyId && fileInsuranceClaim),
+    );
     setCancelling(false);
 
     if (res.success) {
@@ -123,24 +155,48 @@ export const CancelEventDangerModal: React.FC<CancelEventDangerModalProps> = ({
                 </li>
                 <li>Send automated email notifications confirming refund arrival in 3-5 days.</li>
                 <li>
-                  Dispatch automated cancellation alerts & contract fee calculations to all <strong>contracted vendors</strong>.
+                  Dispatch automated cancellation alerts & contract fee calculations to all{" "}
+                  <strong>contracted vendors</strong>.
                 </li>
               </ul>
             </div>
 
             <form onSubmit={handleExecuteCancellation} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label
+                  htmlFor="cancellation-reason"
+                  className="block text-xs font-bold text-slate-300 mb-1"
+                >
                   Reason for Cancellation
                 </label>
-                <input
-                  type="text"
+                <select
+                  id="cancellation-reason"
                   value={reason}
-                  onChange={(e) => setReason(e.target.value)}
+                  onChange={(e) =>
+                    setReason(e.target.value as (typeof EVENT_CANCELLATION_REASONS)[number])
+                  }
                   required
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white"
-                />
+                >
+                  {EVENT_CANCELLATION_REASONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {insurancePolicyId && (
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={fileInsuranceClaim}
+                    onChange={(e) => setFileInsuranceClaim(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-600 bg-slate-950"
+                  />
+                  {FILE_CLAIM_PROMPT}
+                </label>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">
@@ -214,8 +270,22 @@ export const CancelEventDangerModal: React.FC<CancelEventDangerModalProps> = ({
               <div>Total Refunded: ${(result.total_refunded_amount_cents || 0) / 100}</div>
               {result.vendor_summary && (
                 <div className="mt-2 pt-2 border-t border-slate-800 text-purple-400 font-semibold">
-                  <div>Vendors Notified: {result.vendor_summary.totalVendorsNotified} (Email, SMS, Webhook)</div>
-                  <div>Total Vendor Cancellation Fees: ${(result.vendor_summary.totalCancellationFeesCents / 100).toLocaleString()}</div>
+                  <div>
+                    Vendors Notified: {result.vendor_summary.totalVendorsNotified} (Email, SMS,
+                    Webhook)
+                  </div>
+                  <div>
+                    Total Vendor Cancellation Fees: $
+                    {(result.vendor_summary.totalCancellationFeesCents / 100).toLocaleString()}
+                  </div>
+                </div>
+              )}
+              {result.insurance_claim && (
+                <div className="mt-2 pt-2 border-t border-slate-800 text-amber-300">
+                  Insurance claim:{" "}
+                  {result.insurance_claim.underwriter_status ||
+                    result.insurance_claim.error ||
+                    "compiled"}
                 </div>
               )}
             </div>

@@ -20,7 +20,7 @@ export default function MagicUpload() {
   useEffect(() => {
     async function validateToken() {
       try {
-        const res = await fetch(\`\${supabaseUrl}/functions/v1/magic-link-upload\`, {
+        const res = await fetch(`${supabaseUrl}/functions/v1/magic-link-upload`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "validate", token }),
@@ -69,7 +69,7 @@ export default function MagicUpload() {
     try {
       // 1. Get signed URLs
       const fileNames = selectedFiles.map(f => f.name);
-      const urlsRes = await fetch(\`\${supabaseUrl}/functions/v1/magic-link-upload\`, {
+      const urlsRes = await fetch(`${supabaseUrl}/functions/v1/magic-link-upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "generate_urls", token, files: fileNames }),
@@ -93,12 +93,12 @@ export default function MagicUpload() {
           },
         });
         
-        if (!uploadRes.ok) throw new Error(\`Failed to upload \${file.name}\`);
+        if (!uploadRes.ok) throw new Error(`Failed to upload ${file.name}`);
         filePaths.push(path);
       }
 
       // 3. Confirm upload
-      const confirmRes = await fetch(\`\${supabaseUrl}/functions/v1/magic-link-upload\`, {
+      const confirmRes = await fetch(`${supabaseUrl}/functions/v1/magic-link-upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "confirm_upload", token, filePaths }),

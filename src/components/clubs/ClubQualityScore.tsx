@@ -43,6 +43,6 @@ export const ClubQualityScore: React.FC<ClubQualityScoreProps> = ({ rating, tota
                     {totalReviews} review{totalReviews !== 1 ? 's' : ''}
                 </span>
             </div>
-        </think>
+        </div>
     );
 }

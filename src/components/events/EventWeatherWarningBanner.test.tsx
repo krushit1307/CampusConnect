@@ -6,6 +6,13 @@ import { EventWeatherWarningBanner } from "./EventWeatherWarningBanner";
 import * as weatherService from "@/services/eventWeatherAlertService";
 
 vi.mock("@/services/eventWeatherAlertService");
+vi.mock("@/services/eventCancellationService", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/eventCancellationService")>();
+  return {
+    ...actual,
+    getEventInsurancePolicyId: vi.fn().mockResolvedValue(null),
+  };
+});
 
 const createTestQueryClient = () =>
   new QueryClient({
@@ -62,7 +69,9 @@ describe("EventWeatherWarningBanner", () => {
     });
 
     expect(await screen.findByText(/CRITICAL WEATHER ALERT/i)).toBeInTheDocument();
-    expect(screen.getByText(/Severe impending weather detected \(THUNDERSTORM\)/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Severe impending weather detected \(THUNDERSTORM\)/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Precipitation probability:/i)).toBeInTheDocument();
     expect(screen.getByText(/88%/i)).toBeInTheDocument();
     expect(screen.getByText(/Cancel Event & Notify/i)).toBeInTheDocument();

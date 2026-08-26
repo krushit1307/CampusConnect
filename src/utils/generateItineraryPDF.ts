@@ -1,10 +1,9 @@
 import pdfMake from "pdfmake/build/pdfmake";
-// @ts-expect-error - pdfmake types can be finicky with the virtual file system
 import pdfFonts from "pdfmake/build/vfs_fonts";
 import QRCode from "qrcode";
-import format from "date-fns/format";
+import { format } from "date-fns";
 
-pdfMake.vfs = pdfFonts.pdfMake.vfs;
+(pdfMake as any).vfs = (pdfFonts as any).pdfMake.vfs;
 
 export const generateItineraryPDF = async (
   itinerary: any[],

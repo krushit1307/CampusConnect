@@ -470,7 +470,7 @@ export function NewsletterEditor({
 
                 {b.type === "divider" && (
                   <div className="py-2 text-center font-mono text-xs text-gray-400">
-                    --- Horizontal Rule Divider ---
+                    //- Horizontal Rule Divider ---
                   </div>
                 )}
               </div>

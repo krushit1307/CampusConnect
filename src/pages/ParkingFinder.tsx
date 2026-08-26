@@ -256,7 +256,7 @@ const TabButton = ({ active, onClick, icon, label, count }: {
 
 // ─── Main Dashboard ───────────────────────────────────────────────
 export default function ParkingFinder() {
-  const [activeTab, setActiveTab] = useState<"spots" | "lots" | "reservations" | "analytics"]<"spots">("spots");
+  const [activeTab, setActiveTab] = useState<"spots" | "lots" | "reservations" | "analytics">("spots");
   const [selectedZone, setSelectedZone] = useState<ParkingZone | "all">("all");
   const [selectedType, setSelectedType] = useState<VehicleType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<SpotStatus | "all">("available");

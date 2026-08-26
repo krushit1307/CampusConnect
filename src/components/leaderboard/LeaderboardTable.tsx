@@ -1,8 +1,8 @@
 // =============================================================================
 // Component: LeaderboardTable
---Issue: #2971 - Develop a 'Cross-Club Leaderboard'(Gamification)
---Description: Renders the full ranked table of clubs below the podium.
---Includes trending indicators(up / down arrows) and detailed metric breakdowns.
+//Issue: #2971 - Develop a 'Cross-Club Leaderboard'(Gamification)
+//Description: Renders the full ranked table of clubs below the podium.
+//Includes trending indicators(up / down arrows) and detailed metric breakdowns.
 // =============================================================================
 
 import React from 'react';

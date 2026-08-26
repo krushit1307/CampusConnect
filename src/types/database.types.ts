@@ -3,31 +3,24 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
-      club_documents: {
-        Row: {
-          id: string;
-          club_id: string;
-          file_url: string;
-          version_number: number;
-          uploaded_by: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          club_id: string;
-          file_url: string;
-          version_number: number;
-          uploaded_by: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          club_id?: string;
-          file_url?: string;
-          version_number?: number;
-          uploaded_by?: string;
-          created_at?: string;
-        };
+
+      event_wifi_access_points: {
+        Row: any;
+        Insert: any;
+        Update: any;
+        Relationships: any;
+      };
+      event_wifi_density_snapshots: {
+        Row: any;
+        Insert: any;
+        Update: any;
+        Relationships: any;
+      };
+      peer_listener_verifications: {
+        Row: any;
+        Insert: any;
+        Update: any;
+        Relationships: any;
       };
       club_transactions: {
         Row: {
@@ -388,6 +381,7 @@ export type Database = {
           widgets_config: Json | null;
           created_at: string;
           updated_at: string;
+          insurance_policy_id: string | null;
         };
         Insert: {
           id?: string;
@@ -420,6 +414,7 @@ export type Database = {
           widgets_config?: Json | null;
           created_at?: string;
           updated_at?: string;
+          insurance_policy_id?: string | null;
         };
         Update: {
           id?: string;
@@ -452,6 +447,7 @@ export type Database = {
           widgets_config?: Json | null;
           created_at?: string;
           updated_at?: string;
+          insurance_policy_id?: string | null;
         };
         Relationships: [];
       };
@@ -687,7 +683,6 @@ export type Database = {
           skills: string[] | null;
           course_codes: string[];
           dietary_restrictions?: string[] | null;
-          dietary_restrictions: string[] | null;
           notification_preferences: Json | null;
           is_banned: boolean;
           strike_count: number;
@@ -1739,7 +1734,7 @@ export type Database = {
           accommodations_requested: string | null;
           no_media_consent: boolean;
           dietary_restrictions?: string[] | null;
-          dietary_restrictions: string[] | null;
+
         };
         Insert: {
           id?: string;

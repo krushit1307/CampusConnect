@@ -216,7 +216,8 @@ export const eventWizardMasterSchema = z
       path: ["compliancePermitUrl"],
     },
   )
-  // Cross-field refinement: end date > start date.  .refine(
+  // Cross-field refinement: end date > start date.
+  .refine(
     (data) => {
       const start = new Date(data.startDate);
       const end = new Date(data.endDate);

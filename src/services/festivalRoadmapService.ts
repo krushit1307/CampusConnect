@@ -5,7 +5,7 @@
 //              iCalendar (.ics) exports, and multi-track session builders.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import type {
   FestivalTrack,
   FestivalSession,

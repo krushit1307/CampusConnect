@@ -67,19 +67,6 @@ export const TicketCard: React.FC<TicketCardProps> = ({
                 </div>
             </div>
 
-            {/* Perforated Edge Effect */}
-            <div className="relative h-4 bg-gray-50 dark:bg-gray-900">
-                <div className="absolute left-0 top-0 w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-full -translate-x-1/2 -translate-y-1/2 border-4 border-white dark:border-gray-800"></div>
-                <div className="absolute right-0 top-0 w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-full translate-x-1/2 -translate-y-1/2 border-4 border-white dark:border-gray-800"></div>
-                <div className="absolute inset-x-8 top-1/2 border-t-2 border-dashed border-gray-300 dark:border-gray-700"></div>
-            </div>
-
-            {/* QR Code Body */}
-            <div className="bg-gray-50 dark:bg-gray-900 p-6 flex flex-col items-center">
-                <div className="relative w-56 h-56 bg-white p-4 rounded-xl shadow-inner mb-4">
-                    {!imageLoaded && !imageError && (
-                        <div className="absolute inset-4 animate-pulse bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    )}
 
       {/* Perforated Edge Effect */}
       <div className="relative h-4 bg-gray-50 dark:bg-gray-900">

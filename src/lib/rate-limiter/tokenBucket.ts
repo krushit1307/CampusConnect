@@ -41,7 +41,7 @@ export async function checkRateLimit(
     local reset_time = tonumber(bucket[2])
     
     if not tokens or not reset_time or now > reset_time then
-      -- Initialize or reset bucket
+      // Initialize or reset bucket
       tokens = max_tokens - 1
       reset_time = now + window
       redis.call('HMSET', key, 'tokens', tokens, 'reset_time', reset_time)
@@ -50,13 +50,13 @@ export async function checkRateLimit(
     end
     
     if tokens > 0 then
-      -- Consume a token
+      // Consume a token
       tokens = tokens - 1
       redis.call('HINCRBY', key, 'tokens', -1)
       return {1, tokens, reset_time}
     end
     
-    -- Bucket empty
+    // Bucket empty
     return {0, 0, reset_time}
   `;
 

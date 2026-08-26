@@ -6,10 +6,16 @@
 // =============================================================================
 
 import { createClient } from "../lib/supabase/client";
-import {
-  vendorCancellationNotificationService,
-} from "./vendorCancellationNotificationService";
+import { vendorCancellationNotificationService } from "./vendorCancellationNotificationService";
 import { VendorCancellationSummary } from "../types/vendorCancellation";
+
+export interface InsuranceClaimResult {
+  success?: boolean;
+  claim_id?: string;
+  underwriter_status?: string;
+  payload?: unknown;
+  error?: string;
+}
 
 export interface EventCancellationResult {
   success: boolean;
@@ -21,6 +27,7 @@ export interface EventCancellationResult {
   total_claims_created?: number;
   total_credit_options_dispatched?: number;
   vendor_summary?: VendorCancellationSummary;
+  insurance_claim?: InsuranceClaimResult;
   message?: string;
   error?: string;
 }
@@ -50,15 +57,34 @@ export function notifyEventVendorsOfCancellation(
 }
 
 /**
+ * Returns the club's active insurance_policy_id for an event, if any.
+ */
+export async function getEventInsurancePolicyId(eventId: string): Promise<string | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("events")
+    .select("clubs(insurance_policy_id)")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  const clubRow = data?.clubs as
+    { insurance_policy_id?: string | null } | { insurance_policy_id?: string | null }[] | null;
+  const club = Array.isArray(clubRow) ? clubRow[0] : clubRow;
+  const policyId = (club?.insurance_policy_id || "").trim();
+  return policyId || null;
+}
+
+/**
  * Cancels an event, updates RSVPs to cancelled, logs refunds, notifies attendees, and dispatches vendor cancellation alerts.
  */
 export async function cancelEventAndRefund(
   eventId: string,
   reason: string = "Event cancelled by organizer due to unforeseen circumstances",
   eventTitle: string = "Campus Event",
+  fileInsuranceClaim = false,
 ): Promise<EventCancellationResult> {
   const supabase = createClient();
-  
+
   // 1. Dispatch automated vendor cancellation notifications
   const vendorSummary = notifyEventVendorsOfCancellation(eventId, eventTitle, reason);
 
@@ -78,6 +104,17 @@ export async function cancelEventAndRefund(
 
   const result = (data || {}) as EventCancellationResult;
   result.vendor_summary = vendorSummary;
+
+  if (fileInsuranceClaim && result.success !== false) {
+    const { data: claimData, error: claimError } = await supabase.functions.invoke(
+      "file-event-insurance-claim",
+      { body: { eventId, reason } },
+    );
+    result.insurance_claim = claimError
+      ? { success: false, error: claimError.message }
+      : (claimData as InsuranceClaimResult);
+  }
+
   return result;
 }
 

@@ -413,15 +413,16 @@ export function EventCard({
               }}
               className=""
             />
-            <Button
-              type="button"
-              onClick={() => setTicketOpen(true)}
-              variant="outline"
-              className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-black"
-            >
-              View Ticket
-            </Button>
-          )}
+            {hasRsvpd && (
+              <Button
+                type="button"
+                onClick={() => setTicketOpen(true)}
+                variant="outline"
+                className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-black"
+              >
+                View Ticket
+              </Button>
+            )}
           {event.audio_recording_url && (
             <Button
               type="button"

@@ -57,6 +57,25 @@ describe("eventCancellationService", () => {
       expect(res.vendor_summary).toBeDefined();
       expect(res.vendor_summary?.totalVendorsNotified).toBeGreaterThan(0);
     });
+
+    it("files an insurance claim when the organizer opts in", async () => {
+      mockInvoke
+        .mockResolvedValueOnce({
+          data: { success: true, total_rsvps_cancelled: 200 },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { success: true, claim_id: "clm-1", underwriter_status: "submitted" },
+          error: null,
+        });
+
+      const res = await cancelEventAndRefund("evt-902", "Severe Weather", "Fall Music Fest", true);
+
+      expect(mockInvoke).toHaveBeenCalledWith("file-event-insurance-claim", {
+        body: { eventId: "evt-902", reason: "Severe Weather" },
+      });
+      expect(res.insurance_claim?.underwriter_status).toBe("submitted");
+    });
   });
 
   describe("processBatchRefunds", () => {

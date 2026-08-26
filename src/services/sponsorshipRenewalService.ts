@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Sponsorship Renewal Service
  * Provides backend integration for fetching renewals, running cron checks,

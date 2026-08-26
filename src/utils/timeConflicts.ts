@@ -1,4 +1,4 @@
-import areIntervalsOverlapping from "date-fns/areIntervalsOverlapping";
+import { areIntervalsOverlapping } from "date-fns";
 
 // Defining a quick type based on your Supabase schema
 export type TimeInterval = {

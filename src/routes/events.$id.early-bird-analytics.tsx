@@ -50,7 +50,7 @@ export default function DynamicEarlyBirdAnalyticsRoute() {
           title: "Campus Annual Music & Tech Fest 2026",
           capacity: 300,
         });
-      } font-bold {
+      } finally {
         setLoading(false);
       }
     };

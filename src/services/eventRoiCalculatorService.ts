@@ -5,7 +5,7 @@
 //              safety margin computations, and exportable financial summaries.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import type {
   ExpenseItem,
   EventFinancialInputs,

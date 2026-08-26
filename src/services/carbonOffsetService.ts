@@ -5,7 +5,7 @@
 //              ecological equivalency models, and impact export utilities.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import type {
   VehicleFuelType,
   GeoLocation,

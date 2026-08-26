@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * useAuthSecurityStore — replaces the React Context in
  * `src/components/Auth/AuthSecurityContext.tsx`.

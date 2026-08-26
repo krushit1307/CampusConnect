@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import Stripe from "https://esm.sh/stripe@14.16.0?target=deno";
 import { rateLimiter } from "../shared/rateLimiter.ts";
 import { signTicket } from "../_shared/ticket-crypto.ts";
+import { AFFILIATE_SOURCE_METADATA_KEY } from "../_shared/multiCampusRevenueSplit.ts";
 import { encode } from "https://deno.land/std@0.177.0/encoding/base64.ts";
 import React from "npm:react@18";
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "npm:@react-pdf/renderer@3";
@@ -559,6 +560,62 @@ Deno.serve(async (req) => {
           }
         } catch (splitErr) {
           console.error(`[Webhook Ingestion] Error processing revenue split:`, splitErr);
+        }
+      }
+
+      // 5d. Multi-campus affiliate revenue split (Issue #4726)
+      const affiliateSource = session.metadata?.[AFFILIATE_SOURCE_METADATA_KEY];
+      const affiliateCents = Number.parseInt(session.metadata?.affiliate_cents || "0", 10);
+      if (affiliateSource && affiliateCents > 0) {
+        try {
+          const paymentIntentId =
+            typeof session.payment_intent === "string"
+              ? session.payment_intent
+              : session.payment_intent?.id || session.id;
+          const affiliateAccount = session.metadata?.affiliate_stripe_account || "";
+          let affiliateTransferId: string | null = null;
+
+          if (affiliateAccount) {
+            try {
+              const transfer = await stripe.transfers.create(
+                {
+                  amount: affiliateCents,
+                  currency: session.currency || "usd",
+                  destination: affiliateAccount,
+                  metadata: {
+                    [AFFILIATE_SOURCE_METADATA_KEY]: affiliateSource,
+                    event_id: session.metadata?.event_id || "",
+                    host_instance_id: session.metadata?.host_instance_id || "",
+                  },
+                },
+                { idempotencyKey: `mc-aff-${paymentIntentId}` },
+              );
+              affiliateTransferId = transfer.id;
+            } catch (transferErr) {
+              console.error("[Webhook Ingestion] Affiliate Stripe Transfer failed:", transferErr);
+            }
+          }
+
+          const { error: affiliateLedgerError } = await supabase
+            .from("multi_campus_revenue_splits")
+            .insert({
+              payment_intent_id: paymentIntentId,
+              event_id: session.metadata?.event_id || ticketEventId || null,
+              host_instance_id: session.metadata?.host_instance_id || "",
+              affiliate_instance_id: affiliateSource,
+              host_club_id: session.metadata?.host_club_id || null,
+              gross_cents: Number.parseInt(session.metadata?.gross_cents || "0", 10),
+              host_club_cents: Number.parseInt(session.metadata?.host_club_cents || "0", 10),
+              affiliate_cents: affiliateCents,
+              platform_fee_cents: Number.parseInt(session.metadata?.platform_fee_cents || "0", 10),
+              affiliate_transfer_id: affiliateTransferId,
+            });
+
+          if (affiliateLedgerError && affiliateLedgerError.code !== "23505") {
+            console.error("[Webhook Ingestion] Failed to record multi-campus split:", affiliateLedgerError);
+          }
+        } catch (affiliateErr) {
+          console.error("[Webhook Ingestion] Error processing multi-campus affiliate split:", affiliateErr);
         }
       }
 

@@ -19,12 +19,8 @@ test.describe("Automated Event Cancellation Refund Orchestration", () => {
     await expect(modalHeading).toBeVisible();
 
     // 3. Fill out the reason for cancellation
-    const reasonInput = page
-      .locator("input")
-      .filter({ hasText: "Reason for Cancellation" })
-      .or(page.getByLabel("Reason for Cancellation"))
-      .or(page.locator('input[type="text"]').first());
-    await reasonInput.fill("Blizzard Warning");
+    const reasonSelect = page.getByLabel("Reason for Cancellation");
+    await reasonSelect.selectOption("Severe Weather");
 
     // 4. Fill out the confirmation text
     const confirmInput = page.getByPlaceholder("Type: CANCEL FALL MUSIC FEST & INDIE BAND CONCERT");

@@ -21,7 +21,7 @@ describe("MagicUpload component", () => {
 
   const renderComponent = (token: string) => {
     render(
-      <MemoryRouter initialEntries={[\`/upload/magic/\${token}\`]}>
+      <MemoryRouter initialEntries={[`/upload/magic/${token}`]}>
         <Routes>
           <Route path="/upload/magic/:token" element={<MagicUpload />} />
         </Routes>

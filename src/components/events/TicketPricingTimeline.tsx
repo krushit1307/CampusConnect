@@ -43,6 +43,8 @@ export function TicketPricingTimeline({
   const [flashSale, setFlashSale] = useState<ActiveFlashSale | null>(null);
   const [isGroupRsvp, setIsGroupRsvp] = useState(false);
   const [friendEmails, setFriendEmails] = useState<string[]>(["", "", "", ""]);
+  const [hasJson, setHasJson] = useState(false);
+  const [selectedTierName, setSelectedTierName] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +103,7 @@ export function TicketPricingTimeline({
         // Fetch event's dynamic pricing details and venue capacity
         const { data: eventData, error: eventError } = await supabase
           .from("events")
-          .select("base_price, surge_multiplier, venue_capacity, max_attendees")
+          .select("base_price, surge_multiplier, venue_capacity, max_attendees, ticket_tiers")
           .eq("id", eventId)
           .single();
 
@@ -109,12 +111,8 @@ export function TicketPricingTimeline({
           setVenueCapacity(eventData.venue_capacity ?? eventData.max_attendees ?? null);
         }
 
-        if (!eventError && eventData && eventData.base_price !== null) {
-          setIsDynamic(true);
-          const { data: dynPrice } = await supabase.rpc("calculate_current_price", {
-            p_event_id: eventId,
-          });
-          setDynamicPrice(dynPrice);
+        const jsonTiers = (eventData as any)?.ticket_tiers;
+        const hasJsonTiers = Array.isArray(jsonTiers) && jsonTiers.length > 0;
 
         if (hasJsonTiers) {
           const { data: rsvps, error: rsvpError } = await supabase

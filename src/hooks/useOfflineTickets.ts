@@ -239,62 +239,7 @@ export function useOfflineTickets(): UseOfflineTicketsReturn {
         }
     };
 
-        fetchedTickets.push(ticket);
-        activeTicketIds.push(rsvp.id);
 
-        // Save to IndexedDB for offline access
-        await saveTicketDB(ticket);
-
-        // Proactively tell the Service Worker to cache the QR image
-        await preCacheTicket(rsvp.id, qrCodeUrl, ticket);
-      }
-
-      // Purge old tickets from cache to save space
-      await purgeExpiredTickets(activeTicketIds);
-
-      setTickets(fetchedTickets);
-    } catch (err: any) {
-      console.error("[useOfflineTickets] Refresh failed:", err);
-      setError(err.message || "Failed to load tickets");
-
-      // Fallback to cache on network error
-      try {
-        const cached = await getTicketsDB();
-        setTickets(cached.filter((t) => t.status === "active"));
-      } catch (dbErr) {
-        console.error("[useOfflineTickets] IndexedDB fallback failed:", dbErr);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isOffline]);
-
-  useEffect(() => {
-    refreshTickets();
-  }, [refreshTickets]);
-
-  /**
-   * Fallback mechanism: Downloads the QR code directly to the user's device camera roll.
-   * Uses HTML5 Canvas to draw the image and trigger a download.
-   */
-  const saveTicketToCameraRoll = async (ticket: CachedTicket) => {
-    try {
-      const response = await fetch(ticket.qr_code_url);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ticket_${ticket.event_title.replace(/\s+/g, "_")}.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("[useOfflineTickets] Download failed:", err);
-      alert("Failed to download ticket. Please try again when online.");
-    }
-  };
 
   return {
     tickets,

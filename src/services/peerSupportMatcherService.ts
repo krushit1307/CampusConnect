@@ -5,7 +5,7 @@
 //              key generation, zero-knowledge memory destruction, and safety scanning.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import type {
   SupportTopicCategory,
   PeerListenerProfile,

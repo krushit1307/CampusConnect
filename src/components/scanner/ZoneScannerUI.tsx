@@ -74,8 +74,6 @@ export const ZoneScannerUI: React.FC<ZoneScannerUIProps> = ({ eventId, onScan })
                 >
                     {isVerifying ? 'Verifying...' : 'Simulate Scan'}
                 </button>
-      isVerifying ? 'Verifying...' : 'Simulate Scan'}
-            </button>
         </div>
 
       {

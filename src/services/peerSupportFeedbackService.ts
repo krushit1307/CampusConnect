@@ -5,7 +5,7 @@
 //              and aggregate peer listener feedback analytics.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 
 export interface PostSessionFeedback {
   sessionId: string;
