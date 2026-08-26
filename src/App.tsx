@@ -32,6 +32,7 @@ import { EmergencyBroadcastOverlay } from "@/components/EmergencyBroadcastOverla
 import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
 import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
 import { ComplianceCheckGuard } from "@/components/auth/ComplianceCheckGuard";
+import { ShadowbanEvasionCheck } from "@/components/Auth/ShadowbanEvasionCheck";
 import UnsubscribeRoute from "./routes/unsubscribe";
 import PollOverlayRoute from "./routes/overlay.poll.$poll_id";
 function RemoteLoadingScreen() {
@@ -102,7 +103,7 @@ const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubVaultRoute = lazy(() => import("./routes/clubs.$slug.vault"));
 const ClubHonorariumsRoute = lazy(() => import("./routes/clubs.$slug.honorariums"));
-const ClubResourcesRoute = lazy(() => import("./routes/clubs.$slug.resources"));
+const ClubNewsletterRoute = lazy(() => import("./routes/clubs.$slug.newsletter"));const ClubResourcesRoute = lazy(() => import("./routes/clubs.$slug.resources"));
 const ClubYearbookRoute = lazy(() => import("./routes/clubs.$slug.yearbook"));
 const ScavengerHuntsList = lazy(() => import("./routes/scavenger-hunts"));
 const ScavengerHuntGame = lazy(() => import("./routes/scavenger-hunts.$id"));
@@ -129,6 +130,7 @@ const SettingsData = lazy(() => import("./routes/settings.data"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
 const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
+const PeerSupportRoute = lazy(() => import("./routes/peer-support"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const ConstitutionReviewAdmin = lazy(() => import("./routes/admin.constitutions"));
@@ -142,6 +144,7 @@ const AdminEmergencyBroadcast = lazy(() => import("./routes/admin.emergency-broa
 // const NotFound = lazy(() => import("./routes/NotFound"));
 const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));
 const NotFound = lazy(() => import("./routes/NotFound"));
+const EventRefundChoicePage = lazy(() => import("./routes/events.refund-choice"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
@@ -156,7 +159,9 @@ const AdminLeadershipApprovals = lazy(() => import("./routes/admin.leadership-ap
 const MfaChallenge = lazy(() => import("./routes/mfa-challenge"));
 const ComplianceCheck = lazy(() => import("./routes/compliance-check"));
 const VolunteerRecord = lazy(() => import("./routes/volunteer-record"));
+const RemindersPage = lazy(() => import("@/pages/RemindersPage"));
 const FacilityDashboard = lazy(() => import("./routes/facility-dashboard"));
+const ApiPlayground = lazy(() => import("./routes/api-playground"));
 
 const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
 const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
@@ -428,7 +433,7 @@ const router = createBrowserRouter(
               <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
               <Route path=":slug/vault" element={<ClubVaultRoute />} />
               <Route path=":slug/honorariums" element={<ClubHonorariumsRoute />} />
-              <Route path=":slug/resources" element={<ClubResourcesRoute />} />
+              <Route path=":slug/newsletter" element={<ClubNewsletterRoute />} />              <Route path=":slug/resources" element={<ClubResourcesRoute />} />
               <Route path=":slug/yearbook/2026" element={<ClubYearbookRoute />} />
               <Route path=":slug/revive" element={<ReviveClubPage />} />
             </Route>
@@ -718,6 +723,7 @@ export default function App() {
                   <BreadcrumbProvider>
                     <MotionConfig reducedMotion="user">
                       <PushDeepLinkListener router={router} />
+                      <ShadowbanEvasionCheck />
                       <RouterProvider router={router} />
                     </MotionConfig>
                   </BreadcrumbProvider>

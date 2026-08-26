@@ -24,6 +24,7 @@ import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
 import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";
+import { ClubHierarchyManager } from "@/components/Clubs/ClubHierarchyManager";
 import { ClubColorPicker } from "@/components/Clubs/ClubColorPicker";
 import { isValidHexColor } from "@/lib/clubTheming";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
@@ -460,7 +461,7 @@ export default function ClubManageRoute() {
         <ClubAdminWarningBanner
           clubId={club.id}
           clubSlug={club.slug}
-          currentStatus={club.lifecycle_status || 'active'}
+          currentStatus={club.lifecycle_status || "active"}
           warningIssuedAt={club.warning_issued_at}
         />
 
@@ -822,6 +823,7 @@ export default function ClubManageRoute() {
             {activeTab === "roles" && (
               <div className="neu-border bg-white p-6 space-y-6">
                 <ClubRolesManager clubId={club.id} clubRoles={club.club_roles || []} />
+                <ClubHierarchyManager clubId={club.id} />
               </div>
             )}
 

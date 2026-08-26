@@ -41,26 +41,39 @@ export const UnderdogLeaderboardToggle: React.FC<UnderdogLeaderboardToggleProps>
         <p className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
           {mode === "underdog"
             ? "Per-Capita Underdog Mode: Multiplier active! Small clubs with high engagement get a fair boost."
+            : mode === "categorical"
+            ? "Categorical Weighted Mode: Points scaled by activity impact (STEM 1.4x, Service 1.3x) + Diversity Bonus."
             : "Raw Points Mode: Total aggregated engagement points across all club members."}
         </p>
       </div>
 
       {/* Mode Switch Buttons */}
-      <div className="flex items-center gap-2 font-mono text-xs">
+      <div className="flex items-center gap-2 font-mono text-xs flex-wrap">
         <button
           onClick={() => onModeChange("raw")}
-          className={`px-3.5 py-1.5 font-bold uppercase transition-all neu-border ${
+          className={`px-3 py-1.5 font-bold uppercase transition-all neu-border ${
             mode === "raw"
               ? "bg-black text-white dark:bg-white dark:text-black shadow-none translate-y-0.5"
               : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200"
           }`}
         >
-          🏛️ Raw Total Points
+          🏛️ Raw Total
+        </button>
+
+        <button
+          onClick={() => onModeChange("categorical")}
+          className={`px-3 py-1.5 font-bold uppercase transition-all neu-border flex items-center gap-1 ${
+            mode === "categorical"
+              ? "bg-purple-500 text-white shadow-none translate-y-0.5"
+              : "bg-purple-100 text-purple-900 hover:bg-purple-200 dark:bg-purple-950 dark:text-purple-300"
+          }`}
+        >
+          🎯 Categorical Weighted
         </button>
 
         <button
           onClick={() => onModeChange("underdog")}
-          className={`px-3.5 py-1.5 font-bold uppercase transition-all neu-border flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 font-bold uppercase transition-all neu-border flex items-center gap-1 ${
             mode === "underdog"
               ? "bg-amber-400 text-black shadow-none translate-y-0.5"
               : "bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300"

@@ -1,5 +1,13 @@
-import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Radio, RefreshCw, Video } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Radio,
+  RefreshCw,
+  Video,
+  Captions,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +17,12 @@ import {
   type BroadcastConnectionState,
   type BroadcastState,
 } from "@/lib/broadcastFailover";
+import { CaptionsOverlay } from "@/components/audio/CaptionsOverlay";
+import { TranscriptionControls } from "@/components/audio/TranscriptionControls";
+import { usePresenterPing } from "@/hooks/usePresenterPing";
+import { PresenterPingModal } from "@/components/events/PresenterPingModal";
+import { GreenRoomPresenterPingDashboard } from "@/components/events/GreenRoomPresenterPingDashboard";
+import { PresenterState } from "@/lib/presenterPing";
 
 type ConnectionState = BroadcastConnectionState;
 
@@ -37,9 +51,48 @@ export function EventBroadcastFallbackPanel({
   presenterUserId?: string | null;
 }) {
   const [supabase] = useState(() => createClient());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [session, setSession] = useState<BroadcastSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id || null);
+    });
+  }, [supabase]);
+
+  const initialPresenters: PresenterState[] = useMemo(() => {
+    const list: PresenterState[] = [];
+    const pId = presenterUserId || session?.presenter_user_id;
+    if (pId) {
+      list.push({
+        id: pId,
+        name: "Primary Presenter",
+        connectionState: session?.connection_state || "connected",
+        pingStatus: "idle",
+      });
+    }
+    return list;
+  }, [presenterUserId, session?.presenter_user_id, session?.connection_state]);
+
+  const { presenters, activePing, pingPresenter, pingAllPresenters, confirmReady, resetPresenter } =
+    usePresenterPing({
+      eventId,
+      currentUserId,
+      initialPresenters,
+      isOrganizer,
+      onAwolTriggered: async (awolPresenter) => {
+        if (isOrganizer) {
+          await reportState(
+            "failed",
+            false,
+            `Presenter ${awolPresenter.name} did not confirm readiness within 15 seconds (AWOL).`,
+          );
+        }
+      },
+    });
 
   const loadSession = async () => {
     const { data, error } = await supabase
@@ -222,14 +275,34 @@ export function EventBroadcastFallbackPanel({
           </div>
         </div>
       ) : session.primary_stream_url ? (
-        <video
-          src={session.primary_stream_url}
-          controls
-          autoPlay
-          playsInline
-          className="aspect-video w-full bg-slate-900"
-          aria-label="Live event broadcast"
-        />
+        <div className="relative group aspect-video w-full bg-slate-900">
+          <video
+            src={session.primary_stream_url}
+            controls
+            autoPlay
+            playsInline
+            className="h-full w-full object-cover"
+            aria-label="Live event broadcast"
+          />
+          <CaptionsOverlay eventId={eventId} enabled={captionsEnabled} />
+
+          <div className="absolute bottom-4 right-16 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              onClick={() => setCaptionsEnabled((p) => !p)}
+              className={`flex items-center gap-2 rounded-lg p-2 text-white shadow-lg backdrop-blur-md transition ${
+                captionsEnabled
+                  ? "bg-indigo-600 hover:bg-indigo-700"
+                  : "bg-black/60 hover:bg-black/80"
+              }`}
+              title="Toggle Captions"
+            >
+              <Captions className="h-5 w-5" />
+              <span className="text-xs font-bold uppercase">
+                {captionsEnabled ? "CC On" : "CC Off"}
+              </span>
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="flex aspect-video items-center justify-center bg-slate-900 p-6 text-center font-mono text-sm text-white/65">
           <Video className="mr-2 h-5 w-5" /> Primary stream is connecting.
@@ -237,38 +310,63 @@ export function EventBroadcastFallbackPanel({
       )}
 
       {isOrganizer && (
-        <div className="flex flex-wrap gap-2 border-t-2 border-white/30 p-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void runAvCheck()}
-            disabled={isWorking}
-            className="neu-border border-white bg-white text-black font-mono text-xs font-bold uppercase"
-          >
-            <CheckCircle2 className="mr-2 h-4 w-4" /> Run A/V check
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              void reportState("disconnected", false, "Presenter reported a lost media connection.")
-            }
-            disabled={isWorking}
-            className="neu-border border-white bg-transparent text-white font-mono text-xs font-bold uppercase"
-          >
-            <AlertTriangle className="mr-2 h-4 w-4" /> Report feed problem
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadSession()}
-            disabled={isWorking}
-            className="neu-border border-white bg-transparent text-white font-mono text-xs font-bold uppercase"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
-          </Button>
+        <div className="flex flex-col gap-4 border-t-2 border-white/30 p-4">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void runAvCheck()}
+              disabled={isWorking}
+              className="neu-border border-white bg-white text-black font-mono text-xs font-bold uppercase"
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Run A/V check
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void reportState(
+                  "disconnected",
+                  false,
+                  "Presenter reported a lost media connection.",
+                )
+              }
+              disabled={isWorking}
+              className="neu-border border-white bg-transparent text-white font-mono text-xs font-bold uppercase"
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" /> Report feed problem
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadSession()}
+              disabled={isWorking}
+              className="neu-border border-white bg-transparent text-white font-mono text-xs font-bold uppercase"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+            </Button>
+          </div>
+          <div className="w-full">
+            <TranscriptionControls eventId={eventId} />
+          </div>
         </div>
       )}
+
+      {/* Organizer Green Room Presenter Ping Dashboard */}
+      {isOrganizer && (
+        <div className="border-t-2 border-white/30 p-4 bg-gray-900">
+          <GreenRoomPresenterPingDashboard
+            presenters={presenters}
+            onPingPresenter={pingPresenter}
+            onPingAll={pingAllPresenters}
+            onActivateFallback={(reason) => reportState("failed", false, reason)}
+            onResetPresenter={resetPresenter}
+          />
+        </div>
+      )}
+
+      {/* Presenter Urgent Behavioral Readiness Modal */}
+      <PresenterPingModal ping={activePing} onConfirm={confirmReady} />
     </section>
   );
 }

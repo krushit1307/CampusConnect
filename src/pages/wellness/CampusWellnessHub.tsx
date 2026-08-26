@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Link } from "react-router-dom";
 import {
   Heart,
   Brain,
@@ -427,11 +428,6 @@ const CampusWellnessHub: React.FC = () => {
 
   const handleBookCounselor = (counselor: CounselingSession) => {
     addToast("success", `Appointment request sent to ${counselor.counselorName}`);
-    setModalOpen(false);
-  };
-
-  const handleContactPeer = (peer: PeerSupporter) => {
-    addToast("info", `Chat initiated with ${peer.name} — they typically respond ${peer.responseTime}`);
     setModalOpen(false);
   };
 
@@ -1255,12 +1251,13 @@ const CampusWellnessHub: React.FC = () => {
                   ))}
                 </div>
               </div>
-              <button
-                onClick={() => handleContactPeer(selectedItem as PeerSupporter)}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all"
+              <Link
+                to="/peer-support"
+                onClick={() => setModalOpen(false)}
+                className="block w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-center text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all"
               >
-                Start Conversation
-              </button>
+                Start Anonymous Peer Room
+              </Link>
             </div>
           )}
 
