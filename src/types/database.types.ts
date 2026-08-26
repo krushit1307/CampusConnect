@@ -692,6 +692,10 @@ export type Database = {
           is_banned: boolean;
           strike_count: number;
           show_on_leaderboard: boolean;
+          carpool_driver_rating: number | null;
+          carpool_driver_rating_count: number;
+          is_carpool_driver_blocked: boolean;
+          carpool_driver_blocked_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -717,6 +721,10 @@ export type Database = {
           is_banned?: boolean;
           strike_count?: number;
           show_on_leaderboard?: boolean;
+          carpool_driver_rating?: number | null;
+          carpool_driver_rating_count?: number;
+          is_carpool_driver_blocked?: boolean;
+          carpool_driver_blocked_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -742,6 +750,10 @@ export type Database = {
           is_banned?: boolean;
           strike_count?: number;
           show_on_leaderboard?: boolean;
+          carpool_driver_rating?: number | null;
+          carpool_driver_rating_count?: number;
+          is_carpool_driver_blocked?: boolean;
+          carpool_driver_blocked_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -3342,6 +3354,54 @@ export type Database = {
           {
             foreignKeyName: "carpool_chat_messages_sender_id_fkey";
             columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      carpool_driver_ratings: {
+        Row: {
+          id: string;
+          vehicle_id: string;
+          driver_user_id: string;
+          rider_user_id: string;
+          rating: number;
+          feedback: string | null;
+          safety_tags: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          vehicle_id: string;
+          driver_user_id: string;
+          rider_user_id: string;
+          rating: number;
+          feedback?: string | null;
+          safety_tags?: string[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          vehicle_id?: string;
+          driver_user_id?: string;
+          rider_user_id?: string;
+          rating?: number;
+          feedback?: string | null;
+          safety_tags?: string[];
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "carpool_driver_ratings_driver_user_id_fkey";
+            columns: ["driver_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "carpool_driver_ratings_rider_user_id_fkey";
+            columns: ["rider_user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
