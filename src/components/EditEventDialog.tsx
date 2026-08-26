@@ -65,6 +65,9 @@ interface EditEventDialogProps {
 export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isHighDemand, setIsHighDemand] = useState(
+    Boolean((event as EventDocument & { is_high_demand?: boolean }).is_high_demand),
+  );
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflicts, setConflicts] = useState<FieldConflict[]>([]);
   const [mergedDoc, setMergedDoc] = useState<EventDocument | null>(null);
@@ -112,6 +115,9 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
   useEffect(() => {
     if (open) {
       setBaseSnapshot(event);
+      setIsHighDemand(
+        Boolean((event as EventDocument & { is_high_demand?: boolean }).is_high_demand),
+      );
       form.reset({
         title: event.title || "",
         description: event.description || "",
@@ -203,6 +209,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
           event_date: docToSave.start_date,
           tags: docToSave.tags || [],
           dress_code: docToSave.dress_code || null,
+          is_high_demand: isHighDemand,
           version_vector: docToSave.version_vector || {},
           version: docToSave.version || 1,
         })
@@ -560,6 +567,24 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                   );
                 }}
               />
+              <div className="rounded-md border-2 border-black bg-yellow-100 p-4 shadow-[3px_3px_0_0_#000]">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isHighDemand}
+                    onChange={(event) => setIsHighDemand(event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-black"
+                  />
+                  <span className="space-y-1">
+                    <span className="block font-medium">High-demand ticket drop</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Require CAPTCHA and apply strict per-user, IP, and device claim limits for
+                      free RSVPs.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
               <FormField
                 control={control}
                 name="is_outdoor"

@@ -35,28 +35,33 @@ import { createClient } from "@/lib/supabase/client";
 interface NewsletterEditorProps {
   clubId: string;
   existingNewsletter?: Newsletter | null;
+  initialTitle?: string;
+  initialSubject?: string;
+  initialDesign?: NewsletterDesign;
   onSaved?: (newsletter: Newsletter) => void;
   onCancel?: () => void;
 }
-
 export function NewsletterEditor({
   clubId,
   existingNewsletter,
+  initialTitle,
+  initialSubject,
+  initialDesign,
   onSaved,
   onCancel,
 }: NewsletterEditorProps) {
-  const [title, setTitle] = useState(existingNewsletter?.title || "");
-  const [subject, setSubject] = useState(existingNewsletter?.subject || "");
+  const [title, setTitle] = useState(existingNewsletter?.title || initialTitle || "");
+  const [subject, setSubject] = useState(existingNewsletter?.subject || initialSubject || "");
   const [blocks, setBlocks] = useState<NewsletterBlock[]>(
-    existingNewsletter?.design_json?.blocks || [
-      { id: "b1", type: "heading", content: "Welcome to Our Club Newsletter!" },
-      { id: "b2", type: "text", content: "Here is what we've been working on this month..." },
-    ],
+    existingNewsletter?.design_json?.blocks ||
+      initialDesign?.blocks || [
+        { id: "b1", type: "heading", content: "Welcome to Our Club Newsletter!" },
+        { id: "b2", type: "text", content: "Here is what we've been working on this month..." },
+      ],
   );
   const [backgroundColor, setBackgroundColor] = useState(
-    existingNewsletter?.design_json?.backgroundColor || "#ffffff",
+    existingNewsletter?.design_json?.backgroundColor || initialDesign?.backgroundColor || "#ffffff",
   );
-
   const [clubEvents, setClubEvents] = useState<any[]>([]);
   const [eventMap, setEventMap] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
