@@ -7,7 +7,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Utensils, Loader2, AlertCircle, RefreshCw,
-  TrendingUp, Users,
+  TrendingUp, Users, FileSpreadsheet,
 } from "lucide-react";
 import { useDietaryForecast } from "@/hooks/useDietaryForecast";
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/lib/dietaryForecast";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { CatererExportModal } from "./CatererExportModal";
 
 export interface DietaryForecastPanelProps {
   eventId: string;
@@ -77,6 +78,9 @@ function ForecastContent({
   const confLabel = confidenceLabel(forecast);
   const confColor = confidenceColor(forecast);
   const highConf = isHighConfidence(forecast);
+
+  // State for Caterer Export Modal
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // States for Yield Optimizer constraints
   const [constraints, setConstraints] = useState<Record<string, number>>({});
@@ -173,6 +177,12 @@ function ForecastContent({
                 data-testid="dietary-forecast-confidence">
             {confLabel} confidence
           </span>
+          <button type="button" onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-1 border-2 border-black bg-amber-400 text-black px-2 py-1 font-mono text-xs font-bold uppercase hover:bg-amber-500 shadow-[2px_2px_0_0_#000] cursor-pointer"
+            data-testid="open-caterer-export-modal-button">
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            Caterer Export
+          </button>
           <button type="button" onClick={() => void onRefresh()}
             className="flex items-center gap-1 border-2 border-black bg-gray-100 px-2 py-1 font-mono text-xs font-bold uppercase hover:bg-gray-200"
             aria-label="Refresh forecast" data-testid="dietary-forecast-refresh">
@@ -353,6 +363,12 @@ function ForecastContent({
           <p><strong>Forecast meals</strong> = round(blended % × venue capacity).</p>
         </div>
       </details>
+
+      <CatererExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        eventId={forecast.event_id}
+      />
     </div>
   );
 }
