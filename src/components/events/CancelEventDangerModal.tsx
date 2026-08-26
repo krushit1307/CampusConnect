@@ -63,7 +63,7 @@ export const CancelEventDangerModal: React.FC<CancelEventDangerModalProps> = ({
       setBatchProgress({ current: processed, total });
     });
 
-    const res = await cancelEventAndRefund(eventId, reason);
+    const res = await cancelEventAndRefund(eventId, reason, eventTitle);
     setCancelling(false);
 
     if (res.success) {
@@ -122,6 +122,9 @@ export const CancelEventDangerModal: React.FC<CancelEventDangerModalProps> = ({
                   <strong>${totalRevenueUSD.toLocaleString()}</strong>.
                 </li>
                 <li>Send automated email notifications confirming refund arrival in 3-5 days.</li>
+                <li>
+                  Dispatch automated cancellation alerts & contract fee calculations to all <strong>contracted vendors</strong>.
+                </li>
               </ul>
             </div>
 
@@ -205,10 +208,16 @@ export const CancelEventDangerModal: React.FC<CancelEventDangerModalProps> = ({
             </div>
             <h3 className="text-2xl font-black text-white">Event Cancelled & Refunds Issued</h3>
             <p className="text-xs text-slate-300 max-w-sm mx-auto">{result.message}</p>
-            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-mono text-slate-300 space-y-1">
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-mono text-slate-300 space-y-1 text-left">
               <div>Total RSVPs Cancelled: {result.total_rsvps_cancelled}</div>
               <div>Paid Ticket Refunds Issued: {result.total_paid_refunds}</div>
               <div>Total Refunded: ${(result.total_refunded_amount_cents || 0) / 100}</div>
+              {result.vendor_summary && (
+                <div className="mt-2 pt-2 border-t border-slate-800 text-purple-400 font-semibold">
+                  <div>Vendors Notified: {result.vendor_summary.totalVendorsNotified} (Email, SMS, Webhook)</div>
+                  <div>Total Vendor Cancellation Fees: ${(result.vendor_summary.totalCancellationFeesCents / 100).toLocaleString()}</div>
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}

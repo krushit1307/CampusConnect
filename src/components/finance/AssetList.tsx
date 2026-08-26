@@ -67,8 +67,12 @@ export const AssetList: React.FC<AssetListProps> = ({ items, loading }) => {
                                 <div className="flex items-center space-x-3 mb-1">
                                     <h4 className="text-base font-bold text-gray-900">{item.name}</h4>
                                     {getConditionBadge(item.condition_status)}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 mt-2">
+                                    {item.is_overdue && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-600 text-white">
+                                            <AlertTriangle className="w-3 h-3 mr-1" /> OVERDUE{item.checked_out_to ? ` — with ${item.checked_out_to}` : ''}
+                                        </span>
+                                    )}
+                                </div>                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 mt-2">
                                     <span className="flex items-center">
                                         <span className="font-semibold text-gray-700 mr-1">Class:</span>
                                         <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">{item.asset_class}</span>

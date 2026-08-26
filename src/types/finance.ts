@@ -30,8 +30,10 @@ export interface InventoryItem {
 export interface InventoryItemWithValuation extends InventoryItem {
     net_book_value: number;
     percent_lifespan_used: number;
+    due_date?: string | null;
+    checked_out_to?: string | null;
+    is_overdue?: boolean;
 }
-
 export interface BalanceSheetCategory {
     category: string;
     historical_cost_total: number;
@@ -59,4 +61,41 @@ export interface AssetForecast {
     date: string;
     value: number;
     depreciation_expense: number;
+}
+
+/**
+ * Finance and Transaction Types for CampusConnect
+ * Defines interfaces for club spending, anomaly detection, and audit workflows.
+ */
+
+export type TransactionStatus = 'completed' | 'pending' | 'pending_audit' | 'rejected';
+
+export interface ClubTransaction {
+    id: string;
+    club_id: string;
+    amount: number;
+    vendor_name: string;
+    vendor_category: string;
+    transaction_date: string;
+    description: string;
+    status: TransactionStatus;
+    flagged_reasons: string[];
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AnomalyAuditResult {
+    tx_id: string;
+    is_anomalous: boolean;
+    flagged_reasons: string[];
+    club_average: number;
+    club_std_dev: number;
+    requires_manual_review: boolean;
+}
+
+export interface AuditHeuristics {
+    max_std_dev_multiplier: number;
+    restricted_categories: string[];
+    winter_break_start: string;
+    winter_break_end: string;
 }

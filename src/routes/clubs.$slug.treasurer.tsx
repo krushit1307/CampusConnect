@@ -4,6 +4,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, ArrowLeft, DollarSign, TrendingDown, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ClubRevenueForecast } from "@/components/finance/ClubRevenueForecast";
 
 export default function TreasurerDashboardRoute() {
   const { slug } = useParams();
@@ -77,6 +78,8 @@ export default function TreasurerDashboardRoute() {
             </p>
           </div>
         </div>
+
+        <ClubRevenueForecast clubId={club.id} />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-card border rounded-xl p-6 flex flex-col gap-2">
