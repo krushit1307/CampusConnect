@@ -25,7 +25,6 @@ import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
 
 import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
- upstream/main
 import { ClubTransparencyLedger } from "@/components/Clubs/ClubTransparencyLedger";
 import { ClubKnowledgeBaseSection } from "@/components/Clubs/ClubKnowledgeBaseSection";
 import {
@@ -51,6 +50,7 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { getClubThemeVars } from "@/lib/clubTheming";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
 import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
+import { PublicClubOrgChart } from "@/components/Clubs/PublicClubOrgChart";
 import { WidgetRenderer } from "@/components/widgets/WidgetRenderer";
 import { FlipCard } from "@/components/ui/FlipCard";
 import { useSearchParams } from "react-router-dom";
@@ -253,6 +253,20 @@ export default function ClubProfile() {
 
   const { can, isMember } = useClubPermissions(club?.id as string | undefined, user?.id);
 
+  const { data: hierarchyRows = [] } = useQuery({
+    queryKey: ["club-hierarchy", club?.id],
+    queryFn: async () => {
+      if (!club?.id) return [];
+      const { data, error } = await supabase.rpc("get_public_club_hierarchy", {
+        p_club_id: club.id,
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(club?.id),
+    staleTime: 1000 * 60 * 5,
+  });
+
   const joinMutation = useMutation({
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
@@ -428,272 +442,47 @@ export default function ClubProfile() {
                     to={`/clubs/${club.slug}/tasks`}
                     className="neu-border neu-press bg-brand-blue-base text-white px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
                   >
-                    Download Charter PDF
-                  </a>
-                </div>
-
-                <section className="relative border-b-2 border-black px-4 pb-8 md:px-6 bg-slate-950 overflow-hidden">
-                  <div className="mx-auto max-w-6xl">
-                    <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed border-b-2 border-black pb-6">
-                      {headings.length > 1 && (
-                        <nav
-                          className="mb-4 border-2 border-black bg-cream p-4"
-                          aria-label="Table of contents"
-                        >
-                          <p className="font-bold text-xs uppercase tracking-wider mb-2">
-                            Table of Contents
-                          </p>
-                          <ul className="space-y-1">
-                            {headings.map((h) => (
-                              <li key={h.id} style={{ paddingLeft: (h.depth - 1) * 16 }}>
-                                <a
-                                  href={`#${h.id}`}
-                                  onClick={(e) => handleTocClick(e, h.id)}
-                                  className="text-blue-900 underline hover:text-black"
-                                >
-                                  {h.text}
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </nav>
-                      )}
-                      <ReactMarkdown components={mdComponents}>
-                        {club.description || ""}
-                      </ReactMarkdown>
-                    </div>
-
-                    {club.widgets_config && (
-                      <WidgetRenderer widgets={club.widgets_config} className="mt-8" />
-                    )}
-
-                    {club.promo_video_url && (
-                      <div className="mt-8 max-w-2xl">
-                        <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight">
-                          Featured Club Promo
-                        </h3>
-                        <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
-                          <LazyHydrate height="360px">
-                            <VideoPlayer src={club.promo_video_url} title="Club Promo" />
-                          </LazyHydrate>
-                        </div>{" "}
-                      </div>
-                    )}
-
-                    {user && membership && membership.status === "approved" && (
-                      <div className="mt-12 max-w-2xl">
-                        <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight mb-4">
-                          Collaborative Group Notes
-                        </h3>
-                        <div className="neu-border bg-white p-6">
-                          <CollaborativeEditor
-                            groupId={club.id}
-                            user={{
-                              id: user.id,
-                              name: user.user_metadata?.full_name || user.email || "Member",
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Officers — 3D flip cards for club leadership (issue #2324) */}
-                    {officers.length > 0 && (
-                      <div className="mt-8 max-w-2xl">
-                        <h3 className="font-display text-lg font-bold text-blue-900">Officers</h3>
-                        <p className="font-mono text-xs text-black mt-1 mb-3">
-                          Meet the team running {clubName} — hover or tap a card to flip it over.
-                        </p>
-                        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                          {officers.map((m) => (
-                            <li key={m.userId} className="h-44">
-                              <FlipCard
-                                className="h-full w-full"
-                                ariaLabel={`${m.name}'s bio`}
-                                front={
-                                  <div className="neu-border bg-white h-full w-full flex flex-col items-center justify-center gap-2 p-3 text-center">
-                                    <Avatar className="h-16 w-16 border-2 border-black rounded-full">
-                                      <AvatarImage
-                                        src={m.avatarUrl || undefined}
-                                        alt={m.name}
-                                        className="rounded-full"
-                                      />
-                                      <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
-                                        {getInitials(m.name)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <div className="min-w-0">
-                                      <p
-                                        className="font-mono text-sm font-bold truncate"
-                                        title={m.name}
-                                      >
-                                        {m.name}
-                                      </p>
-                                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-black/70">
-                                        Officer
-                                      </p>
-                                    </div>
-                                  </div>
-                                }
-                                back={
-                                  <div className="neu-border bg-lime h-full w-full overflow-y-auto p-4">
-                                    <p className="font-mono text-sm font-bold mb-2">{m.name}</p>
-                                    <p className="font-mono text-xs leading-relaxed text-gray-800">
-                                      {m.bio ||
-                                        `${m.name} is one of ${clubName}'s officers and helps keep this club running.`}
-                                    </p>
-                                  </div>
-                                }
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Members section below the description */}
-                    <div className="mt-8 max-w-2xl">
-                      <h3 className="font-display text-lg font-bold text-blue-900">Members</h3>
-                      <p className="font-mono text-xs text-black mt-1 mb-3">
-                        {memberList.length} members total
-                      </p>
-                      {memberList.length === 0 ? (
-                        <EmptyState
-                          illustration="no-members"
-                          title="No members yet."
-                          description="Be the first to join this club and help it grow."
-                        />
-                      ) : (
-                        <>
-                          <div className="mb-4">
-                            <input
-                              type="text"
-                              placeholder="Search members by name or handle..."
-                              aria-label="Search members by name or handle"
-                              value={searchQuery}
-                              onChange={(e) => setSearchQuery(e.target.value)}
-                              className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/10"
-                            />
-                          </div>
-                          {filteredMembers.length === 0 ? (
-                            <EmptyState
-                              illustration="no-results"
-                              title="No members match your search."
-                            />
-                          ) : (
-                            <>
-                              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                {displayedMembers.map((m: MemberItem, i: number) => (
-                                  <li
-                                    key={m.handle || `${m.name}-${i}`}
-                                    className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
-                                  >
-                                    {m.handle ? (
-                                      <Link
-                                        to={`/profile/${m.handle}`}
-                                        className="relative h-10 w-10 shrink-0"
-                                      >
-                                        <Avatar className="h-10 w-10 border-2 border-black rounded-full transition-transform hover:scale-105">
-                                          <AvatarImage
-                                            src={m.avatarUrl || undefined}
-                                            alt={m.name}
-                                            className="rounded-full"
-                                          />
-                                          <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
-                                            {getInitials(m.name)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
-                                          <span
-                                            className={getPresenceBadgeClass(
-                                              presenceMap[m.userId]?.status ?? "offline",
-                                            )}
-                                            aria-hidden="true"
-                                          />
-                                        </span>
-                                      </Link>
-                                    ) : (
-                                      <div className="relative h-10 w-10 shrink-0">
-                                        <Avatar className="h-10 w-10 border-2 border-black rounded-full">
-                                          <AvatarImage
-                                            src={m.avatarUrl || undefined}
-                                            alt={m.name}
-                                            className="rounded-full"
-                                          />
-                                          <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
-                                            {getInitials(m.name)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
-                                          <span
-                                            className={getPresenceBadgeClass(
-                                              presenceMap[m.userId]?.status ?? "offline",
-                                            )}
-                                            aria-hidden="true"
-                                          />
-                                        </span>
-                                      </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      {m.handle ? (
-                                        <Link
-                                          to={`/profile/${m.handle}`}
-                                          className="hover:underline"
-                                        >
-                                          <p className="font-bold truncate" title={m.name}>
-                                            {m.name}
-                                          </p>
-                                        </Link>
-                                      ) : (
-                                        <p className="font-bold truncate" title={m.name}>
-                                          {m.name}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <RoleBadge role={m.role} />
-                                  </li>
-                                ))}
-                              </ul>
-                              {filteredMembers.length > 10 && (
-                                <button
-                                  onClick={() => setIsExpanded(!isExpanded)}
-                                  className="neu-border neu-press mt-4 bg-cream px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-cream transition-colors"
-                                >
-                                  {isExpanded ? "View less" : "View all"}
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <button
-                        onClick={handleClubBookmark}
-                        disabled={bookmarkPending}
-                        className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime disabled:opacity-50"
-                      >
-                        <Bookmark
-                          className="h-3.5 w-3.5"
-                          fill={isClubBookmarked ? "black" : "none"}
-                        />
-                        {isClubBookmarked ? "Bookmarked" : "Bookmark"}
-                      </button>
-                      <button
-                        onClick={() => toast.info("Follow feature coming soon!")}
-                        className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
-                      >
-                        Follow
-                      </button>
-                      <button
-                        onClick={() => setIsReportDialogOpen(true)}
-                        className="neu-border neu-press bg-white hover:bg-peach px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
-                      >
-                        <Flag size={12} />
-                        Report
-                      </button>
-                      {club.github_repo_url && (
+                    Tasks
+                  </Link>
+                )}
+                {membership && (
+                  <Link
+                    to={`/clubs/${club.slug}/notes`}
+                    className="neu-border neu-press bg-lime px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Meeting Notes
+                  </Link>
+                )}
+                {(membership?.role === "treasurer" || membership?.role === "admin") && (
+                  <Link
+                    to={`/clubs/${club.slug}/treasurer`}
+                    className="neu-border neu-press bg-green-400 px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Treasurer Dashboard
+                  </Link>
+                )}
+                {can("club.manage") && (
+                  <Link
+                    to={`/clubs/${club.slug}/manage`}
+                    className="neu-border neu-press bg-brand-yellow-base px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Manage Club
+                  </Link>
+                )}
+              </div>
+            </div>
+            <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed border-b-2 border-black pb-6">
+              {headings.length > 1 && (
+                <nav
+                  className="mb-4 border-2 border-black bg-cream p-4"
+                  aria-label="Table of contents"
+                >
+                  <p className="font-bold text-xs uppercase tracking-wider mb-2">
+                    Table of Contents
+                  </p>
+                  <ul className="space-y-1">
+                    {headings.map((h) => (
+                      <li key={h.id} style={{ paddingLeft: (h.depth - 1) * 16 }}>
                         <a
                           href={`#${h.id}`}
                           onClick={(e) => handleTocClick(e, h.id)}
@@ -850,6 +639,12 @@ export default function ClubProfile() {
               )}
             </div>
 
+            {hierarchyRows.length > 0 && (
+              <div className="mt-8 max-w-6xl">
+                <PublicClubOrgChart rows={hierarchyRows} />
+              </div>
+            )}
+
             <div className="mt-6 flex flex-wrap gap-3">
               {membership?.status === "approved" ? (
                 <button
@@ -981,15 +776,14 @@ export default function ClubProfile() {
             </div>
           </div>
         </section>
-
         <ClubTransparencyLedger clubId={club.id} />
-
- HEAD
+        HEAD
         <section className="px-4 py-12 md:px-6">
           <div className="mx-auto max-w-6xl">
             <CrowdfundingCampaignSection clubId={club.id} />
           </div>
         </section>
+ feature/election-coi-detector-3952
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
@@ -1008,13 +802,17 @@ export default function ClubProfile() {
  main
 
 
+
+        feature/rsvp-prereq-blocker-3946 feature/rsvp-prereq-blocker-3946
+        feature/rsvp-prereq-blocker-3946 feature/geofenced-checkin-4035
+        feature/geofenced-checkin-4035 main feature/assistant-persistence-2044 main
+ main
         <section className="px-4 py-6 md:px-6">
           <div className="mx-auto max-w-6xl">
             <ClubKnowledgeBaseSection clubId={club.id} />
           </div>
         </section>
-
- main
+        main
         <section className="px-4 py-12 md:px-6 bg-gray-50 border-t-2 border-black">
           <div className="mx-auto max-w-6xl">
             <div className="mb-6 flex items-center justify-between">
@@ -1023,7 +821,6 @@ export default function ClubProfile() {
             <MerchStore clubId={club.id} />
           </div>
         </section>
-
         <ReportDialog
           isOpen={isReportDialogOpen}
           onClose={() => setIsReportDialogOpen(false)}

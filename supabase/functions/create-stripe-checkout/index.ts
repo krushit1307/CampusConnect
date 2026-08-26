@@ -130,12 +130,76 @@ serve(async (req) => {
 
         const subtotal = basePriceCents * quantity;
         const discountAmount = Math.round(subtotal * (applicableDiscount / 100));
-        const totalAmount = subtotal - discountAmount;
+        let totalAmount = subtotal - discountAmount;
 
-        // 5. Build Stripe Line Items. A sale Price is resolved only on the
+        // 5. Check User Platform Balance & Auto-Deduct before hitting Credit Card (#4522)
+        const { data: userBal } = await adminSupabase
+            .from("user_platform_balances")
+            .select("balance_cents, lifetime_spent_cents")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+        const userBalanceCents = userBal?.balance_cents || 0;
+        const creditToApply = Math.min(userBalanceCents, totalAmount);
+        const remainingToChargeCents = totalAmount - creditToApply;
+
+        // If user platform credit covers 100% of order, bypass Stripe completely
+        if (creditToApply > 0 && remainingToChargeCents === 0) {
+            const newBalance = userBalanceCents - creditToApply;
+            const newSpent = (userBal?.lifetime_spent_cents || 0) + creditToApply;
+
+            await adminSupabase
+                .from("user_platform_balances")
+                .update({
+                    balance_cents: newBalance,
+                    lifetime_spent_cents: newSpent,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("user_id", user.id);
+
+            await adminSupabase
+                .from("user_platform_credit_ledger")
+                .insert({
+                    user_id: user.id,
+                    amount_cents: -creditToApply,
+                    balance_after_cents: newBalance,
+                    transaction_type: "checkout_deduction",
+                    description: `100% Platform credit checkout for ${quantity}x "${event.title}"`,
+                    reference_id: eventId,
+                    bonus_amount_cents: 0,
+                    metadata: {
+                        event_id: eventId,
+                        tier_id: tier.id,
+                        quantity,
+                        total_amount_cents: totalAmount,
+                    },
+                });
+
+            // Create RSVP record for the user
+            await adminSupabase.from("event_rsvps").insert({
+                event_id: eventId,
+                user_id: user.id,
+                status: "attending",
+                ticket_tier_id: tier.id,
+                paid_amount_cents: 0, // Paid with platform credit
+                created_at: new Date().toISOString(),
+            });
+
+            return new Response(
+                JSON.stringify({
+                    paidWithCredit: true,
+                    creditAppliedCents: creditToApply,
+                    remainingAmountCents: 0,
+                    url: `${req.headers.get("origin")}/events/${eventId}/tickets/success?credit_order=true`,
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+            );
+        }
+
+        // 6. Build Stripe Line Items. A sale Price is resolved only on the
         // server; the browser never supplies an amount or Stripe Price ID.
         const activeStripePriceId = activeFlashSale?.sale_stripe_price_id || tierPayment?.stripe_price_id;
-        const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = activeStripePriceId
+        const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = activeStripePriceId && creditToApply === 0
             ? [{ price: activeStripePriceId, quantity }]
             : [{
                 price_data: {
@@ -167,7 +231,53 @@ serve(async (req) => {
             });
         }
 
-        // 6. Create Stripe Checkout Session
+        // Apply partial platform credit deduction as a negative line item
+        if (creditToApply > 0) {
+            lineItems.push({
+                price_data: {
+                    currency: "usd",
+                    product_data: {
+                        name: "CampusConnect Platform Credit",
+                    },
+                    unit_amount: -creditToApply,
+                },
+                quantity: 1,
+            });
+
+            // Deduct platform credit
+            const newBalance = userBalanceCents - creditToApply;
+            const newSpent = (userBal?.lifetime_spent_cents || 0) + creditToApply;
+
+            await adminSupabase
+                .from("user_platform_balances")
+                .update({
+                    balance_cents: newBalance,
+                    lifetime_spent_cents: newSpent,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("user_id", user.id);
+
+            await adminSupabase
+                .from("user_platform_credit_ledger")
+                .insert({
+                    user_id: user.id,
+                    amount_cents: -creditToApply,
+                    balance_after_cents: newBalance,
+                    transaction_type: "checkout_deduction",
+                    description: `Partial platform credit checkout for ${quantity}x "${event.title}"`,
+                    reference_id: eventId,
+                    bonus_amount_cents: 0,
+                    metadata: {
+                        event_id: eventId,
+                        tier_id: tier.id,
+                        quantity,
+                        credit_applied_cents: creditToApply,
+                        remaining_cents: remainingToChargeCents,
+                    },
+                });
+        }
+
+        // 7. Create Stripe Checkout Session for remaining balance
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             line_items: lineItems,
@@ -179,6 +289,7 @@ serve(async (req) => {
                 tier_id: tier.id,
                 quantity: quantity.toString(),
                 discount_applied: applicableDiscount.toString(),
+                credit_applied_cents: creditToApply.toString(),
                 flash_sale_id: activeFlashSale?.id || "",
                 flash_sale_discount: activeFlashSale?.discount_percent?.toString() || "",
                 event_id: eventId
@@ -190,7 +301,7 @@ serve(async (req) => {
         });
 
         return new Response(
-            JSON.stringify({ sessionId: session.id, url: session.url }),
+            JSON.stringify({ sessionId: session.id, url: session.url, creditAppliedCents: creditToApply }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
 

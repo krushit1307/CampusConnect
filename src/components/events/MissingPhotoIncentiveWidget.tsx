@@ -18,11 +18,13 @@ import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 import type { MissingPhotoTask, IncentiveClaimResult } from "@/types/missingPhotoIncentive";
 import { claimMissingPhotoBounty } from "@/services/missingPhotoIncentiveService";
+import { claimPhotoChaserWithRbacCheck, checkUserRbacPermission, type UserRbacRole } from "@/services/missingPhotoTaskRbacService";
 
 interface MissingPhotoIncentiveWidgetProps {
   eventId: string;
   eventTitle: string;
   organizerId?: string;
+  userRole?: UserRbacRole;
   hasPhoto?: boolean;
   onPhotoUploaded?: (photoUrl: string) => void;
 }
@@ -31,6 +33,7 @@ export const MissingPhotoIncentiveWidget: React.FC<MissingPhotoIncentiveWidgetPr
   eventId,
   eventTitle,
   organizerId = "org-1",
+  userRole = "event_organizer",
   hasPhoto = false,
   onPhotoUploaded,
 }) => {
@@ -38,6 +41,8 @@ export const MissingPhotoIncentiveWidget: React.FC<MissingPhotoIncentiveWidgetPr
   const [isUploading, setIsUploading] = useState(false);
   const [isClaimed, setIsClaimed] = useState(hasPhoto);
   const [claimResult, setClaimResult] = useState<IncentiveClaimResult | null>(null);
+
+  const isAuthorized = checkUserRbacPermission(userRole);
 
   const samplePhotoPresets = [
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&fit=crop",
@@ -52,13 +57,19 @@ export const MissingPhotoIncentiveWidget: React.FC<MissingPhotoIncentiveWidgetPr
       return;
     }
 
+    if (!isAuthorized) {
+      alert(`Unauthorized action: Role '${userRole}' lacks RBAC permission to claim photo chaser bounties.`);
+      return;
+    }
+
     setIsUploading(true);
     try {
-      const res = await claimMissingPhotoBounty(
-        `task-missing-photo-${eventId}`,
+      const res = await claimPhotoChaserWithRbacCheck(
+        `task-photo-chaser-${eventId}`,
         eventId,
         targetUrl,
-        organizerId
+        organizerId,
+        userRole
       );
 
       if (res.success) {
@@ -67,6 +78,8 @@ export const MissingPhotoIncentiveWidget: React.FC<MissingPhotoIncentiveWidgetPr
         if (onPhotoUploaded) {
           onPhotoUploaded(targetUrl);
         }
+      } else {
+        alert(res.message);
       }
     } catch (err: any) {
       alert(err.message || "Failed to claim bounty.");
