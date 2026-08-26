@@ -25,6 +25,9 @@ import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
  feature/double-booking-penalty-4045
 
+ feature/membership-trial-period-4406
+ main
+
 
 
  main
@@ -783,6 +786,10 @@ export default function ClubProfile() {
         </section>
         <ClubTransparencyLedger clubId={club.id} />
  feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
+ feature/membership-trial-period-4406
+ main
 
  HEAD
 
@@ -794,6 +801,10 @@ export default function ClubProfile() {
           </div>
         </section>
  feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
+ feature/membership-trial-period-4406
+ main
 
         feature/rsvp-prereq-blocker-3946 feature/rsvp-prereq-blocker-3946
         feature/rsvp-prereq-blocker-3946 feature/geofenced-checkin-4035

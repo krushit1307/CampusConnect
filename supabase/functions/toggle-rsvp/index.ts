@@ -268,6 +268,10 @@ serve(async (req: Request) => {
       const { data: eventData, error: eventErr } = await supabase
         .from("events")
  feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
+ feature/membership-trial-period-4406
+ main
 
 
  feature/rsvp-prereq-blocker-3946
@@ -382,6 +386,10 @@ serve(async (req: Request) => {
               error: `You must attend the prerequisite event before registering for this event.`,
             },
  feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
+ feature/membership-trial-period-4406
+ main
  HEAD
 
 
@@ -413,6 +421,10 @@ serve(async (req: Request) => {
 
  main
  feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
+ feature/membership-trial-period-4406
+ main
  upstream/main
 
  upstream/main

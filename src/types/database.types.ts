@@ -4107,6 +4107,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      event_geofence_alerts: {
+        Row: {
+          id: string;
+          event_id: string;
+          rsvp_id: string;
+          attendee_id: string;
+          attendee_name: string;
+          status: "escalated" | "acknowledged";
+          breached_at: string;
+          escalated_at: string;
+          responded_at: string | null;
+          distance_meters: number | null;
+          accuracy_meters: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          rsvp_id: string;
+          attendee_id: string;
+          attendee_name: string;
+          status?: "escalated" | "acknowledged";
+          breached_at?: string;
+          escalated_at?: string;
+          responded_at?: string | null;
+          distance_meters?: number | null;
+          accuracy_meters?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          rsvp_id?: string;
+          attendee_id?: string;
+          attendee_name?: string;
+          status?: "escalated" | "acknowledged";
+          breached_at?: string;
+          escalated_at?: string;
+          responded_at?: string | null;
+          distance_meters?: number | null;
+          accuracy_meters?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      banned_signatures: {
+        Row: {
+          id: string;
+          source_user_id: string;
+          ip_hash: string | null;
+          device_fingerprint_hash: string | null;
+          reason: string;
+          active: boolean;
+          last_seen_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          source_user_id: string;
+          ip_hash?: string | null;
+          device_fingerprint_hash?: string | null;
+          reason: string;
+          active?: boolean;
+          last_seen_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          source_user_id?: string;
+          ip_hash?: string | null;
+          device_fingerprint_hash?: string | null;
+          reason?: string;
+          active?: boolean;
+          last_seen_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       auction_item_public_state: {
@@ -4413,6 +4491,18 @@ export type Database = {
       get_club_revenue_forecast: {
         Args: { p_club_id: string; p_event_id: string };
         Returns: Json;
+      };
+      raise_event_geofence_alert: {
+        Args: {
+          p_rsvp_id: string;
+          p_distance_meters: number;
+          p_accuracy_meters?: number;
+        };
+        Returns: Database["public"]["Tables"]["event_geofence_alerts"]["Row"];
+      };
+      acknowledge_event_geofence_alert: {
+        Args: { p_alert_id: string };
+        Returns: Database["public"]["Tables"]["event_geofence_alerts"]["Row"];
       };
       is_event_organizer: {
         Args: { p_event_id: string; p_user_id?: string };
