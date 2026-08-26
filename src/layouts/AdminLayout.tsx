@@ -2,6 +2,7 @@ import React from "react";
 import { SplitPane } from "@/components/SplitPane";
 import { AdminSidebar } from "@/components/AdminSidebar"; // Assuming this exists
 import { Outlet } from "react-router-dom";
+import AssetCheckoutScanner from "@/components/AssetCheckoutScanner"; // <-- Scanner Import Added Here
 
 /**
  * AdminLayout
@@ -20,6 +21,13 @@ export const AdminLayout: React.FC = () => {
           sidebar={<AdminSidebar />}
           mainContent={
             <div className="h-full p-6 overflow-y-auto">
+              
+              {/* --- TEMPORARY SCANNER MOUNT FOR TESTING --- */}
+              <div className="mb-8 border-b-2 border-gray-200 pb-8">
+                <AssetCheckoutScanner />
+              </div>
+              {/* ------------------------------------------- */}
+
               <Outlet />
             </div>
           }

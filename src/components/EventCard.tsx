@@ -36,11 +36,13 @@ interface Event {
   banner_url?: string | null;
   created_at?: string | null;
   max_attendees?: number | null;
-  clubs: { name: string } | { name: string }[] | null;
-  event_rsvps: { id: string; user_id: string; no_media_consent?: boolean | null }[] | null;
-  saved_events: { id: string; user_id: string }[] | null;
+  clubs?: { name: string; logo_url?: string | null } | { name: string; logo_url?: string | null }[] | null;
+  event_rsvps?: { id: string; user_id: string; no_media_consent?: boolean | null }[] | null;
+  saved_events?: { id: string; user_id: string }[] | null;
   rsvp_count?: number;
   saved_count?: number;
+  is_remote?: boolean;
+  host_institution?: string;
 }
 
 interface EventCardProps {
@@ -279,6 +281,12 @@ export function EventCard({
                 </span>
               )
             )}
+
+            {event.is_remote && (
+              <span className="mt-2 inline-flex min-h-[24px] items-center rounded-full bg-blue-100 px-2 py-1 text-[11px] font-bold text-blue-800 border border-blue-300">
+                🌐 External Event
+              </span>
+            )}
           </div>
           <div className="flex gap-2 relative z-10">
             <TooltipProvider>
@@ -331,7 +339,9 @@ export function EventCard({
             {event.title}
           </h2>
         </Link>
-        <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
+        <p className="mt-1 font-mono text-sm font-bold text-blue-900">
+          {event.is_remote ? `Hosted by ${event.host_institution}` : club?.name}
+        </p>
         {(event.tldr_summary || event.description) && (
           <p className="mt-3 border-l-4 border-black/30 pl-3 font-mono text-sm font-semibold leading-relaxed text-black/80">
             <span className="mr-1 text-[10px] font-black uppercase tracking-wider text-black/60">

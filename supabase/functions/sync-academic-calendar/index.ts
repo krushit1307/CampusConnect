@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { parseAcademicCalendarIcs } from "../_shared/academicCalendar.ts";
-
+import { parseAcademicCalendarIcs, classifyRestrictedCategory } from "../_shared/academicCalendar.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -74,8 +73,56 @@ Deno.serve(async (req) => {
       if (deleteError) throw deleteError;
     }
 
-    return json({ synced: parsedEvents.length, removed: staleIds.length, feedUrl });
-  } catch (error) {
+    // Mirror Midterms/Finals/Reading Days into restricted_dates for the
+    // event-draft warning (#3890).
+    const restrictedRows = parsedEvents
+      .map((event) => ({ event, category: classifyRestrictedCategory(event.title) }))
+      .filter((row): row is { event: typeof row.event; category: NonNullable<typeof row.category> } =>
+        row.category !== null,
+      )
+      .map(({ event, category }) => ({
+        source_uid: event.sourceUid,
+        title: event.title,
+        category,
+        start_date: event.startDate,
+        end_date: event.endDate,
+        source_url: feedUrl,
+        synced_at: new Date().toISOString(),
+      }));
+
+    if (restrictedRows.length > 0) {
+      const { error: restrictedUpsertError } = await supabase
+        .from("restricted_dates")
+        .upsert(restrictedRows, { onConflict: "source_uid" });
+      if (restrictedUpsertError) throw restrictedUpsertError;
+    }
+
+    const restrictedUids = restrictedRows.map((row) => row.source_uid);
+    const { data: existingRestrictedRows, error: existingRestrictedError } = await supabase
+      .from("restricted_dates")
+      .select("id, source_uid")
+      .eq("source_url", feedUrl)
+      .limit(5000);
+    if (existingRestrictedError) throw existingRestrictedError;
+
+    const staleRestrictedIds = (existingRestrictedRows ?? [])
+      .filter((row) => !restrictedUids.includes(row.source_uid))
+      .map((row) => row.id);
+    if (staleRestrictedIds.length > 0) {
+      const { error: deleteRestrictedError } = await supabase
+        .from("restricted_dates")
+        .delete()
+        .in("id", staleRestrictedIds);
+      if (deleteRestrictedError) throw deleteRestrictedError;
+    }
+
+    return json({
+      synced: parsedEvents.length,
+      removed: staleIds.length,
+      restrictedSynced: restrictedRows.length,
+      restrictedRemoved: staleRestrictedIds.length,
+      feedUrl,
+    });  } catch (error) {
     console.error("[sync-academic-calendar] sync failed", error);
     return json({ error: error instanceof Error ? error.message : "Calendar sync failed" }, 502);
   }

@@ -1,7 +1,7 @@
 // =============================================================================
 // Hook: useLiveDjRequests
-// Issue: #3462 - Build an 'Interactive Live DJ Request System'
-// Description: Fetches song requests ordered by upvotes (order by upvotes desc)
+// Issue: #3462 - Build an 'Interactive Live DJ Request System' & #4490 DJ Mode
+// Description: Fetches song requests ordered by upvotes and admin overrides,
 // and connects to Supabase Realtime for instant DJ booth synchronization.
 // =============================================================================
 
@@ -12,6 +12,7 @@ import {
   submitSongRequest,
   upvoteSongRequest,
   dismissSongRequest,
+  overrideAdminQueue, // Note: We need to create this in the service next
 } from "../services/djRequestService";
 
 interface UseLiveDjRequestsReturn {
@@ -22,6 +23,10 @@ interface UseLiveDjRequestsReturn {
   toggleUpvote: (requestId: string) => Promise<void>;
   dismissRequest: (requestId: string) => Promise<void>;
   refetch: () => Promise<void>;
+  updateAdminQueueOrder: (
+    reorderedRequests: EventSongRequest[],
+    draggedId: string,
+  ) => Promise<void>;
 }
 
 export function useLiveDjRequests(
@@ -43,12 +48,14 @@ export function useLiveDjRequests(
     const supabase = createClient();
 
     try {
-      // Fetch unplayed song requests sorted by upvotes DESC, created_at ASC
+      // Fetch unplayed song requests sorted by Admin overrides first, then upvotes
       const { data, error } = await supabase
         .from("event_song_requests")
         .select("*")
         .eq("event_id", eventId)
         .eq("played", false)
+        .order("overridden_by_admin", { ascending: false, nullsFirst: false })
+        .order("admin_sort_order", { ascending: true })
         .order("upvotes", { ascending: false })
         .order("created_at", { ascending: true });
 
@@ -125,7 +132,7 @@ export function useLiveDjRequests(
 
   const toggleUpvote = async (requestId: string) => {
     if (!currentUserId) return;
-    // Optimistic UI update
+    // Optimistic UI update ensuring Admin order isn't scrambled by regular votes
     setRequests((prev) =>
       prev
         .map((r) => {
@@ -136,7 +143,14 @@ export function useLiveDjRequests(
           }
           return r;
         })
-        .sort((a, b) => b.upvotes - a.upvotes),
+        .sort((a, b) => {
+          if (a.overridden_by_admin && !b.overridden_by_admin) return -1;
+          if (!a.overridden_by_admin && b.overridden_by_admin) return 1;
+          if (a.overridden_by_admin && b.overridden_by_admin) {
+            return (a.admin_sort_order || 0) - (b.admin_sort_order || 0);
+          }
+          return b.upvotes - a.upvotes;
+        }),
     );
 
     setUserUpvotedIds((prev) => {
@@ -157,6 +171,37 @@ export function useLiveDjRequests(
     void fetchRequests();
   };
 
+  const updateAdminQueueOrder = async (
+    reorderedRequests: EventSongRequest[],
+    draggedId: string,
+  ) => {
+    // 1. Optimistic UI update
+    const updatedState = reorderedRequests.map((req, index) => {
+      if (req.id === draggedId || req.overridden_by_admin) {
+        return { ...req, overridden_by_admin: true, admin_sort_order: index };
+      }
+      return req;
+    });
+
+    setRequests(updatedState);
+
+    // 2. Persist to Backend
+    try {
+      const itemsToUpdate = updatedState
+        .filter((req) => req.overridden_by_admin)
+        .map((req) => ({
+          id: req.id,
+          overridden_by_admin: true,
+          admin_sort_order: req.admin_sort_order,
+        }));
+
+      await overrideAdminQueue(itemsToUpdate);
+    } catch (error) {
+      console.error("Failed to sync DJ queue override:", error);
+      void fetchRequests();
+    }
+  };
+
   return {
     requests,
     isLoading,
@@ -165,5 +210,6 @@ export function useLiveDjRequests(
     toggleUpvote,
     dismissRequest,
     refetch: fetchRequests,
+    updateAdminQueueOrder,
   };
 }
