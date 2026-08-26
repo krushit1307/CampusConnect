@@ -10,7 +10,11 @@ def upgrade_events_schema(db_conn: sqlite3.Connection) -> None:
     except sqlite3.OperationalError:
         # Gracefully handle scenarios where the column index allocation already exists
         pass
+ feature/design-marketplace-4049
+ feature/design-marketplace-4049
+
  feature/membership-trial-period-4406
+ main
 
 def upgrade_double_booking_schema(db_conn: sqlite3.Connection) -> None:
     """Appends structural tracking columns to support double-booking penalties and suspensions."""
