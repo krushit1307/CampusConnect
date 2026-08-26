@@ -6,6 +6,7 @@ import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import Download from "lucide-react/dist/esm/icons/download";
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import { EventBudgetActualSankey } from "@/components/analytics/EventBudgetActualSankey";
+import { EventBudgetVarianceTable } from "@/components/analytics/EventBudgetVarianceTable";
 import {
   downloadPdf,
   generateEventRoiPdf,
@@ -238,6 +239,8 @@ export function EventFinancesSection({ eventId }: { eventId: string }) {
           </button>
         </div>
       </div>
+
+      <EventBudgetVarianceTable eventId={eventId} />
 
       <EventBudgetActualSankey eventId={eventId} />
     </div>

@@ -62,7 +62,7 @@ export const DynamicSponsorshipCalculator: React.FC<DynamicSponsorshipCalculator
   initialReach,
 }) => {
   const [reach, setReach] = useState<ClubHistoricalReach>(
-    initialReach || getMockClubHistoricalReach(clubId),
+    initialReach || getMockClubHistoricalReach(clubId)
   );
 
   const [params, setParams] = useState<ValuationModelParams>(getDefaultValuationParams());
@@ -82,9 +82,7 @@ export const DynamicSponsorshipCalculator: React.FC<DynamicSponsorshipCalculator
       const customPrice = customOverrides[tier.tierLevel];
 
       // Recompute price if perks were toggled
-      const perkSum = activePerks
-        .filter((p) => p.isIncluded)
-        .reduce((s, p) => s + p.baseFairMarketValue, 0);
+      const perkSum = activePerks.filter((p) => p.isIncluded).reduce((s, p) => s + p.baseFairMarketValue, 0);
       const perkAdjustment = perkSum - tier.perkValuationTotal;
       const adjustedPrice = Math.max(100, tier.recommendedPrice + perkAdjustment);
 
@@ -108,7 +106,7 @@ export const DynamicSponsorshipCalculator: React.FC<DynamicSponsorshipCalculator
     if (!currentTier) return;
 
     const updatedPerks = currentTier.perks.map((p) =>
-      p.id === perkId ? { ...p, isIncluded: !p.isIncluded } : p,
+      p.id === perkId ? { ...p, isIncluded: !p.isIncluded } : p
     );
 
     setCustomPerks((prev) => ({
@@ -211,8 +209,7 @@ export const DynamicSponsorshipCalculator: React.FC<DynamicSponsorshipCalculator
               {reach.totalActiveMembers} Students
             </div>
             <div className="mt-0.5 flex items-center gap-1 text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
-              <Users className="h-3 w-3" /> {(reach.majorDistribution.stem * 100).toFixed(0)}% STEM
-              Majors
+              <Users className="h-3 w-3" /> {(reach.majorDistribution.stem * 100).toFixed(0)}% STEM Majors
             </div>
           </div>
 
@@ -420,10 +417,10 @@ export const DynamicSponsorshipCalculator: React.FC<DynamicSponsorshipCalculator
                           tier.tierLevel === "platinum"
                             ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
                             : tier.tierLevel === "gold"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                              : tier.tierLevel === "silver"
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                                : "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                            : tier.tierLevel === "silver"
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                            : "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
                         }`}
                       >
                         {tier.tierLevel}
@@ -443,8 +440,7 @@ export const DynamicSponsorshipCalculator: React.FC<DynamicSponsorshipCalculator
                       <div className="mt-1 flex items-center gap-1 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                         <Sparkles className="h-3 w-3" />
                         <span>
-                          AI Recommended: ${tier.recommendedPrice.toLocaleString()} ($
-                          {tier.confidenceLowerBound} - ${tier.confidenceUpperBound})
+                          AI Recommended: ${tier.recommendedPrice.toLocaleString()} (${tier.confidenceLowerBound} - ${tier.confidenceUpperBound})
                         </span>
                       </div>
 
@@ -529,29 +525,17 @@ export const DynamicSponsorshipCalculator: React.FC<DynamicSponsorshipCalculator
                 <thead className="border-b-2 border-black bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800">
                   <tr>
                     <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Tier</th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Price
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Direct Candidates
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Digital Impressions
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Cost per Lead
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Key Perks
-                    </th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Price</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Direct Candidates</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Digital Impressions</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Cost per Lead</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Key Perks</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                   {tiers.map((tier) => (
                     <tr key={tier.tierLevel} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
-                      <td className="p-3 font-bold text-zinc-900 dark:text-white">
-                        {tier.tierName}
-                      </td>
+                      <td className="p-3 font-bold text-zinc-900 dark:text-white">{tier.tierName}</td>
                       <td className="p-3 font-black text-emerald-600">
                         ${(tier.customPriceOverride || tier.recommendedPrice).toLocaleString()}
                       </td>
@@ -608,8 +592,7 @@ export const DynamicSponsorshipCalculator: React.FC<DynamicSponsorshipCalculator
               </Button>
             </DialogTitle>
             <DialogDescription className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
-              Ready-to-send corporate sponsor proposal with audience metrics and transparent tier
-              valuations.
+              Ready-to-send corporate sponsor proposal with audience metrics and transparent tier valuations.
             </DialogDescription>
           </DialogHeader>
 

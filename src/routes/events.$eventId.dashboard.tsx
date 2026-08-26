@@ -14,11 +14,17 @@ import { EventMetricRadarChart } from "@/components/analytics/EventMetricRadarCh
 import { EventPodcastPanel } from "@/components/audio/EventPodcastPanel";
 import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPredictionCard";
 import { EventPollsExportSection } from "@/components/polls/EventPollsExportSection";
+import { ResourceRequestWidget } from "@/components/ResourceRequestWidget";
+import { DietaryForecastPanel } from "@/components/events/DietaryForecastPanel";
 
 import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroadcast";
+import { EventFeedbackLlmSummaryCard } from "@/components/events/EventFeedbackLlmSummaryCard";
+import { EventWeatherWarningBanner } from "@/components/events/EventWeatherWarningBanner";
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
 import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
 import { VendorRfpManager } from "@/components/vendors/VendorRfpManager";
+import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
+import { MissingPhotoIncentiveWidget } from "@/components/events/MissingPhotoIncentiveWidget";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -94,7 +100,7 @@ export default function EventDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("title, is_public_showcase")
+        .select("title, is_public_showcase, cover_image_url")
         .eq("id", eventId!)
         .single();
       if (error) throw error;
@@ -406,6 +412,21 @@ export default function EventDashboard() {
             <h1 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               {eventData?.title ? `${eventData.title} Analytics` : "Event Analytics"}
             </h1>
+
+            <div className="mt-4">
+              <EventWeatherWarningBanner
+                eventId={eventId!}
+                eventTitle={eventData?.title || "Outdoor Event"}
+              />
+            </div>
+            <div className="mt-4">
+              <MissingPhotoIncentiveWidget
+                eventId={eventId!}
+                eventTitle={eventData?.title || "Event"}
+                hasPhoto={!!eventData?.cover_image_url}
+                onPhotoUploaded={() => refetchEventData()}
+              />
+            </div>
             <div className="flex flex-wrap gap-3 items-center mt-4 sm:mt-0">
               {/* Public Showcase Toggle */}
               <label className="flex items-center gap-2 font-mono text-xs font-bold uppercase cursor-pointer select-none bg-blue-50 dark:bg-blue-950/20 border-2 border-black dark:border-white p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors">
@@ -451,6 +472,13 @@ export default function EventDashboard() {
               >
                 Duplicate Event
               </button>
+
+              <button
+                onClick={() => navigate(`/events/${eventId}/scoreboard`)}
+                className="neu-border neu-press bg-blue-400 text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform whitespace-nowrap"
+              >
+                Scoreboard Admin
+              </button>
             </div>
           </div>
 
@@ -486,11 +514,26 @@ export default function EventDashboard() {
               )}
             </div>
           </div>
+
+          {/* Resource Request Widget */}
+          <ResourceRequestWidget eventId={eventId!} />
+
+          {/* Dietary Yield Forecast & Optimizer */}
+          <div className="mb-8">
+            <DietaryForecastPanel eventId={eventId!} />
+          </div>
           <div className="mb-8 border-2 border-black bg-yellow-100 p-5 shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center gap-2">
               <Star size={20} />
 
               <h2 className="font-display text-xl font-black uppercase">Post-Event Feedback</h2>
+            </div>
+
+            <div className="mt-4">
+              <EventFeedbackLlmSummaryCard
+                eventId={eventId!}
+                responseCount={feedbackSummary?.response_count ?? 0}
+              />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -594,6 +637,10 @@ export default function EventDashboard() {
 
           <div className="mb-8">
             <OrganizerNoiseBroadcaster eventId={eventId!} />
+          </div>
+
+          <div className="mb-8">
+            <EventBroadcastFallbackPanel eventId={eventId!} isOrganizer />
           </div>
 
           <div className="mb-8">

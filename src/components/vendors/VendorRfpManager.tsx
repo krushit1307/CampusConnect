@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "sonner";
 import {
   Briefcase,
   Plus,
@@ -13,6 +14,8 @@ import {
   Send,
   Check,
   XCircle,
+  X,
+  RefreshCw,
 } from "lucide-react";
 import {
   VendorRfp,
@@ -28,6 +31,8 @@ import { useQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryRepl
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { createTransferEscrow } from "@/lib/ticketTransfer";
+import { createClient } from "@/lib/supabase/client";
+import { VendorPortfolioViewer } from "./VendorPortfolioViewer";
 
 export interface VendorRfpManagerProps {
   clubId?: string;
@@ -36,6 +41,46 @@ export interface VendorRfpManagerProps {
   isVendorView?: boolean;
   className?: string;
 }
+
+export const MOCK_INITIAL_RFPS: VendorRfp[] = [
+  {
+    id: "rfp-1",
+    club_id: "club-eng-1",
+    title: "Catering for 300-Person Annual Gala Banquet",
+    category: "catering",
+    description:
+      "Need dinner catering with vegetarian and vegan options for 300 guests on Friday evening.",
+    budget_max: 2000,
+    deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    status: "open",
+    created_at: new Date().toISOString(),
+  },
+];
+
+export const MOCK_INITIAL_BIDS: Record<string, RfpBid[]> = {
+  "rfp-1": [
+    {
+      id: "bid-1",
+      rfp_id: "rfp-1",
+      vendor_name: "TacoCorp Catering",
+      vendor_email: "events@tacocorp.com",
+      quoted_price: 1650,
+      proposal_pdf_url: "https://cdn.campus.edu/proposals/tacocorp.pdf",
+      notes: "Includes taco bar setup, server staff, and biodegradable plates.",
+      status: "pending",
+    },
+    {
+      id: "bid-2",
+      rfp_id: "rfp-1",
+      vendor_name: "Gourmet Banquet Pros",
+      vendor_email: "sales@gourmetpros.com",
+      quoted_price: 2500, // Set high to test counter-offer
+      proposal_pdf_url: "https://cdn.campus.edu/proposals/gourmet.pdf",
+      notes: "Three-course buffet with dessert station.",
+      status: "pending",
+    },
+  ],
+};
 
 export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
   clubId,
@@ -50,6 +95,9 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
   const [selectedRfpId, setSelectedRfpId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showVendorBidModal, setShowVendorBidModal] = useState<boolean>(false);
+  const [awardedNotice, setAwardedNotice] = useState<string | null>(null);
+  const [portfolioBid, setPortfolioBid] = useState<RfpBid | null>(null);
+  const [supabase] = useState(() => createClient());
 
   // New RFP Form State
   const [title, setTitle] = useState("");
@@ -102,6 +150,10 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       if (!exists) setSelectedRfpId(rfps[0].id);
     }
   }, [rfps, selectedRfpId]);
+  // 🔥 Counter-Offer State Machine 🔥
+  const [counterBidTarget, setCounterBidTarget] = useState<RfpBid | null>(null);
+  const [counterPrice, setCounterPrice] = useState<number>(0);
+  const [counterMessage, setCounterMessage] = useState("");
 
   const activeRfp = rfps.find((r) => r.id === selectedRfpId) || rfps[0];
   const activeBids = rankBidsByValue(bids);
@@ -200,9 +252,21 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       budget_max: budgetMax,
       deadline: deadline || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
     });
+      status: "open",
+      created_at: new Date().toISOString(),
+    };
+
+    const updated = [newRfp, ...rfps];
+    setRfps(updated);
+    setSelectedRfpId(newRfp.id);
+    if (onRfpCreated) onRfpCreated(newRfp);
+
+    setTitle("");
+    setDescription("");
+    setShowCreateModal(false);
   };
 
-  const handleSubmitVendorBid = (e: React.FormEvent) => {
+  const handleSubmitVendorBid = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendorName.trim() || !vendorEmail.trim()) return;
     if (quotedPrice <= 0) {
@@ -241,6 +305,103 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       </div>
     );
   }
+
+    const isPersistedRfp = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedRfpId);
+    if (isPersistedRfp) {
+      const { data, error } = await supabase.rpc("submit_vendor_rfp_bid", {
+        p_rfp_id: selectedRfpId,
+        p_vendor_name: vendorName.trim(),
+        p_vendor_email: vendorEmail.trim(),
+        p_quoted_price: quotedPrice,
+        p_proposal_pdf_url: proposalPdfUrl.trim() || null,
+        p_notes: notes.trim() || null,
+      });
+      if (error || !data) {
+        toast.error(error?.message || "Could not submit the vendor bid.");
+        return;
+      }
+      setBidsByRfp({
+        ...bidsByRfp,
+        [selectedRfpId]: [...(bidsByRfp[selectedRfpId] || []), data],
+      });
+    } else {
+      const newBid: RfpBid = {
+        id: `bid-${Date.now()}`,
+        rfp_id: selectedRfpId,
+        vendor_name: vendorName.trim(),
+        vendor_email: vendorEmail.trim(),
+        quoted_price: quotedPrice,
+        proposal_pdf_url: proposalPdfUrl.trim() || null,
+        notes: notes.trim() || null,
+        status: "pending",
+      };
+      const currentBids = bidsByRfp[selectedRfpId] || [];
+      setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: [...currentBids, newBid] });
+    }
+
+    toast.success("Vendor bid submitted.");
+    setVendorName("");
+    setVendorEmail("");
+    setProposalPdfUrl("");
+    setNotes("");
+    setShowVendorBidModal(false);
+  };
+
+  const handleAcceptBid = (bid: RfpBid) => {
+    const updatedRfps = rfps.map((r) =>
+      r.id === selectedRfpId ? { ...r, status: "awarded" as const, accepted_bid_id: bid.id } : r,
+    );
+    setRfps(updatedRfps);
+
+    const currentBids = (bidsByRfp[selectedRfpId] || []).map((b) =>
+      b.id === bid.id
+        ? { ...b, status: "accepted" as const }
+        : { ...b, status: "rejected" as const },
+    );
+    setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: currentBids });
+
+    setAwardedNotice(
+      `Contract Finalized! Escrow captured for ${bid.vendor_name} at $${bid.quoted_price.toLocaleString()}.`,
+    );
+    if (onBidAccepted) onBidAccepted(selectedRfpId, bid.id);
+  };
+
+  const handleRejectBid = (bid: RfpBid) => {
+    const currentBids = (bidsByRfp[selectedRfpId] || []).map((b) =>
+      b.id === bid.id ? { ...b, status: "rejected" as any } : b,
+    );
+    setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: currentBids });
+    toast.error(`Bid from ${bid.vendor_name} rejected.`);
+  };
+
+  const handleOpenCounterOffer = (bid: RfpBid) => {
+    setCounterBidTarget(bid);
+    setCounterPrice(bid.quoted_price);
+  };
+
+  const submitCounterOffer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!counterBidTarget) return;
+
+    const currentBids = (bidsByRfp[selectedRfpId] || []).map((b) =>
+      b.id === counterBidTarget.id
+        ? {
+            ...b,
+            status: "pending_vendor_review" as any,
+            quoted_price: counterPrice,
+            notes: `[Counter-Offer from Organizer]: ${counterMessage}\n\nOriginal Notes: ${b.notes}`,
+          }
+        : b,
+    );
+
+    setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: currentBids });
+    toast.success(
+      `Counter-offer of $${counterPrice} dispatched to ${counterBidTarget.vendor_name}!`,
+    );
+
+    setCounterBidTarget(null);
+    setCounterMessage("");
+  };
 
   return (
     <div
@@ -339,6 +500,45 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                         Budget: <strong>${rfp.budget_max.toLocaleString()}</strong>
                       </span>
                     </div>
+          <div className="space-y-2.5">
+            {rfps.map((rfp) => {
+              const isSelected = rfp.id === selectedRfpId;
+              const bidsCount = (bidsByRfp[rfp.id] || []).length;
+
+              return (
+                <div
+                  key={rfp.id}
+                  onClick={() => setSelectedRfpId(rfp.id)}
+                  className={cn(
+                    "p-3.5 border-2 rounded-lg cursor-pointer transition-all space-y-1.5",
+                    isSelected
+                      ? "border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ring-1 ring-emerald-400"
+                      : "border-gray-300 bg-gray-50/70 hover:border-gray-500",
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                      {formatRfpCategoryLabel(rfp.category)}
+                    </span>
+                    <span
+                      className={cn(
+                        "px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border",
+                        rfp.status === "awarded"
+                          ? "bg-purple-100 text-purple-900 border-purple-400"
+                          : "bg-emerald-100 text-emerald-900 border-emerald-400",
+                      )}
+                    >
+                      {rfp.status}
+                    </span>
+                  </div>
+
+                  <h5 className="font-bold text-xs text-black">{rfp.title}</h5>
+
+                  <div className="flex items-center justify-between text-[11px] font-sans text-gray-600 pt-1">
+                    <span>
+                      Budget: <strong>${rfp.budget_max.toLocaleString()}</strong>
+                    </span>
+                    <span>{bidsCount} Bids</span>
                   </div>
                 );
               })}
@@ -346,7 +546,7 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
           )}
         </div>
 
-        {/* Selected RFP & Bid Comparison Matrix (#3559) */}
+        {/* Selected RFP & Bid Comparison Matrix */}
         <div className="lg:col-span-2 p-5 bg-white space-y-5">
           {activeRfp ? (
             <>
@@ -388,6 +588,8 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                     {isVendorView
                       ? "Be the first to bid!"
                       : "Share the public RFP link with local restaurants, DJs, or suppliers."}
+                    No vendor proposals received yet. Share the public RFP link with local
+                    restaurants, DJs, or suppliers.
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -395,6 +597,8 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                       const savings = calculateBidSavings(activeRfp.budget_max, bid.quoted_price);
                       const isAccepted = bid.status === "accepted";
                       const isRejected = bid.status === "rejected";
+                      const isRejected = (bid.status as any) === "rejected";
+                      const isPendingReview = (bid.status as any) === "pending_vendor_review";
 
                       return (
                         <div
@@ -405,6 +609,7 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                               ? "bg-emerald-50 border-emerald-600 ring-2 ring-emerald-400"
                               : isRejected
                                 ? "bg-gray-100 opacity-70"
+                                ? "bg-gray-100 opacity-60"
                                 : "bg-white",
                           )}
                         >
@@ -420,6 +625,11 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                                 {isRejected && (
                                   <span className="px-2 py-0.5 bg-gray-500 text-white font-bold text-[10px] rounded-full uppercase">
                                     Rejected
+                                  </span>
+                                )}
+                                {isPendingReview && (
+                                  <span className="px-2 py-0.5 bg-amber-500 text-white font-bold text-[10px] rounded-full uppercase">
+                                    Counter-Offer Pending
                                   </span>
                                 )}
                               </div>
@@ -444,8 +654,8 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                           </div>
 
                           {bid.notes && (
-                            <p className="text-xs font-sans text-gray-600 bg-gray-50 p-2.5 rounded border border-gray-200">
-                              "{bid.notes}"
+                            <p className="text-xs font-sans text-gray-600 bg-gray-50 p-2.5 rounded border border-gray-200 whitespace-pre-wrap">
+                              {bid.notes}
                             </p>
                           )}
 
@@ -477,6 +687,70 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                                   Accept Bid
                                 </button>
                               )}
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setPortfolioBid(bid)}
+                                className="px-3 py-1.5 border-2 border-black bg-yellow-300 hover:bg-yellow-400 font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                              >
+                                View Portfolio
+                              </button>
+                              {bid.proposal_pdf_url && (
+                                <a
+                                  href={bid.proposal_pdf_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-bold text-purple-700 underline flex items-center gap-1 hover:text-purple-900 ml-2"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  Proposal PDF <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+
+                            {/* 🔥 Negotiation Workflow Buttons 🔥 */}
+                            {activeRfp.status === "open" && bid.status === "pending" && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectBid(bid)}
+                                  className="px-2.5 py-1.5 border-2 border-black bg-white hover:bg-red-50 text-red-600 font-bold text-xs uppercase rounded-md flex items-center gap-1"
+                                >
+                                  <X className="w-3.5 h-3.5" /> Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCounterOffer(bid)}
+                                  className="px-2.5 py-1.5 border-2 border-black bg-amber-300 hover:bg-amber-400 text-amber-900 font-bold text-xs uppercase rounded-md flex items-center gap-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" /> Counter-Offer
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAcceptBid(bid)}
+                                  className="px-3.5 py-1.5 border-2 border-black bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1"
+                                >
+                                  <Check className="w-3.5 h-3.5" /> Accept
+                                </button>
+                              </div>
+                            )}
+
+                            {activeRfp.status === "open" && isPendingReview && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-amber-600 font-bold animate-pulse">
+                                  Waiting on Vendor...
+                                </span>
+                                {/* Developer Simulate Button to demonstrate step 5 of the issue */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleAcceptBid(bid)}
+                                  className="px-2 py-1 bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-bold rounded uppercase hover:bg-amber-200"
+                                >
+                                  Simulate DJ Accept
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -492,6 +766,82 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
           )}
         </div>
       </div>
+
+      {/* 🔥 Counter-Offer Modal 🔥 */}
+      {counterBidTarget && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={submitCounterOffer}
+            className="bg-white border-2 border-black rounded-xl max-w-lg w-full p-6 space-y-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] font-mono"
+          >
+            <div className="flex items-center justify-between border-b-2 border-black pb-3">
+              <h3 className="font-bold text-base uppercase flex items-center gap-2 text-amber-600">
+                <RefreshCw className="w-5 h-5" />
+                Draft Counter-Offer
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCounterBidTarget(null)}
+                className="px-3 py-1 border border-black bg-gray-100 hover:bg-gray-200 rounded font-bold text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
+                Negotiating with <strong>{counterBidTarget.vendor_name}</strong>. Their original bid
+                was <strong>${counterBidTarget.quoted_price}</strong>.
+              </div>
+
+              <div>
+                <label
+                  htmlFor="counter-price-input"
+                  className="text-xs font-bold uppercase block mb-1"
+                >
+                  Your New Offer Amount ($) *
+                </label>
+                <input
+                  id="counter-price-input"
+                  type="number"
+                  required
+                  min={1}
+                  value={counterPrice}
+                  onChange={(e) => setCounterPrice(Number(e.target.value))}
+                  className="w-full px-3 py-2 border-2 border-black rounded-md text-sm font-bold bg-white"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="counter-message-input"
+                  className="text-xs font-bold uppercase block mb-1"
+                >
+                  Message to Vendor *
+                </label>
+                <textarea
+                  id="counter-message-input"
+                  required
+                  rows={3}
+                  placeholder="e.g., Our budget is tight, can you do $400 without the dessert station?"
+                  value={counterMessage}
+                  onChange={(e) => setCounterMessage(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-black rounded-md text-xs font-sans bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t-2 border-black/10">
+              <button
+                type="submit"
+                className="px-4 py-2 border-2 border-black bg-amber-400 text-black font-bold text-xs uppercase rounded-md hover:bg-amber-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+              >
+                Send Counter-Offer
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Create RFP Modal */}
       {showCreateModal && !isVendorView && (
@@ -730,6 +1080,7 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
           </form>
         </div>
       )}
+      <VendorPortfolioViewer bid={portfolioBid} onClose={() => setPortfolioBid(null)} />
     </div>
   );
 };
