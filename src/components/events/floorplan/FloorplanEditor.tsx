@@ -1,168 +1,625 @@
 // =============================================================================
-// Component: FloorplanCanvas
-// Issue: #3675 - Build an 'Interactive "Event Layout" Floorplan Creator'
-// Description: SVG-based 2D canvas. Renders venue walls, fire-exit clearance
-// pathways and draggable assets. Assets intersecting a fire pathway turn red.
-// Pointer events convert screen deltas into feet using the FT_TO_PX scale.
+// Component: FloorplanEditor
+// Issues: #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4157 - Interactive "Career Fair" Digital Map
+//         #4420 - Real-Time "Accessibility Need" Venue Map
+// Description: Organizer-facing editor. Palette chips can be dragged onto the
+// grid (or clicked) to add tables/stages/exits. A selection inspector edits
+// labels, sizes and sponsor assignments (incl. comma-separated hiring_tags,
+// which power the attendee career-fair search). An accessibility palette
+// (#4420) drops static POIs - ramps, elevators, ADA bathrooms, stairs - that
+// drive the attendee wheelchair routing. Saves the layout to
+// events.floorplan_json and can export the raw JSON contract.
 // =============================================================================
 
-import React, { useRef, useState } from 'react';
-import { FloorplanAsset, VenueBounds, FT_TO_PX, ASSET_DEFAULTS } from '../../../lib/floorplan/types';
-import { allFirePathways } from '../../../lib/floorplan/collision';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+} from "@dnd-kit/core";
+import { toast } from "sonner";
+import Save from "lucide-react/dist/esm/icons/save";
+import Download from "lucide-react/dist/esm/icons/download";
+import TriangleAlert from "lucide-react/dist/esm/icons/triangle-alert";
+import Accessibility from "lucide-react/dist/esm/icons/accessibility";
 
-interface FloorplanCanvasProps {
-    venue: VenueBounds;
-    assets: FloorplanAsset[];
-    collidingIds: Set<string>;
-    onMove: (id: string, x: number, y: number) => void;
-    onRemove: (id: string) => void;
+import { FloorplanCanvas } from "./FloorplanCanvas";
+import {
+  AccessibilityPoiKind,
+  AssetKind,
+  ASSET_DEFAULTS,
+  FloorplanAsset,
+  POI_DEFAULTS,
+  VenueBounds,
+} from "../../../lib/floorplan/types";
+import { describeAssignment, toFloorplanState } from "../../../lib/floorplan/serialize";
+import { parseHiringTags } from "../../../lib/floorplan/search";
+
+const PALETTE_KINDS: AssetKind[] = [
+  "rect_table",
+  "round_table",
+  "stage",
+  "speaker",
+  "chair_row",
+  "exit",
+];
+
+/** #4420 venue-manager authorable accessibility features. */
+const POI_KINDS: AccessibilityPoiKind[] = ["ramp", "elevator", "ada_bathroom", "stairs"];
+
+interface FloorplanEditorProps {
+  eventId: string;
+  venue: VenueBounds;
+  assets: FloorplanAsset[];
+  collidingIds: Set<string>;
+  isSaving: boolean;
+  onAdd: (kind: AssetKind, at?: { x: number; y: number }) => void;
+  onMove: (id: string, x: number, y: number) => void;
+  onUpdate: (id: string, patch: Partial<Omit<FloorplanAsset, "id" | "kind">>) => void;
+  onRemove: (id: string) => void;
+  onVenueSize: (widthFt: number, heightFt: number) => void;
+  onSave: () => Promise<boolean>;
+  /** #4420 POI operations (stored inside the venue JSON). */
+  onAddPoi: (kind: AccessibilityPoiKind, at?: { x_ft: number; y_ft: number }) => void;
+  onMovePoi: (id: string, x_ft: number, y_ft: number) => void;
+  onUpdatePoi: (id: string, patch: Partial<{ label: string; x_ft: number; y_ft: number }>) => void;
+  onRemovePoi: (id: string) => void;
 }
 
-export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
-    venue, assets, collidingIds, onMove, onRemove,
+function PaletteChip({ kind, onClick }: { kind: AssetKind; onClick: (kind: AssetKind) => void }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `palette-${kind}`,
+    data: { kind, isPalette: true },
+  });
+
+  const d = ASSET_DEFAULTS[kind];
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      {...listeners}
+      {...attributes}
+      style={
+        transform
+          ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999 }
+          : undefined
+      }
+      onClick={() => onClick(kind)}
+      data-testid={`palette-chip-${kind}`}
+      aria-label={`Add ${d.label}`}
+      className="neu-border flex cursor-grab touch-none flex-col items-start gap-0.5 bg-white p-2 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0_0_#000] transition-transform hover:-translate-y-0.5 active:cursor-grabbing"
+    >
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-2.5 w-2.5" style={{ backgroundColor: d.color }} />
+        {d.label}
+      </span>
+      <span className="font-normal normal-case text-gray-500">
+        {d.width}×{d.height} ft · drag or click
+      </span>
+    </button>
+  );
+}
+
+function PoiChip({
+  kind,
+  onClick,
+}: {
+  kind: AccessibilityPoiKind;
+  onClick: (kind: AccessibilityPoiKind) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `palette-poi-${kind}`,
+    data: { kind, isPoiPalette: true },
+  });
+  const d = POI_DEFAULTS[kind];
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      {...listeners}
+      {...attributes}
+      style={
+        transform
+          ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999 }
+          : undefined
+      }
+      onClick={() => onClick(kind)}
+      data-testid={`palette-chip-${kind}`}
+      aria-label={`Add ${d.label} accessibility point`}
+      className="neu-border flex cursor-grab touch-none items-center gap-1.5 bg-white p-2 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0_0_#000] transition-transform hover:-translate-y-0.5 active:cursor-grabbing"
+    >
+      <span
+        className="inline-block h-2.5 w-2.5 rounded-full"
+        style={{ backgroundColor: d.color }}
+        aria-hidden
+      />
+      {d.label}
+    </button>
+  );
+}
+
+export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
+  eventId,
+  venue,
+  assets,
+  collidingIds,
+  isSaving,
+  onAdd,
+  onMove,
+  onUpdate,
+  onRemove,
+  onVenueSize,
+  onSave,
+  onAddPoi,
+  onMovePoi,
+  onUpdatePoi,
+  onRemovePoi,
 }) => {
-    const svgRef = useRef<SVGSVGElement>(null);
-    const [drag, setDrag] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-    const viewW = venue.width_ft * FT_TO_PX;
-    const viewH = venue.height_ft * FT_TO_PX;
+  // Sponsor assignment form state for the selected asset
+  const pois = venue.accessibility_pois ?? [];
+  const selected = assets.find((a) => a.id === selectedId) ?? null;
+  const selectedPoi = pois.find((p) => p.id === selectedId) ?? null;
+  const [sponsorName, setSponsorName] = useState("");
+  const [sponsorId, setSponsorId] = useState("");
+  const [hiringTagsRaw, setHiringTagsRaw] = useState("");
 
-    // Convert a pointer event into feet-space coordinates
-    const toFeet = (e: React.PointerEvent): { x: number; y: number } => {
-        const rect = svgRef.current!.getBoundingClientRect();
-        const px = ((e.clientX - rect.left) / rect.width) * viewW;
-        const py = ((e.clientY - rect.top) / rect.height) * viewH;
-        return { x: px / FT_TO_PX, y: py / FT_TO_PX };
-    };
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+  );
 
-    const handleAssetDown = (e: React.PointerEvent, asset: FloorplanAsset) => {
-        e.stopPropagation();
-        const p = toFeet(e);
-        setDrag({ id: asset.id, offsetX: p.x - asset.x, offsetY: p.y - asset.y });
-        setSelectedId(asset.id);
-        (e.target as Element).setPointerCapture(e.pointerId);
-    };
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: "floorplan-canvas" });
 
-    const handleMove = (e: React.PointerEvent) => {
-        if (!drag) return;
-        const p = toFeet(e);
-        onMove(drag.id, p.x - drag.offsetX, p.y - drag.offsetY);
-    };
+  // Keep the inspector form in sync when the selection changes externally
+  useEffect(() => {
+    if (!selectedId) return;
+    const current = assets.find((a) => a.id === selectedId);
+    const currentPoi = (venue.accessibility_pois ?? []).find((p) => p.id === selectedId);
+    if (!current && !currentPoi) setSelectedId(null);
+  }, [assets, venue, selectedId]);
 
-    const handleUp = () => setDrag(null);
+  const selectAsset = useCallback((asset: FloorplanAsset) => {
+    setSelectedId(asset.id);
+    setSponsorName(asset.assignment?.companyName ?? "");
+    setSponsorId(asset.assignment?.sponsorId ?? "");
+    setHiringTagsRaw((asset.assignment?.hiringTags ?? []).join(", "));
+  }, []);
 
-    const pathways = allFirePathways(venue);
+  const selectPoi = useCallback((poi: { id: string }) => {
+    setSelectedId(poi.id);
+  }, []);
 
-    return (
-        <div className="w-full overflow-auto bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <svg
-                ref={svgRef}
-                viewBox={`0 0 ${viewW} ${viewH}`}
-                className="w-full h-auto touch-none select-none rounded-lg bg-white dark:bg-gray-800 shadow-inner"
-                onPointerMove={handleMove}
-                onPointerUp={handleUp}
-                onPointerLeave={handleUp}
-            >
-                {/* Grid pattern (1ft cells) */}
-                <defs>
-                    <pattern id="fp-grid" width={FT_TO_PX} height={FT_TO_PX} patternUnits="userSpaceOnUse">
-                        <path d={`M ${FT_TO_PX} 0 L 0 0 0 ${FT_TO_PX}`} fill="none" stroke="currentColor"
-                            className="text-gray-200 dark:text-gray-700" strokeWidth="1" />
-                    </pattern>
-                </defs>
-                <rect width={viewW} height={viewH} fill="url(#fp-grid)" />
+  /** Convert a screen point into feet-space using the live SVG box. */
+  const screenToFeet = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const svg = canvasWrapRef.current?.querySelector("svg");
+      if (!svg) return null;
+      const rect = svg.getBoundingClientRect();
+      return {
+        x: ((clientX - rect.left) / Math.max(rect.width, 1)) * venue.width_ft,
+        y: ((clientY - rect.top) / Math.max(rect.height, 1)) * venue.height_ft,
+      };
+    },
+    [venue],
+  );
 
-                {/* Outer walls */}
-                <rect x={1} y={1} width={viewW - 2} height={viewH - 2} fill="none"
-                    stroke="currentColor" className="text-gray-500 dark:text-gray-400" strokeWidth={3} />
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const data = event.active.data.current as
+        | { kind?: AssetKind | AccessibilityPoiKind; isPalette?: boolean; isPoiPalette?: boolean }
+        | undefined;
+      if (!data?.kind || !event.over) return;
+      // The activator event is the original pointerdown; add the drag delta
+      const activator = event.activatorEvent as PointerEvent;
+      const point = screenToFeet(
+        activator.clientX + event.delta.x,
+        activator.clientY + event.delta.y,
+      );
+      if (data.isPoiPalette) {
+        onAddPoi(data.kind as AccessibilityPoiKind, point ?? undefined);
+      } else if (data.isPalette) {
+        onAdd(data.kind as AssetKind, point ?? undefined);
+      }
+    },
+    [onAdd, onAddPoi, screenToFeet],
+  );
 
-                {/* Fire exit clearance pathways (always visible, striped red) */}
-                {pathways.map((p, i) => (
-                    <rect
-                        key={`path_${i}`}
-                        x={p.x * FT_TO_PX} y={p.y * FT_TO_PX}
-                        width={p.w * FT_TO_PX} height={p.h * FT_TO_PX}
-                        fill="rgba(239,68,68,0.15)" stroke="#ef4444" strokeDasharray="6 4" strokeWidth={2}
-                    />
-                ))}
+  const handleClickAdd = useCallback(
+    (kind: AssetKind) => {
+      onAdd(kind, { x: venue.width_ft / 2 - 3, y: venue.height_ft / 2 - 2 });
+    },
+    [onAdd, venue],
+  );
 
-                {/* Draggable assets */}
-                {assets.map(asset => {
-                    const colliding = collidingIds.has(asset.id);
-                    const color = colliding ? '#ef4444' : ASSET_DEFAULTS[asset.kind].color;
-                    const isSelected = selectedId === asset.id;
-                    const isRound = asset.kind === 'round_table';
+  const handleClickAddPoi = useCallback(
+    (kind: AccessibilityPoiKind) => {
+      onAddPoi(kind, { x_ft: venue.width_ft / 2, y_ft: venue.height_ft / 2 });
+    },
+    [onAddPoi, venue],
+  );
 
-                    return (
-                        <g
-                            key={asset.id}
-                            onPointerDown={e => handleAssetDown(e, asset)}
-                            className="cursor-grab active:cursor-grabbing"
-                        >
-                            {isRound ? (
-                                <ellipse
-                                    cx={(asset.x + asset.width / 2) * FT_TO_PX}
-                                    cy={(asset.y + asset.height / 2) * FT_TO_PX}
-                                    rx={(asset.width / 2) * FT_TO_PX}
-                                    ry={(asset.height / 2) * FT_TO_PX}
-                                    fill={color} opacity={0.85}
-                                    stroke={isSelected || colliding ? '#111827' : 'transparent'} strokeWidth={3}
-                                />
-                            ) : (
-                                <rect
-                                    x={asset.x * FT_TO_PX} y={asset.y * FT_TO_PX}
-                                    width={asset.width * FT_TO_PX} height={asset.height * FT_TO_PX}
-                                    rx={4} fill={color} opacity={0.85}
-                                    stroke={isSelected || colliding ? '#111827' : 'transparent'} strokeWidth={3}
-                                />
-                            )}
-                            <text
-                                x={(asset.x + asset.width / 2) * FT_TO_PX}
-                                y={(asset.y + asset.height / 2) * FT_TO_PX}
-                                textAnchor="middle" dominantBaseline="middle"
-                                fill="#ffffff" fontSize={11} fontWeight={700} className="pointer-events-none"
-                            >
-                                {asset.label}
-                            </text>
+  const handleSave = useCallback(async () => {
+    const ok = await onSave();
+    if (ok) toast.success("Floorplan saved");
+    else toast.error("Could not save floorplan. Please try again.");
+  }, [onSave]);
 
-                            {/* Delete handle on selection */}
-                            {isSelected && (
-                                <g
-                                    onPointerDown={e => { e.stopPropagation(); onRemove(asset.id); setSelectedId(null); }}
-                                    className="cursor-pointer"
-                                >
-                                    <circle
-                                        cx={(asset.x + asset.width) * FT_TO_PX}
-                                        cy={asset.y * FT_TO_PX}
-                                        r={10} fill="#ef4444"
-                                    />
-                                    <text
-                                        x={(asset.x + asset.width) * FT_TO_PX}
-                                        y={asset.y * FT_TO_PX}
-                                        textAnchor="middle" dominantBaseline="central"
-                                        fill="#fff" fontSize={12} fontWeight={700}
-                                    >
-                                        ✕
-                                    </text>
-                                </g>
-                            )}
-                        </g>
-                    );
-                })}
-            </svg>
+  const handleExport = useCallback(() => {
+    const doc = toFloorplanState(assets, venue);
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `floorplan-${eventId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [assets, venue, eventId]);
 
-            {/* Legend */}
-            <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-600 dark:text-gray-400">
-                <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-sm bg-red-500/20 border border-dashed border-red-500 inline-block" />
-                    Fire exit clearance (do not block)
-                </span>
-                <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-sm bg-red-500 inline-block" />
-                    Asset violating safety pathway
-                </span>
+  const applyAssignment = useCallback(() => {
+    if (!selected) return;
+    if (!sponsorName.trim()) {
+      onUpdate(selected.id, { assignment: null });
+      toast.info("Sponsor assignment cleared");
+      return;
+    }
+    const tags = parseHiringTags(hiringTagsRaw);
+    onUpdate(selected.id, {
+      assignment: {
+        sponsorId: sponsorId.trim() || null,
+        companyName: sponsorName.trim(),
+        ...(tags.length > 0 ? { hiringTags: tags } : {}),
+      },
+    });
+    toast.success(`Assigned ${sponsorName.trim()} to ${selected.label}`);
+  }, [selected, sponsorId, sponsorName, hiringTagsRaw, onUpdate]);
+
+  /** Center the asset when the inspector resizes it past a wall. */
+  const resize = useCallback(
+    (asset: FloorplanAsset, width: number, height: number) => {
+      const w = Math.max(1, Math.min(width, venue.width_ft));
+      const h = Math.max(1, Math.min(height, venue.height_ft));
+      onUpdate(asset.id, {
+        width: w,
+        height: h,
+        x: Math.min(asset.x, venue.width_ft - w),
+        y: Math.min(asset.y, venue.height_ft - h),
+      });
+    },
+    [onUpdate, venue],
+  );
+
+  const collidingList = assets.filter((a) => collidingIds.has(a.id));
+
+  return (
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+        {/* Palette */}
+        <aside className="space-y-3">
+          <h2 className="font-mono text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
+            Elements Palette
+          </h2>
+          <div className="flex flex-wrap gap-2 lg:flex-col" data-testid="floorplan-palette">
+            {PALETTE_KINDS.map((kind) => (
+              <PaletteChip key={kind} kind={kind} onClick={handleClickAdd} />
+            ))}
+          </div>
+
+          {/* #4420 accessibility POI palette */}
+          <div className="neu-border space-y-2 bg-blue-50 p-3 shadow-[2px_2px_0_0_#000]">
+            <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-blue-800">
+              <Accessibility size={14} /> Accessibility (#4420)
+            </p>
+            <div className="flex flex-wrap gap-2 lg:flex-col" data-testid="a11y-palette">
+              {POI_KINDS.map((kind) => (
+                <PoiChip key={kind} kind={kind} onClick={handleClickAddPoi} />
+              ))}
             </div>
+            <p className="font-normal normal-case text-gray-500">
+              Ramps, elevators and ADA rooms power attendee wheelchair routing; stairs render dimmed
+              and are never routed through.
+            </p>
+          </div>
+
+          {/* Venue size controls */}
+          <div className="neu-border space-y-2 bg-white p-3 font-mono text-xs shadow-[2px_2px_0_0_#000]">
+            <p className="font-bold uppercase">Venue size (ft)</p>
+            <label className="flex items-center justify-between gap-2">
+              Width
+              <input
+                type="number"
+                min={20}
+                max={400}
+                value={venue.width_ft}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (!Number.isNaN(v)) onVenueSize(v, venue.height_ft);
+                }}
+                className="neu-border w-16 px-1 py-0.5 text-right"
+                aria-label="Venue width in feet"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-2">
+              Height
+              <input
+                type="number"
+                min={20}
+                max={400}
+                value={venue.height_ft}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (!Number.isNaN(v)) onVenueSize(venue.width_ft, v);
+                }}
+                className="neu-border w-16 px-1 py-0.5 text-right"
+                aria-label="Venue height in feet"
+              />
+            </label>
+          </div>
+
+          {/* Safety warnings */}
+          {collidingList.length > 0 && (
+            <div className="neu-border border-red-500 bg-red-50 p-3 font-mono text-xs text-red-700 shadow-[2px_2px_0_0_#000]">
+              <p className="flex items-center gap-1 font-bold uppercase">
+                <TriangleAlert size={14} /> Fire lane blocked
+              </p>
+              <ul className="mt-1 list-disc pl-4">
+                {collidingList.map((a) => (
+                  <li key={a.id}>{a.label}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </aside>
+
+        {/* Canvas */}
+        <div className="space-y-3">
+          <div
+            ref={(node) => {
+              setDropRef(node);
+              canvasWrapRef.current = node;
+            }}
+            className={`rounded-xl transition-shadow ${isOver ? "ring-4 ring-sky-300" : ""}`}
+            data-testid="floorplan-canvas-dropzone"
+          >
+            <FloorplanCanvas
+              venue={venue}
+              assets={assets}
+              collidingIds={collidingIds}
+              onMove={onMove}
+              onRemove={(id) => {
+                onRemove(id);
+                setSelectedId(null);
+              }}
+              selectedId={selectedId}
+              onSelect={selectAsset}
+              selectedPoiId={selectedId}
+              onSelectPoi={selectPoi}
+              onMovePoi={onMovePoi}
+              onRemovePoi={(id) => {
+                onRemovePoi(id);
+                setSelectedId(null);
+              }}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              data-testid="floorplan-save"
+              className="neu-border neu-press flex h-10 items-center gap-2 bg-lime px-4 font-mono text-xs font-bold uppercase tracking-wider shadow-[2px_2px_0_0_#000] disabled:opacity-60"
+            >
+              <Save size={14} />
+              {isSaving ? "Saving…" : "Save layout"}
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              data-testid="floorplan-export"
+              className="neu-border neu-press flex h-10 items-center gap-2 bg-white px-4 font-mono text-xs font-bold uppercase tracking-wider shadow-[2px_2px_0_0_#000]"
+            >
+              <Download size={14} />
+              Export JSON
+            </button>
+            {selected && (
+              <span className="font-mono text-[11px] uppercase text-gray-500">
+                Selected: {selected.label} — {describeAssignment(selected, venue)}
+              </span>
+            )}
+          </div>
+
+          {/* Selection inspector */}
+          {selected && (
+            <div
+              className="neu-border space-y-3 bg-white p-4 shadow-[2px_2px_0_0_#000]"
+              data-testid="floorplan-inspector"
+            >
+              <h3 className="font-mono text-xs font-bold uppercase tracking-wider">
+                Selection Tools
+              </h3>
+
+              <label className="block font-mono text-xs">
+                Label
+                <input
+                  value={selected.label}
+                  onChange={(e) => onUpdate(selected.id, { label: e.target.value })}
+                  className="neu-border mt-1 w-full px-2 py-1 font-sans text-sm"
+                />
+              </label>
+
+              <div className="flex gap-3 font-mono text-xs">
+                <label className="flex-1">
+                  Width (ft)
+                  <input
+                    type="number"
+                    min={1}
+                    value={selected.width}
+                    onChange={(e) => resize(selected, Number(e.target.value), selected.height)}
+                    className="neu-border mt-1 w-full px-2 py-1"
+                  />
+                </label>
+                <label className="flex-1">
+                  Height (ft)
+                  <input
+                    type="number"
+                    min={1}
+                    value={selected.height}
+                    onChange={(e) => resize(selected, selected.width, Number(e.target.value))}
+                    className="neu-border mt-1 w-full px-2 py-1"
+                  />
+                </label>
+              </div>
+
+              <div className="border-t-2 border-dashed pt-3">
+                <p className="font-mono text-xs font-bold uppercase">Sponsor assignment</p>
+                <div className="mt-2 flex flex-wrap items-end gap-2">
+                  <label className="font-mono text-xs">
+                    Company name
+                    <input
+                      value={sponsorName}
+                      onChange={(e) => setSponsorName(e.target.value)}
+                      placeholder="TacoCorp"
+                      data-testid="inspector-sponsor-name"
+                      className="neu-border mt-1 w-40 px-2 py-1 font-sans text-sm"
+                    />
+                  </label>
+                  <label className="font-mono text-xs">
+                    Sponsor ID
+                    <input
+                      value={sponsorId}
+                      onChange={(e) => setSponsorId(e.target.value)}
+                      placeholder="42"
+                      data-testid="inspector-sponsor-id"
+                      className="neu-border mt-1 w-24 px-2 py-1 font-sans text-sm"
+                    />
+                  </label>
+                </div>
+                {/* #4157 hiring tags powering the attendee career-fair search */}
+                <label className="block font-mono text-xs">
+                  Hiring tags (comma-separated)
+                  <input
+                    value={hiringTagsRaw}
+                    onChange={(e) => setHiringTagsRaw(e.target.value)}
+                    placeholder="Internship, Software Engineer, CS Major"
+                    data-testid="inspector-hiring-tags"
+                    className="neu-border mt-1 w-full px-2 py-1 font-sans text-sm"
+                  />
+                  <span className="mt-0.5 block font-normal normal-case text-gray-500">
+                    Attendees can search the map by these on the public view.
+                  </span>
+                </label>
+                <div className="flex flex-wrap items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={applyAssignment}
+                    data-testid="inspector-assign-btn"
+                    className="neu-border neu-press h-8 bg-lime px-3 font-mono text-[11px] font-bold uppercase shadow-[2px_2px_0_0_#000]"
+                  >
+                    Assign
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSponsorName("");
+                      setSponsorId("");
+                      setHiringTagsRaw("");
+                      onUpdate(selected.id, { assignment: null });
+                    }}
+                    className="neu-border neu-press h-8 bg-white px-3 font-mono text-[11px] font-bold uppercase shadow-[2px_2px_0_0_#000]"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onRemove(selected.id);
+                  setSelectedId(null);
+                }}
+                className="neu-border neu-press h-9 bg-red-500 px-4 font-mono text-xs font-bold uppercase text-white shadow-[2px_2px_0_0_#000]"
+              >
+                Delete asset
+              </button>
+            </div>
+          )}
+
+          {/* #4420 POI inspector */}
+          {selectedPoi && (
+            <div
+              className="neu-border space-y-3 border-blue-500 bg-blue-50 p-4 shadow-[2px_2px_0_0_#000]"
+              data-testid="a11y-poi-inspector"
+            >
+              <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-blue-800">
+                Accessibility Point — {POI_DEFAULTS[selectedPoi.kind].label}
+              </h3>
+
+              <label className="block font-mono text-xs">
+                Label
+                <input
+                  value={selectedPoi.label}
+                  onChange={(e) => onUpdatePoi(selectedPoi.id, { label: e.target.value })}
+                  data-testid="a11y-poi-label"
+                  className="neu-border mt-1 w-full px-2 py-1 font-sans text-sm"
+                />
+              </label>
+
+              <div className="flex gap-3 font-mono text-xs">
+                <label className="flex-1">
+                  X (ft)
+                  <input
+                    type="number"
+                    value={selectedPoi.x_ft}
+                    onChange={(e) =>
+                      onUpdatePoi(selectedPoi.id, {
+                        x_ft: Math.min(Math.max(Number(e.target.value) || 0, 0), venue.width_ft),
+                      })
+                    }
+                    className="neu-border mt-1 w-full px-2 py-1"
+                  />
+                </label>
+                <label className="flex-1">
+                  Y (ft)
+                  <input
+                    type="number"
+                    value={selectedPoi.y_ft}
+                    onChange={(e) =>
+                      onUpdatePoi(selectedPoi.id, {
+                        y_ft: Math.min(Math.max(Number(e.target.value) || 0, 0), venue.height_ft),
+                      })
+                    }
+                    className="neu-border mt-1 w-full px-2 py-1"
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onRemovePoi(selectedPoi.id);
+                  setSelectedId(null);
+                }}
+                data-testid="a11y-poi-delete"
+                className="neu-border neu-press h-9 bg-red-500 px-4 font-mono text-xs font-bold uppercase text-white shadow-[2px_2px_0_0_#000]"
+              >
+                Delete point
+              </button>
+            </div>
+          )}
         </div>
-    );
+      </div>
+    </DndContext>
+  );
 };

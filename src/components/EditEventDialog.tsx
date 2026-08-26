@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Control } from "react-hook-form";
 import Edit3 from "lucide-react/dist/esm/icons/edit-3";
 import GitMerge from "lucide-react/dist/esm/icons/git-merge";
+import Lock from "lucide-react/dist/esm/icons/lock";
 import { toast } from "sonner";
-import type { User } from "@supabase/supabase-js";
+import type { User, RealtimeChannel } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -64,10 +65,17 @@ interface EditEventDialogProps {
 export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isHighDemand, setIsHighDemand] = useState(
+    Boolean((event as EventDocument & { is_high_demand?: boolean }).is_high_demand),
+  );
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflicts, setConflicts] = useState<FieldConflict[]>([]);
   const [mergedDoc, setMergedDoc] = useState<EventDocument | null>(null);
   const [baseSnapshot, setBaseSnapshot] = useState<EventDocument>(event);
+  const [lockedFields, setLockedFields] = useState<
+    Record<string, { userId: string; name: string }>
+  >({});
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const supabase = createClient();
 
@@ -107,6 +115,9 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
   useEffect(() => {
     if (open) {
       setBaseSnapshot(event);
+      setIsHighDemand(
+        Boolean((event as EventDocument & { is_high_demand?: boolean }).is_high_demand),
+      );
       form.reset({
         title: event.title || "",
         description: event.description || "",
@@ -119,6 +130,62 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       });
     }
   }, [open, event, form]);
+
+  useEffect(() => {
+    if (!open || !user || !event.id) return;
+
+    const channel = supabase.channel(`event-edit-presence:${event.id}`, {
+      config: { presence: { key: user.id } },
+    });
+    channelRef.current = channel;
+
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState<{ id: string; name: string; field: string }>();
+      const locks: Record<string, { userId: string; name: string }> = {};
+
+      for (const [userId, presences] of Object.entries(state)) {
+        if (userId === user.id) continue;
+        const presence = presences[0];
+        if (presence && presence.field) {
+          locks[presence.field] = { userId: presence.id, name: presence.name };
+        }
+      }
+      setLockedFields(locks);
+    });
+
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({
+          id: user.id,
+          name: user.email?.split("@")[0] || "User",
+          field: null,
+        });
+      }
+    });
+
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [open, event.id, user, supabase]);
+
+  const handleFieldFocus = (fieldName: string) => {
+    if (!channelRef.current || !user) return;
+    channelRef.current.track({
+      id: user.id,
+      name: user.email?.split("@")[0] || "User",
+      field: fieldName,
+    });
+  };
+
+  const handleFieldBlur = () => {
+    if (!channelRef.current || !user) return;
+    channelRef.current.track({
+      id: user.id,
+      name: user.email?.split("@")[0] || "User",
+      field: null,
+    });
+  };
 
   const executeSave = async (docToSave: EventDocument) => {
     if (!event.id) return;
@@ -142,6 +209,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
           event_date: docToSave.start_date,
           tags: docToSave.tags || [],
           dress_code: docToSave.dress_code || null,
+          is_high_demand: isHighDemand,
           version_vector: docToSave.version_vector || {},
           version: docToSave.version || 1,
         })
@@ -300,15 +368,35 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               <FormField
                 control={control}
                 name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Event title" maxLength={TITLE_MAX_LENGTH} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const lock = lockedFields["title"];
+                  return (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel required>Title</FormLabel>
+                        {lock && (
+                          <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                            <Lock className="w-3 h-3" /> {lock.name} is editing
+                          </span>
+                        )}
+                      </div>
+                      <FormControl>
+                        <Input
+                          placeholder="Event title"
+                          maxLength={TITLE_MAX_LENGTH}
+                          {...field}
+                          disabled={!!lock}
+                          onFocus={() => handleFieldFocus("title")}
+                          onBlur={() => {
+                            field.onBlur();
+                            handleFieldBlur();
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -329,6 +417,45 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                     <FormMessage />
                   </FormItem>
                 )}
+              />
+
+              <FormField
+                control={control}
+                name="tldr_summary"
+                render={({ field }) => {
+                  const lock = lockedFields["tldr_summary"];
+                  return (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Feed TL;DR</FormLabel>
+                        {lock && (
+                          <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                            <Lock className="w-3 h-3" /> {lock.name} is editing
+                          </span>
+                        )}
+                      </div>
+                      <FormControl>
+                        <Input
+                          placeholder="Optional one-sentence summary for the event feed"
+                          maxLength={100}
+                          {...field}
+                          value={field.value || ""}
+                          disabled={!!lock}
+                          onFocus={() => handleFieldFocus("tldr_summary")}
+                          onBlur={() => {
+                            field.onBlur();
+                            handleFieldBlur();
+                          }}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        The automatic summary can be edited here before students see it. Leave blank
+                        to use the generated summary or fallback.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -411,16 +538,53 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               <FormField
                 control={control}
                 name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Location or Online" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const lock = lockedFields["location"];
+                  return (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Location</FormLabel>
+                        {lock && (
+                          <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                            <Lock className="w-3 h-3" /> {lock.name} is editing
+                          </span>
+                        )}
+                      </div>
+                      <FormControl>
+                        <Input
+                          placeholder="Location or Online"
+                          {...field}
+                          disabled={!!lock}
+                          onFocus={() => handleFieldFocus("location")}
+                          onBlur={() => {
+                            field.onBlur();
+                            handleFieldBlur();
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
+              <div className="rounded-md border-2 border-black bg-yellow-100 p-4 shadow-[3px_3px_0_0_#000]">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isHighDemand}
+                    onChange={(event) => setIsHighDemand(event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-black"
+                  />
+                  <span className="space-y-1">
+                    <span className="block font-medium">High-demand ticket drop</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Require CAPTCHA and apply strict per-user, IP, and device claim limits for
+                      free RSVPs.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
               <FormField
                 control={control}
                 name="is_outdoor"
@@ -471,29 +635,67 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                 <FormField
                   control={control}
                   name="startDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Start date</FormLabel>
-                      <FormControl>
-                        <DateTimePicker value={field.value || ""} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const lock = lockedFields["startDate"];
+                    return (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel required>Start date</FormLabel>
+                          {lock && (
+                            <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                              <Lock className="w-3 h-3" /> {lock.name} is editing
+                            </span>
+                          )}
+                        </div>
+                        <FormControl>
+                          <div
+                            onFocusCapture={() => handleFieldFocus("startDate")}
+                            onBlurCapture={() => handleFieldBlur()}
+                          >
+                            <DateTimePicker
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              disabled={!!lock}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
                   control={control}
                   name="endDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>End date</FormLabel>
-                      <FormControl>
-                        <DateTimePicker value={field.value || ""} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const lock = lockedFields["endDate"];
+                    return (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel required>End date</FormLabel>
+                          {lock && (
+                            <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                              <Lock className="w-3 h-3" /> {lock.name} is editing
+                            </span>
+                          )}
+                        </div>
+                        <FormControl>
+                          <div
+                            onFocusCapture={() => handleFieldFocus("endDate")}
+                            onBlurCapture={() => handleFieldBlur()}
+                          >
+                            <DateTimePicker
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              disabled={!!lock}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
 

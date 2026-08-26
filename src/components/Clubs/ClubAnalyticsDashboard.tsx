@@ -23,7 +23,6 @@ import Filter from "lucide-react/dist/esm/icons/filter";
 import BarChart2 from "lucide-react/dist/esm/icons/bar-chart-2";
 import { SponsorshipValueCalculator } from "@/components/sponsorship/SponsorshipValueCalculator";
 import { toast } from "sonner";
-import { ClubPruneReportPanel } from "./ClubPruneReportPanel";
 import { SkillRadarChart } from "@/components/Clubs/SkillGap/SkillRadarChart";
 import { SkillGapSuggestions } from "@/components/Clubs/SkillGap/SkillGapSuggestions";
 import { ClubSkillGapService, SkillCount } from "@/services/clubSkillGapService";
