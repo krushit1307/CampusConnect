@@ -4245,6 +4245,90 @@ export type Database = {
         };
         Relationships: [];
       };
+      resource_barter_offers: {
+        Row: {
+          id: string;
+          reservation_id: string;
+          item_id: string;
+          owner_club_id: string;
+          offer_club_id: string;
+          offered_by: string;
+          consideration_type: "points" | "ledger";
+          amount_points: number | null;
+          amount_cents: number | null;
+          status: "pending" | "accepted" | "rejected" | "cancelled" | "expired";
+          responded_by: string | null;
+          responded_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          reservation_id: string;
+          item_id: string;
+          owner_club_id: string;
+          offer_club_id: string;
+          offered_by: string;
+          consideration_type: "points" | "ledger";
+          amount_points?: number | null;
+          amount_cents?: number | null;
+          status?: "pending" | "accepted" | "rejected" | "cancelled" | "expired";
+          responded_by?: string | null;
+          responded_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          reservation_id?: string;
+          item_id?: string;
+          owner_club_id?: string;
+          offer_club_id?: string;
+          offered_by?: string;
+          consideration_type?: "points" | "ledger";
+          amount_points?: number | null;
+          amount_cents?: number | null;
+          status?: "pending" | "accepted" | "rejected" | "cancelled" | "expired";
+          responded_by?: string | null;
+          responded_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      resource_barter_settlements: {
+        Row: {
+          id: string;
+          offer_id: string;
+          from_club_id: string;
+          to_club_id: string;
+          settled_by: string;
+          consideration_type: "points" | "ledger";
+          amount_points: number | null;
+          amount_cents: number | null;
+          settled_at: string;
+        };
+        Insert: {
+          id?: string;
+          offer_id: string;
+          from_club_id: string;
+          to_club_id: string;
+          settled_by: string;
+          consideration_type: "points" | "ledger";
+          amount_points?: number | null;
+          amount_cents?: number | null;
+          settled_at?: string;
+        };
+        Update: {
+          id?: string;
+          offer_id?: string;
+          from_club_id?: string;
+          to_club_id?: string;
+          settled_by?: string;
+          consideration_type?: "points" | "ledger";
+          amount_points?: number | null;
+          amount_cents?: number | null;
+          settled_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       auction_item_public_state: {
@@ -4574,6 +4658,60 @@ export type Database = {
       revoke_verified_series_certificate: {
         Args: { p_certificate_id: string; p_reason: string };
         Returns: Database["public"]["Tables"]["verified_certificates"]["Row"];
+      };
+      can_manage_resource_barter_club: {
+        Args: { p_club_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      get_barterable_resource_bookings: {
+        Args: { p_offer_club_id: string };
+        Returns: {
+          reservation_id: string;
+          item_id: string;
+          item_name: string;
+          owner_club_id: string;
+          owner_club_name: string;
+          owner_club_slug: string;
+          start_time: string;
+          end_time: string;
+          current_booking_club_id: string;
+        }[];
+      };
+      get_resource_barter_offers: {
+        Args: { p_club_id: string };
+        Returns: {
+          id: string;
+          reservation_id: string;
+          item_id: string;
+          item_name: string;
+          owner_club_id: string;
+          owner_club_name: string;
+          offer_club_id: string;
+          offer_club_name: string;
+          offered_by: string;
+          consideration_type: "points" | "ledger";
+          amount_points: number | null;
+          amount_cents: number | null;
+          status: "pending" | "accepted" | "rejected" | "cancelled" | "expired";
+          start_time: string;
+          end_time: string;
+          created_at: string;
+          responded_at: string | null;
+        }[];
+      };
+      create_resource_barter_offer: {
+        Args: {
+          p_reservation_id: string;
+          p_offer_club_id: string;
+          p_consideration_type: "points" | "ledger";
+          p_amount_points?: number | null;
+          p_amount_cents?: number | null;
+        };
+        Returns: Database["public"]["Tables"]["resource_barter_offers"]["Row"];
+      };
+      respond_to_resource_barter_offer: {
+        Args: { p_offer_id: string; p_accept: boolean };
+        Returns: Database["public"]["Tables"]["resource_barter_offers"]["Row"];
       };
       raise_event_geofence_alert: {
         Args: {

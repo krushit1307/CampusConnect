@@ -22,6 +22,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useItemReservations, type ItemReservation } from "@/hooks/useItemReservations";
+import { ResourceBarterMarket } from "@/components/resources/ResourceBarterMarket";
 
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
@@ -161,6 +162,8 @@ export default function ClubResourcesRoute() {
         </Link>
 
         <h1 className="font-display text-3xl font-bold uppercase mb-6">Resource Booking</h1>
+
+        <ResourceBarterMarket clubId={clubId} />
 
         <div className="mb-6 flex flex-wrap gap-2">
           {items.map((item) => (
