@@ -271,6 +271,11 @@ serve(async (req: Request) => {
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+
+ feature/membership-trial-period-4406
+
+ main
 
  feature/rsvp-prereq-blocker-3946
  feature/rsvp-prereq-blocker-3946
@@ -365,6 +370,7 @@ serve(async (req: Request) => {
       }
 
  main
+ main
       if (eventData?.has_photography && noMediaConsent == null) {
         return respond(
           { error: "Media consent choice is required for this photography event." },
@@ -387,6 +393,12 @@ serve(async (req: Request) => {
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+
+ feature/membership-trial-period-4406
+ HEAD
+
+ main
 
  feature/rsvp-prereq-blocker-3946
  feature/rsvp-prereq-blocker-3946
@@ -401,6 +413,7 @@ serve(async (req: Request) => {
  main
  HEAD
 
+ main
  feature/waitlist-churn-predictor
  feature/waitlist-churn-predictor
 
@@ -415,8 +428,12 @@ serve(async (req: Request) => {
 
 
  main
+ feature/membership-trial-period-4406
  upstream/main
 
+ upstream/main
+
+ main
  main
             403,
           );

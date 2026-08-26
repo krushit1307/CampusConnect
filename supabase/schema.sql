@@ -170,6 +170,10 @@ CHECK (
     (longitude >= -180 AND longitude <= 180)
 );
 
+-- Issue #3899: Automated Health & Safety Compliance Checks
+ALTER TABLE events ADD COLUMN category TEXT;
+ALTER TABLE events ADD COLUMN tags TEXT[] DEFAULT '{}';
+ALTER TABLE events ADD COLUMN compliance_permit_url TEXT;
 CREATE TABLE event_co_hosts (
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,

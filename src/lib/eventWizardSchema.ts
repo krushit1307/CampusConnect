@@ -1,6 +1,6 @@
 // src/lib/eventWizardSchema.ts
 import { z } from "zod";
-
+import { getRequiredPermits } from "../utils/eventComplianceChecker";
 /**
  * Step 1: Basic Info
  * Title, description, category, and tags.
@@ -194,9 +194,29 @@ export const eventWizardMasterSchema = z
     allowWaitlist: customizationsStepSchema.shape.allowWaitlist,
     sendReminderEmails: customizationsStepSchema.shape.sendReminderEmails,
     isLiveAlbumActive: customizationsStepSchema.shape.isLiveAlbumActive,
-  })
-  // Cross-field refinement: end date > start date.
+    // Compliance: URL to the uploaded permit PDF, required only when
+    // getRequiredPermits() flags this event (see refine below).
+    compliancePermitUrl: z.string().optional().or(z.literal("")),
+  })  
+  // Cross-field refinement: events that trip the compliance heuristics
+  // (capacity > 100 or a food-related category/tag) must have a permit
+  // PDF uploaded before they can be submitted.
   .refine(
+    (data) => {
+      const required = getRequiredPermits({
+        capacity: data.capacity,
+        category: data.category,
+        tags: data.tags,
+      });
+      if (required.length > 0 && !data.compliancePermitUrl) return false;
+      return true;
+    },
+    {
+      message: "Please upload the required permit(s) before submitting this event",
+      path: ["compliancePermitUrl"],
+    },
+  )
+  // Cross-field refinement: end date > start date.  .refine(
     (data) => {
       const start = new Date(data.startDate);
       const end = new Date(data.endDate);
@@ -287,4 +307,5 @@ export const DEFAULT_EVENT_WIZARD_DATA: EventWizardFormData = {
   allowWaitlist: true,
   sendReminderEmails: true,
   isLiveAlbumActive: false,
+  compliancePermitUrl: "",
 };

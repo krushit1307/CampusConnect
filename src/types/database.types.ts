@@ -692,6 +692,10 @@ export type Database = {
           is_banned: boolean;
           strike_count: number;
           show_on_leaderboard: boolean;
+          carpool_driver_rating: number | null;
+          carpool_driver_rating_count: number;
+          is_carpool_driver_blocked: boolean;
+          carpool_driver_blocked_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -717,6 +721,10 @@ export type Database = {
           is_banned?: boolean;
           strike_count?: number;
           show_on_leaderboard?: boolean;
+          carpool_driver_rating?: number | null;
+          carpool_driver_rating_count?: number;
+          is_carpool_driver_blocked?: boolean;
+          carpool_driver_blocked_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -742,6 +750,10 @@ export type Database = {
           is_banned?: boolean;
           strike_count?: number;
           show_on_leaderboard?: boolean;
+          carpool_driver_rating?: number | null;
+          carpool_driver_rating_count?: number;
+          is_carpool_driver_blocked?: boolean;
+          carpool_driver_blocked_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -2041,6 +2053,51 @@ export type Database = {
           provider_error?: string | null;
           metadata?: Json;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      event_presenter_pings: {
+        Row: {
+          id: string;
+          event_id: string;
+          presenter_user_id: string | null;
+          pinged_by: string | null;
+          ping_id: string;
+          status: "pinged" | "confirmed_ready" | "awol";
+          timeout_seconds: number;
+          response_time_ms: number | null;
+          sent_at: string;
+          responded_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          presenter_user_id?: string | null;
+          pinged_by?: string | null;
+          ping_id: string;
+          status?: "pinged" | "confirmed_ready" | "awol";
+          timeout_seconds?: number;
+          response_time_ms?: number | null;
+          sent_at?: string;
+          responded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          presenter_user_id?: string | null;
+          pinged_by?: string | null;
+          ping_id?: string;
+          status?: "pinged" | "confirmed_ready" | "awol";
+          timeout_seconds?: number;
+          response_time_ms?: number | null;
+          sent_at?: string;
+          responded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -3348,6 +3405,54 @@ export type Database = {
           },
         ];
       };
+      carpool_driver_ratings: {
+        Row: {
+          id: string;
+          vehicle_id: string;
+          driver_user_id: string;
+          rider_user_id: string;
+          rating: number;
+          feedback: string | null;
+          safety_tags: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          vehicle_id: string;
+          driver_user_id: string;
+          rider_user_id: string;
+          rating: number;
+          feedback?: string | null;
+          safety_tags?: string[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          vehicle_id?: string;
+          driver_user_id?: string;
+          rider_user_id?: string;
+          rating?: number;
+          feedback?: string | null;
+          safety_tags?: string[];
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "carpool_driver_ratings_driver_user_id_fkey";
+            columns: ["driver_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "carpool_driver_ratings_rider_user_id_fkey";
+            columns: ["rider_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       venue_maps: {
         Row: {
           id: string;
@@ -3898,6 +4003,8 @@ export type Database = {
           name: string;
           price: number;
           capacity: number | null;
+          capacity_percentage: number | null;
+          is_dynamic_capacity: boolean;
           description: string | null;
           is_early_bird: boolean;
           early_bird_end_date: string | null;
@@ -3914,6 +4021,8 @@ export type Database = {
           name: string;
           price: number;
           capacity?: number | null;
+          capacity_percentage?: number | null;
+          is_dynamic_capacity?: boolean;
           description?: string | null;
           is_early_bird?: boolean;
           early_bird_end_date?: string | null;
@@ -3930,6 +4039,8 @@ export type Database = {
           name?: string;
           price?: number;
           capacity?: number | null;
+          capacity_percentage?: number | null;
+          is_dynamic_capacity?: boolean;
           description?: string | null;
           is_early_bird?: boolean;
           early_bird_end_date?: string | null;
@@ -3993,6 +4104,84 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           notification_sent_at?: string | null;
+        };
+        Relationships: [];
+      };
+      event_geofence_alerts: {
+        Row: {
+          id: string;
+          event_id: string;
+          rsvp_id: string;
+          attendee_id: string;
+          attendee_name: string;
+          status: "escalated" | "acknowledged";
+          breached_at: string;
+          escalated_at: string;
+          responded_at: string | null;
+          distance_meters: number | null;
+          accuracy_meters: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          rsvp_id: string;
+          attendee_id: string;
+          attendee_name: string;
+          status?: "escalated" | "acknowledged";
+          breached_at?: string;
+          escalated_at?: string;
+          responded_at?: string | null;
+          distance_meters?: number | null;
+          accuracy_meters?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          rsvp_id?: string;
+          attendee_id?: string;
+          attendee_name?: string;
+          status?: "escalated" | "acknowledged";
+          breached_at?: string;
+          escalated_at?: string;
+          responded_at?: string | null;
+          distance_meters?: number | null;
+          accuracy_meters?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      banned_signatures: {
+        Row: {
+          id: string;
+          source_user_id: string;
+          ip_hash: string | null;
+          device_fingerprint_hash: string | null;
+          reason: string;
+          active: boolean;
+          last_seen_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          source_user_id: string;
+          ip_hash?: string | null;
+          device_fingerprint_hash?: string | null;
+          reason: string;
+          active?: boolean;
+          last_seen_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          source_user_id?: string;
+          ip_hash?: string | null;
+          device_fingerprint_hash?: string | null;
+          reason?: string;
+          active?: boolean;
+          last_seen_at?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -4302,6 +4491,18 @@ export type Database = {
       get_club_revenue_forecast: {
         Args: { p_club_id: string; p_event_id: string };
         Returns: Json;
+      };
+      raise_event_geofence_alert: {
+        Args: {
+          p_rsvp_id: string;
+          p_distance_meters: number;
+          p_accuracy_meters?: number;
+        };
+        Returns: Database["public"]["Tables"]["event_geofence_alerts"]["Row"];
+      };
+      acknowledge_event_geofence_alert: {
+        Args: { p_alert_id: string };
+        Returns: Database["public"]["Tables"]["event_geofence_alerts"]["Row"];
       };
       is_event_organizer: {
         Args: { p_event_id: string; p_user_id?: string };

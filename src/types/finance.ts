@@ -30,8 +30,10 @@ export interface InventoryItem {
 export interface InventoryItemWithValuation extends InventoryItem {
     net_book_value: number;
     percent_lifespan_used: number;
+    due_date?: string | null;
+    checked_out_to?: string | null;
+    is_overdue?: boolean;
 }
-
 export interface BalanceSheetCategory {
     category: string;
     historical_cost_total: number;

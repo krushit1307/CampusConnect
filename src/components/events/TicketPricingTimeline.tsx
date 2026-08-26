@@ -10,12 +10,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { isFlashSaleRealtimePayload, type ActiveFlashSale } from "@/lib/flashSale";
+import { evaluateEarlyBirdThreshold } from "@/lib/dynamicEarlyBirdThresholds";
 
 interface TicketTier {
   id: string;
   name: string;
   price: number;
   capacity: number | null;
+  capacity_percentage?: number | null;
+  is_dynamic_capacity?: boolean;
   start_date: string | null;
   end_date: string | null;
   sold_count?: number; // fetched separately
@@ -29,6 +32,7 @@ export function TicketPricingTimeline({
   isOrganizer?: boolean;
 }) {
   const [tiers, setTiers] = useState<TicketTier[]>([]);
+  const [venueCapacity, setVenueCapacity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [preferredCurrency, setPreferredCurrency] = useState<string | null>(null);
@@ -92,12 +96,16 @@ export function TicketPricingTimeline({
     const fetchTiers = async () => {
       setLoading(true);
       try {
-        // Fetch event's dynamic pricing details
+        // Fetch event's dynamic pricing details and venue capacity
         const { data: eventData, error: eventError } = await supabase
           .from("events")
-          .select("base_price, surge_multiplier")
+          .select("base_price, surge_multiplier, venue_capacity, max_attendees")
           .eq("id", eventId)
           .single();
+
+        if (eventData) {
+          setVenueCapacity(eventData.venue_capacity ?? eventData.max_attendees ?? null);
+        }
 
         if (!eventError && eventData && eventData.base_price !== null) {
           setIsDynamic(true);
@@ -123,7 +131,9 @@ export function TicketPricingTimeline({
 
         const { data, error } = await supabase
           .from("ticket_tiers")
-          .select("id, name, price, capacity, start_date, end_date")
+          .select(
+            "id, name, price, capacity, capacity_percentage, is_dynamic_capacity, start_date, end_date",
+          )
           .eq("event_id", eventId)
           .order("start_date", { ascending: true, nullsFirst: false });
 
@@ -240,15 +250,28 @@ export function TicketPricingTimeline({
         </div>
       )}
 
-      {!isDynamic && activeTier && activeTier.end_date && (
-        <div className="bg-peach/20 border-2 border-black p-3 mb-6 flex items-center gap-3 font-mono text-sm">
-          <Clock className="w-5 h-5 text-red-500 animate-pulse" />
-          <span>
-            🔥 <strong>{activeTier.name}</strong> ends in{" "}
-            {formatDistanceToNow(new Date(activeTier.end_date))}!
-          </span>
+      {!isDynamic && activeTier && (
+        <div className="bg-peach/20 border-2 border-black p-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-sm">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-red-500 animate-pulse shrink-0" />
+            <div>
+              <span>
+                🔥 <strong>{activeTier.name}</strong>
+                {activeTier.end_date &&
+                  ` ends in ${formatDistanceToNow(new Date(activeTier.end_date))}!`}
+              </span>
+              {activeTier.capacity_percentage && (
+                <span className="block text-xs text-black/70 mt-0.5">
+                  Allocation: {activeTier.capacity_percentage}% of venue capacity
+                  {activeTier.sold_count !== undefined &&
+                    activeTier.capacity &&
+                    ` (${Math.max(0, activeTier.capacity - activeTier.sold_count)} of ${activeTier.capacity} remaining)`}
+                </span>
+              )}
+            </div>
+          </div>
           {nextTier && (
-            <span className="ml-auto text-black/60 hidden md:inline">
+            <span className="text-black/60 font-bold text-xs whitespace-nowrap">
               Next price: ${(nextTier.price / 100).toFixed(2)} USD
             </span>
           )}
