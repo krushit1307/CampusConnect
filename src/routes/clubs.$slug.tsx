@@ -23,7 +23,11 @@ import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackgro
 import LazyHydrate from "@/components/LazyHydrate";
 import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
+ feature/design-marketplace-4049
+ feature/design-marketplace-4049
+
  feature/membership-trial-period-4406
+ main
 
 
 
@@ -782,7 +786,11 @@ export default function ClubProfile() {
           </div>
         </section>
         <ClubTransparencyLedger clubId={club.id} />
+ feature/design-marketplace-4049
+ feature/design-marketplace-4049
+
  feature/membership-trial-period-4406
+ main
 
  HEAD
 
@@ -793,6 +801,7 @@ export default function ClubProfile() {
             <CrowdfundingCampaignSection clubId={club.id} />
           </div>
         </section>
+ feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
@@ -815,6 +824,12 @@ export default function ClubProfile() {
 
 
  feature/membership-trial-period-4406
+
+ feature/design-marketplace-4049
+ feature/design-marketplace-4049
+
+ /membership-trial-period-4406
+ main
  main
 
         feature/rsvp-prereq-blocker-3946 feature/rsvp-prereq-blocker-3946

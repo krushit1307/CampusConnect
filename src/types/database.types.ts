@@ -1202,6 +1202,10 @@ export type Database = {
           termination_reason: string | null;
           issued_at: string | null;
           email_sent_at: string | null;
+          is_revoked: boolean;
+          revocation_reason: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
           created_at: string;
         };
         Insert: {
@@ -1220,6 +1224,10 @@ export type Database = {
           termination_reason?: string | null;
           issued_at?: string | null;
           email_sent_at?: string | null;
+          is_revoked?: boolean;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           created_at?: string;
         };
         Update: {
@@ -1238,6 +1246,10 @@ export type Database = {
           termination_reason?: string | null;
           issued_at?: string | null;
           email_sent_at?: string | null;
+          is_revoked?: boolean;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -4185,6 +4197,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      verified_certificates: {
+        Row: {
+          id: string;
+          user_id: string;
+          series_id: string;
+          series_name: string;
+          user_name: string;
+          completion_date: string;
+          verification_hash: string;
+          pdf_url: string;
+          issued_at: string;
+          is_revoked: boolean;
+          revocation_reason: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          series_id: string;
+          series_name: string;
+          user_name: string;
+          completion_date: string;
+          verification_hash: string;
+          pdf_url: string;
+          issued_at?: string;
+          is_revoked?: boolean;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          series_id?: string;
+          series_name?: string;
+          user_name?: string;
+          completion_date?: string;
+          verification_hash?: string;
+          pdf_url?: string;
+          issued_at?: string;
+          is_revoked?: boolean;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       auction_item_public_state: {
@@ -4491,6 +4551,29 @@ export type Database = {
       get_club_revenue_forecast: {
         Args: { p_club_id: string; p_event_id: string };
         Returns: Json;
+      };
+      can_revoke_series_certificate: {
+        Args: { p_series_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      get_issuer_series_certificates: {
+        Args: { p_series_id?: string | null };
+        Returns: {
+          id: string;
+          series_id: string;
+          series_name: string;
+          user_name: string;
+          completion_date: string;
+          pdf_url: string;
+          issued_at: string;
+          is_revoked: boolean;
+          revocation_reason: string | null;
+          revoked_at: string | null;
+        }[];
+      };
+      revoke_verified_series_certificate: {
+        Args: { p_certificate_id: string; p_reason: string };
+        Returns: Database["public"]["Tables"]["verified_certificates"]["Row"];
       };
       raise_event_geofence_alert: {
         Args: {
