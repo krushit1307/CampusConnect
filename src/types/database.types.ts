@@ -2044,6 +2044,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      event_presenter_pings: {
+        Row: {
+          id: string;
+          event_id: string;
+          presenter_user_id: string | null;
+          pinged_by: string | null;
+          ping_id: string;
+          status: "pinged" | "confirmed_ready" | "awol";
+          timeout_seconds: number;
+          response_time_ms: number | null;
+          sent_at: string;
+          responded_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          presenter_user_id?: string | null;
+          pinged_by?: string | null;
+          ping_id: string;
+          status?: "pinged" | "confirmed_ready" | "awol";
+          timeout_seconds?: number;
+          response_time_ms?: number | null;
+          sent_at?: string;
+          responded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          presenter_user_id?: string | null;
+          pinged_by?: string | null;
+          ping_id?: string;
+          status?: "pinged" | "confirmed_ready" | "awol";
+          timeout_seconds?: number;
+          response_time_ms?: number | null;
+          sent_at?: string;
+          responded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       event_feedback: {
         Row: {
           id: string;
