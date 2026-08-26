@@ -23,8 +23,12 @@ import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackgro
 import LazyHydrate from "@/components/LazyHydrate";
 import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
+ feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
  feature/design-marketplace-4049
  feature/design-marketplace-4049
+ main
 
  feature/membership-trial-period-4406
  main
@@ -786,8 +790,13 @@ export default function ClubProfile() {
           </div>
         </section>
         <ClubTransparencyLedger clubId={club.id} />
+ feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
  feature/design-marketplace-4049
  feature/design-marketplace-4049
+ main
 
  feature/membership-trial-period-4406
  main
@@ -801,6 +810,7 @@ export default function ClubProfile() {
             <CrowdfundingCampaignSection clubId={club.id} />
           </div>
         </section>
+ feature/election-coi-detector-3952
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
@@ -822,6 +832,11 @@ export default function ClubProfile() {
  main
 
 
+
+ feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+ main
 
  feature/membership-trial-period-4406
 

@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+  pull_request_target:
+    types: [unlabeled, labeled, synchronize, ready_for_review]
 
 permissions:
   pull-requests: write
@@ -97,13 +99,13 @@ jobs:
 
               const hasAssignees = prData.assignees && prData.assignees.length > 0;
               const hasECSoCLabel = currentLabels.some(l => l.toLowerCase().replace(/[^a-z0-9]/g, '').includes('ecsoc26'));
-              const hasErrorLabel = currentLabels.some(l => {
+              const hasDoNotMergeLabel = currentLabels.some(l => {
                 const lbl = l.trim().toLowerCase();
-                return lbl === 'error' || lbl.includes('do-not-merge') || lbl.includes('donotmerge');
+                return lbl === 'error' || lbl === 'do-not-merge' || lbl === 'donotmerge';
               });
 
-              if (hasErrorLabel) {
-                console.log(`PR #${prNumber} has 'error' label. Skipping auto-merge.`);
+              if (hasDoNotMergeLabel) {
+                console.log(`PR #${prNumber} has 'do-not-merge' or 'error' label. Skipping auto-merge.`);
                 return false;
               }
 
