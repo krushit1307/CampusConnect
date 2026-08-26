@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
-import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { useFederatedEvents } from "@/hooks/useFederatedEvents";
 import { createClient } from "@/lib/supabase/client";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
-import { useEffect, useState, useRef, lazy, Suspense, useCallback } from "react";
+import { useEffect, useState, useRef, lazy, Suspense, useCallback, useMemo } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
@@ -91,6 +91,7 @@ export default function EventsList() {
   const supabase = createClient();
   const { eventId } = useParams();
   const queryClient = useQueryClient();
+  const { remoteEvents, loading: loadingRemote } = useFederatedEvents();
 
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
@@ -372,6 +373,60 @@ export default function EventsList() {
   });
 
   const [events, setEvents] = useState<EventItem[]>([]);
+  const { data: remoteRsvps } = useQuery({
+    queryKey: ["remoteRsvps", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("remote_event_rsvps")
+        .select("remote_event_id")
+        .eq("user_id", user.id);
+      if (error) return [];
+      return data.map((r) => r.remote_event_id);
+    },
+    enabled: !!user,
+  });
+
+  const allEvents = useMemo(() => {
+    const localEventsMapped = events.map((le) => ({
+      ...le,
+      is_remote: false,
+    }));
+
+    const mappedRemoteEvents = (remoteEvents || []).map((re) => {
+      const hasRsvped = remoteRsvps?.includes(re.id) ?? false;
+      return {
+        id: re.id,
+        title: re.title,
+        description: re.description,
+        event_date: re.start_time,
+        start_date: re.start_time,
+        end_date: re.end_time,
+        location: re.location,
+        banner_url: re.banner_url,
+        created_at: re.created_at,
+        max_attendees: (re.federated_payload?.capacity as number) || null,
+        clubs: { name: `Hosted by ${re.host_institution}` },
+        is_remote: true,
+        host_institution: re.host_institution,
+        origin_server_domain: re.origin_server_domain,
+        origin_event_id: re.origin_event_id,
+        rsvp_count: 0,
+        saved_count: 0,
+        event_rsvps: hasRsvped ? [{ id: "remote-rsvp-id", user_id: user?.id || "" }] : [],
+        saved_events: [],
+      };
+    });
+
+    const combined = [...localEventsMapped, ...mappedRemoteEvents];
+    const seen = new Set();
+    return combined.filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+  }, [events, remoteEvents, remoteRsvps, user]);
+
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -569,11 +624,77 @@ export default function EventsList() {
   }, [supabase, refetch]);
 
   // ── Issue #2664: Optimistic UI for RSVP and Bookmark ─────────────
-    // ── onSuccess: subtle success toast ─────────────────────────────
+  const toggleRsvp = useMutation({
+    mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      if (eventId.startsWith("mock-")) {
+        return;
+      }
+
+      // Check if it's a remote/federated event in allEvents array
+      const targetEvent = allEvents.find((e) => e.id === eventId);
+      if (targetEvent && 'is_remote' in targetEvent && targetEvent.is_remote) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const { error } = await supabase.functions.invoke("proxy-rsvp", {
+          body: { eventId, hasRsvpd, action: "toggle" },
+          headers: {
+            Authorization: `Bearer ${sessionData.session?.access_token}`,
+          },
+        });
+        if (error) throw error;
+        return;
+      }
+
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      const { error } = await supabase.functions.invoke("toggle-rsvp", {
+        body: {
+          eventId,
+          hasRsvpd,
+        },
+        headers: {
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+      clearRsvpIdempotencyKey(eventId);
+    },
+    onSuccess: async (_data, variables) => {
+      toast.success(
+        variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
+      );
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["remoteRsvps"] });
+    },
+    onError: () => {
+      toast.error("Failed to update RSVP");
+    },
+  });
+
+  const toggleBookmark = useMutation({
+    mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
+      if (!user) throw new Error("Login required");
+
+      const query = isSaved
+        ? supabase.from("saved_events").delete().match({
+            event_id: eventId,
+            user_id: user.id,
+          })
+        : supabase.from("saved_events").insert({
+            event_id: eventId,
+            user_id: user.id,
+          });
+      const { error } = await query;
+      if (error) throw error;
+    },
     onSuccess: (_data, variables) => {
       toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
     },
-    // ── onSettled: always refetch to sync with backend ─────────────
     onSettled: () => {
       refetch();
     },
@@ -655,7 +776,7 @@ export default function EventsList() {
     Social: "bg-peach text-black",
   };
 
-  const filteredEvents = events
+  const filteredEvents = allEvents
     .filter((event) => {
       const text =
         `${event.title} ${event.description ?? ""} ${event.location ?? ""}`.toLowerCase();

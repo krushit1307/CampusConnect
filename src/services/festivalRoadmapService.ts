@@ -85,9 +85,7 @@ export function minutesToTimeString(totalMinutes: number): string {
 /**
  * Realistic mock dataset for a 3-Day University Innovation Summit.
  */
-export function getMockFestivalSchedule(
-  festivalId: string = "fest-summit-2026",
-): FestivalDaySchedule[] {
+export function getMockFestivalSchedule(festivalId: string = "fest-summit-2026"): FestivalDaySchedule[] {
   const speakers: Record<string, FestivalSpeaker> = {
     s1: {
       id: "spk-1",
@@ -129,8 +127,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 540,
       durationMinutes: 90,
       title: "Summit Keynote: The Autonomous Software Horizon",
-      abstract:
-        "Opening plenary exploring the intersection of biological intelligence and neural agent architectures.",
+      abstract: "Opening plenary exploring the intersection of biological intelligence and neural agent architectures.",
       trackId: "track-mainstage",
       trackName: "Mainstage Keynotes",
       venueRoom: "Auditorium Hall A",
@@ -150,8 +147,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 660,
       durationMinutes: 90,
       title: "Hands-on Workshop: Building Multimodal Neural Sidecars",
-      abstract:
-        "Interactive coding lab orchestrating real-time vision-language models with local tool dispatch.",
+      abstract: "Interactive coding lab orchestrating real-time vision-language models with local tool dispatch.",
       trackId: "track-ai",
       trackName: "AI & Machine Learning",
       venueRoom: "Lab 304 (Bring Laptops)",
@@ -170,8 +166,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 660,
       durationMinutes: 75,
       title: "Design Systems at Scale: From Token to Motion",
-      abstract:
-        "How modern product teams maintain mathematical design harmony across web and native devices.",
+      abstract: "How modern product teams maintain mathematical design harmony across web and native devices.",
       trackId: "track-design",
       trackName: "Design & UX Systems",
       venueRoom: "Atrium Studio 1",
@@ -190,8 +185,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 810,
       durationMinutes: 90,
       title: "Venture Pitch Masterclass: Raising Pre-Seed on Campus",
-      abstract:
-        "Direct feedback on student startup pitches with live term sheet breakdowns and valuation heuristics.",
+      abstract: "Direct feedback on student startup pitches with live term sheet breakdowns and valuation heuristics.",
       trackId: "track-startup",
       trackName: "Founders & Venture",
       venueRoom: "Innovation Loft 2",
@@ -210,8 +204,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 810,
       durationMinutes: 90,
       title: "Zero-Trust Cryptography & Threat Modeling Workshop",
-      abstract:
-        "Simulating adversarial nation-state intrusion scenarios and deploying WebAuthn Passkeys.",
+      abstract: "Simulating adversarial nation-state intrusion scenarios and deploying WebAuthn Passkeys.",
       trackId: "track-security",
       trackName: "Security & Web3",
       venueRoom: "Cyber Range Room 110",
@@ -230,8 +223,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 930,
       durationMinutes: 90,
       title: "Day 1 Mixer: Inter-Club Networking & Demo Alley",
-      abstract:
-        "Over 25 student engineering clubs showcase their latest robotics, rockets, and software builds.",
+      abstract: "Over 25 student engineering clubs showcase their latest robotics, rockets, and software builds.",
       trackId: "track-mainstage",
       trackName: "Mainstage Keynotes",
       venueRoom: "Grand Exhibition Hall",
@@ -253,8 +245,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 570,
       durationMinutes: 90,
       title: "Morning Plenary: The Ethics of Superhuman Bio-AI",
-      abstract:
-        "Examining regulatory guidelines (FDA, EMA) and patient autonomy in automated triage systems.",
+      abstract: "Examining regulatory guidelines (FDA, EMA) and patient autonomy in automated triage systems.",
       trackId: "track-mainstage",
       trackName: "Mainstage Keynotes",
       venueRoom: "Auditorium Hall A",
@@ -274,8 +265,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 690,
       durationMinutes: 90,
       title: "Next-Gen Web Architecture: Streaming SSR & Edge Workers",
-      abstract:
-        "Building zero-latency reactive interfaces using Deno, Cloudflare Workers, and Supabase RPCs.",
+      abstract: "Building zero-latency reactive interfaces using Deno, Cloudflare Workers, and Supabase RPCs.",
       trackId: "track-ai",
       trackName: "AI & Machine Learning",
       venueRoom: "Lab 304",
@@ -294,8 +284,7 @@ export function getMockFestivalSchedule(
       startMinutesFromMidnight: 840,
       durationMinutes: 210,
       title: "Annual Hackathon Sprint: 3-Hour Rapid Prototyping Clash",
-      abstract:
-        "Teams build functional AI-powered accessibility utilities with live mentor judging.",
+      abstract: "Teams build functional AI-powered accessibility utilities with live mentor judging.",
       trackId: "track-startup",
       trackName: "Founders & Venture",
       venueRoom: "Grand Exhibition Hall",
@@ -333,7 +322,9 @@ export function getMockFestivalSchedule(
  * Schedule Conflict Detector: Identifies overlapping time blocks in user's
  * bookmarked personal itinerary.
  */
-export function detectItineraryConflicts(bookmarkedSessions: FestivalSession[]): {
+export function detectItineraryConflicts(
+  bookmarkedSessions: FestivalSession[]
+): {
   conflictSessionIds: Set<string>;
   conflictPairs: { sessionA: FestivalSession; sessionB: FestivalSession }[];
 } {
@@ -370,7 +361,7 @@ export function detectItineraryConflicts(bookmarkedSessions: FestivalSession[]):
 export function exportItineraryToICal(
   sessions: FestivalSession[],
   festivalTitle: string = "CampusConnect Innovation Summit 2026",
-  fileName: string = "my_festival_itinerary.ics",
+  fileName: string = "my_festival_itinerary.ics"
 ): void {
   const formatICalDate = (dateStr: string, timeStr: string) => {
     const cleanDate = dateStr.replace(/-/g, "");
@@ -427,7 +418,7 @@ export function exportItineraryToICal(
 export async function syncPersonalItinerary(
   userId: string,
   festivalEventId: string,
-  bookmarkedSessionIds: string[],
+  bookmarkedSessionIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const payload = {

@@ -10,7 +10,8 @@ import { Request, Response } from "express";
 import { primaryClient, runPrimaryTransaction } from "../lib/prisma/primaryClient";
 import { trackMutation } from "../lib/prisma/dbRouter";
 import { enqueueWebhookDispatch, buildEventCreatedPayload } from "../services/webhookDispatcher";
-
+import { lintEventDescription } from "../utils/eventAccessibilityLinter";
+import { getRequiredPermits } from "../utils/eventComplianceChecker";
 /**
  * POST /api/events
  * Creates a new event.
@@ -19,12 +20,38 @@ import { enqueueWebhookDispatch, buildEventCreatedPayload } from "../services/we
  */
 export async function createEvent(req: Request, res: Response) {
   try {
-    const { title, description, startDate, endDate, clubId, status } = req.body;
+    const { title, description, startDate, endDate, clubId, status, capacity, category, tags, compliancePermitUrl } = req.body;
     const userId = req.user?.id; // Assuming auth middleware populates req.user
 
+    // Compliance Gatekeeper: block publishing until required permits are uploaded.
+    let finalStatus = status || "DRAFT";
+    if (finalStatus === "PUBLISHED") {
+      const requiredPermits = getRequiredPermits({ capacity, category, tags });
+      if (requiredPermits.length > 0) {
+        if (!compliancePermitUrl) {
+          return res.status(400).json({
+            success: false,
+            error: "This event requires a permit upload before it can be published.",
+            requiredPermits,
+          });
+        }
+        finalStatus = "PENDING_REVIEW";
+      }
+    }
     // 1. Validate input
     if (!title || !startDate || !clubId) {
       return res.status(400).json({ success: false, error: "Missing required fields" });
+    }
+
+    if (status === "PUBLISHED" && description) {
+      const accessibilityErrors = lintEventDescription(description);
+      if (accessibilityErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Fix these accessibility issues to publish.",
+          details: accessibilityErrors,
+        });
+      }
     }
 
     // 2. Create the event in the Primary Database
@@ -36,9 +63,12 @@ export async function createEvent(req: Request, res: Response) {
         endDate: endDate ? new Date(endDate) : null,
         clubId,
         createdById: userId,
-        status: status || "DRAFT",
-      },
-      include: {
+        status: finalStatus,
+        capacity,
+        category,
+        tags,
+        compliancePermitUrl,
+      },      include: {
         club: true, // Include club data for the webhook payload
       },
     });
@@ -99,17 +129,48 @@ export async function createEvent(req: Request, res: Response) {
 export async function updateEvent(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { title, description, status } = req.body;
+    const { title, description, status, capacity, category, tags, compliancePermitUrl } = req.body;
+
+    let finalStatus = status;
+    if (status === "PUBLISHED") {
+      const requiredPermits = getRequiredPermits({ capacity, category, tags });
+      if (requiredPermits.length > 0) {
+        if (!compliancePermitUrl) {
+          return res.status(400).json({
+            success: false,
+            error: "This event requires a permit upload before it can be published.",
+            requiredPermits,
+          });
+        }
+        finalStatus = "PENDING_REVIEW";
+      }
+    }
+
+    if (status === "PUBLISHED") {      const eventToValidate = await primaryClient.event.findUnique({ where: { id } });
+      if (!eventToValidate) {
+        return res.status(404).json({ success: false, error: "Event not found" });
+      }
+      const finalDescription = description !== undefined ? description : eventToValidate.description;
+      if (finalDescription) {
+        const accessibilityErrors = lintEventDescription(finalDescription);
+        if (accessibilityErrors.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: "Fix these accessibility issues to publish.",
+            details: accessibilityErrors,
+          });
+        }
+      }
+    }
 
     // Use the transaction helper for strict Primary node execution
     const updatedEvent = await runPrimaryTransaction(async (tx) => {
       // 1. Update the event
       const event = await tx.event.update({
         where: { id },
-        data: { title, description, status },
+        data: { title, description, status: finalStatus, capacity, category, tags, compliancePermitUrl },
         include: { club: true }, // Needed for webhook payload
       });
-
       // 2. If status changed to PUBLISHED, log an audit trail
       if (status === "PUBLISHED") {
         await tx.auditLog.create({
@@ -192,12 +253,39 @@ export async function publishEvent(req: Request, res: Response) {
   try {
     const { id } = req.params;
 
+    const eventToValidate = await primaryClient.event.findUnique({ where: { id } });
+    if (!eventToValidate) {
+      return res.status(404).json({ success: false, error: "Event not found" });
+    }
+    if (eventToValidate.description) {
+      const accessibilityErrors = lintEventDescription(eventToValidate.description);
+      if (accessibilityErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Fix these accessibility issues to publish.",
+          details: accessibilityErrors,
+        });
+      }
+    }
+
+    const requiredPermits = getRequiredPermits({
+      capacity: eventToValidate.capacity,
+      category: eventToValidate.category,
+      tags: eventToValidate.tags,
+    });
+    if (requiredPermits.length > 0 && !eventToValidate.compliancePermitUrl) {
+      return res.status(400).json({
+        success: false,
+        error: "This event requires a permit upload before it can be published.",
+        requiredPermits,
+      });
+    }
+
     const event = await primaryClient.event.update({
       where: { id },
-      data: { status: "PUBLISHED" },
+      data: { status: requiredPermits.length > 0 ? "PENDING_REVIEW" : "PUBLISHED" },
       include: { club: true },
     });
-
     // Track the mutation for read-replica routing
     trackMutation("Event", event.id);
 
@@ -220,5 +308,53 @@ export async function publishEvent(req: Request, res: Response) {
   } catch (error: any) {
     console.error("[EventsController] Publish failed:", error);
     res.status(500).json({ success: false, error: "Failed to publish event" });
+  }
+}
+
+/**
+ * PUT /api/events/:id/approve-compliance
+ * Student Union Admin action: approves an event's uploaded permit(s)
+ * and moves it from PENDING_REVIEW to PUBLISHED.
+ */
+export async function approveEventCompliance(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    const eventToValidate = await primaryClient.event.findUnique({ where: { id } });
+    if (!eventToValidate) {
+      return res.status(404).json({ success: false, error: "Event not found" });
+    }
+    if (eventToValidate.status !== "PENDING_REVIEW") {
+      return res.status(400).json({
+        success: false,
+        error: "Only events in PENDING_REVIEW can be approved.",
+      });
+    }
+    if (!eventToValidate.compliancePermitUrl) {
+      return res.status(400).json({ success: false, error: "No permit document on file." });
+    }
+
+    const event = await primaryClient.event.update({
+      where: { id },
+      data: { status: "PUBLISHED" },
+      include: { club: true },
+    });
+
+    trackMutation("Event", event.id);
+
+    const clubConfig = await primaryClient.club.findUnique({
+      where: { id: event.clubId },
+      select: { webhookUrls: true },
+    });
+    const webhookUrls: string[] = clubConfig?.webhookUrls || [];
+    if (webhookUrls.length > 0) {
+      const payload = buildEventCreatedPayload(event, event.club);
+      await enqueueWebhookDispatch(webhookUrls, payload, event.clubId, event.id);
+    }
+
+    res.status(200).json({ success: true, data: event });
+  } catch (error: any) {
+    console.error("[EventsController] Compliance approval failed:", error);
+    res.status(500).json({ success: false, error: "Failed to approve event compliance" });
   }
 }
