@@ -1,3 +1,5 @@
+import { SafetyRollCallDashboard } from "@/components/events/SafetyRollCallDashboard";
+import { SafetyCheckPrompt } from "@/components/events/SafetyCheckPrompt";
 // =============================================================================
 // PATCH: src/pages/Events/EventDetail.tsx
 // Issue: #3678 — Real-Time "Micro-Volunteering" Task Board
@@ -177,6 +179,16 @@ export default function EventDetail() {
             <LiveTaskOrganizerPanel eventId={event.id} />
           </div>
         )}
+
+        {/* ── NEW (Issue #4411): Safety Roll Call ────────────────── */}
+        {isOrganizer && event.id && (
+          <div className="pt-6">
+            <SafetyRollCallDashboard eventId={event.id} />
+          </div>
+        )}
+
+        {/* ── NEW (Issue #4411): Safety Check Prompt ────────────────── */}
+        {user && event.id && <SafetyCheckPrompt eventId={event.id} userId={user.id} />}
 
         {/* ── NEW (Issue #3938): Help Desk Queue ────────────────── */}
         {isOrganizer && event.id && (
