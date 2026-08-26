@@ -1643,6 +1643,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      inactive_account_purge_audit: {
+        Row: {
+          id: string;
+          user_id: string;
+          last_sign_in_at: string | null;
+          account_created_at: string;
+          cutoff_at: string;
+          role_at_purge: string;
+          dry_run: boolean;
+          status: "identified" | "anonymized" | "failed";
+          result: Json;
+          purged_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          last_sign_in_at?: string | null;
+          account_created_at: string;
+          cutoff_at: string;
+          role_at_purge: string;
+          dry_run?: boolean;
+          status: "identified" | "anonymized" | "failed";
+          result?: Json;
+          purged_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          last_sign_in_at?: string | null;
+          account_created_at?: string;
+          cutoff_at?: string;
+          role_at_purge?: string;
+          dry_run?: boolean;
+          status?: "identified" | "anonymized" | "failed";
+          result?: Json;
+          purged_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       club_analytics_view: {
@@ -1675,6 +1714,10 @@ export type Database = {
       };
     };
     Functions: {
+      execute_inactive_purge: {
+        Args: { p_dry_run?: boolean; p_inactivity_years?: number };
+        Returns: Json;
+      };
       get_event_analytics: {
         Args: {
           p_event_id: string;
