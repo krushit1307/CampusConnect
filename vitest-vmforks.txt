@@ -1,0 +1,10 @@
+
+ RUN  v4.1.10 c:/Users/lenovo/CampusConnect
+
+ ✓ src/store/globalState.test.ts (4 tests) 10ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  20:42:03
+   Duration  2.61s (transform 134ms, setup 460ms, import 115ms, tests 10ms, environment 1.52s)
+

@@ -1,0 +1,31 @@
+# HTTP load test for the CampusConnect staging API.
+# Run only through `npm run load:staging`; its wrapper requires an explicit
+# staging hostname allowlist before Artillery is started.
+
+config:
+  target: "{{ $processEnvironment.LOAD_TEST_TARGET }}"
+  phases:
+    - name: "Warm up"
+      duration: 60
+      arrivalCount: 50
+    - name: "Spike"
+      duration: 30
+      arrivalCount: 500
+    - name: "Sustained load"
+      duration: 300
+      arrivalRate: 100
+  ensure:
+    p95: 500
+    maxErrorRate: 0
+
+scenarios:
+  - name: "Global feed and events"
+    flow:
+      - get:
+          url: "/api/feed"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/events"
+          expect:
+            - statusCode: 200

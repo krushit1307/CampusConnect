@@ -1,0 +1,1 @@
+-- Obsolete migration: user_role enum is already defined correctly in baseline schema.

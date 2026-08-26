@@ -1,0 +1,47 @@
+services:
+  web:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - .env.local
+
+  realtime-proxy:
+    build:
+      context: ./services/realtime-proxy
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - HOST=0.0.0.0
+      - LISTEN_CHANNEL=live_feed_channel
+    env_file:
+      - .env.local
+activitypub:
+    build:
+      context: ./services/activitypub
+    expose:
+      - "3002"
+    environment:
+      - PORT=3002
+      - DOMAIN=localhost:3002
+      - SUPABASE_URL=${VITE_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - .env.local
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - activitypub
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro

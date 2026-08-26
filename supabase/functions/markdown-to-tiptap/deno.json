@@ -1,0 +1,9 @@
+{
+  "imports": {
+    "marked": "npm:marked@12.0.0",
+    "jsdom": "npm:jsdom@24.0.0"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window", "dom"]
+  }
+}

@@ -1,0 +1,43 @@
+# Artillery Load Testing Configuration for Supabase Realtime
+#
+# This configuration simulates high-frequency message sending and receiving
+# over WebSocket connections to validate the chat architecture under load.
+#
+# Prerequisites:
+# - npm install -g artillery
+# - Export environment variables: SUPABASE_URL, SUPABASE_ANON_KEY, TEST_USER_JWT
+#
+# Execution:
+# artillery run load-testing/artillery/supabase-realtime-test.yml
+
+config:
+  target: "{{ $processEnvironment.SUPABASE_URL }}"
+  phases:
+    - duration: 30
+      arrivalRate: 10
+      name: "Warm up phase"
+    - duration: 60
+      arrivalRate: 20
+      name: "Sustained load phase"
+    - duration: 30
+      arrivalRate: 50
+      name: "Spike phase"
+  variables:
+    apiKey: "{{ $processEnvironment.SUPABASE_ANON_KEY }}"
+    jwt: "{{ $processEnvironment.TEST_USER_JWT }}"
+    channel: "public:chat_messages"
+  ws:
+    subprotocols:
+      - "graphql-ws"
+
+scenarios:
+  - engine: "ws"
+    flow:
+      - function: "connectAndSubscribe"
+      - loop:
+          - function: "sendMessage"
+          - think: 1
+        count: 30
+      - function: "closeConnection"
+
+processor: "./artillery-processor.js"

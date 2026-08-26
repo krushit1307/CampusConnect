@@ -1,0 +1,989 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+@plugin "@tailwindcss/typography";
+@import "./styles/disabled-buttons.css";
+@source "../src";
+/* Runtime-selected utility maps must remain available in production builds. */
+@source inline("bg-lime bg-sky bg-lavender bg-peach text-green-700 text-yellow-700 text-red-700 bg-destructive bg-orange-500 bg-green-600 bg-transparent text-destructive text-orange-600");
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant high-contrast (&:is(.high-contrast *));
+
+/* Space Grotesk Custom Font Declarations */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Space Mono Custom Font Declarations */
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Fallback Metric Override font-faces to eliminate Layout Shift (CLS) */
+@font-face {
+  font-family: "Space Grotesk Fallback";
+  src: local("Arial");
+  size-adjust: 102.5%;
+  ascent-override: 95%;
+  descent-override: 23%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Space Mono Fallback";
+  src: local("Courier New");
+  size-adjust: 91.5%;
+  ascent-override: 104%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
+@theme inline {
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-cream: var(--cream);
+  --color-lime: var(--lime);
+  --color-sky: var(--sky);
+  --color-lavender: var(--lavender);
+  --color-peach: var(--peach);
+  --color-ink: var(--ink);
+  --font-display: "Space Grotesk", "Space Grotesk Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", "Space Mono Fallback", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --font-size-base: 16px;
+  --radius: 0px;
+  --cream: #f3f1e4;
+  --lime: #6f8000;
+  --sky: #007b8f;
+  --lavender: #8367a7;
+  --peach: #c55913;
+  --ink: #000000;
+  --background: #f3f1e4;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #f3f1e4;
+  --secondary: #f3f1e4;
+  --secondary-foreground: #000000;
+  --muted: #f3f1e4;
+  --muted-foreground: #333333;
+  --accent: #dff25c;
+  --accent-foreground: #000000;
+  --destructive: #d32f2f;
+  --destructive-foreground: #ffffff;
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: #f3f1e4;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #f3f1e4;
+  --sidebar-accent: #dff25c;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #000000;
+  --sidebar-ring: #000000;
+  --border-thickness: 4px;
+  --border-radius: 8px;
+}
+
+.dark {
+  --background: #111111;
+  --foreground: #f3f1e4;
+  --card: #171717;
+  --card-foreground: #f3f1e4;
+  --popover: #171717;
+  --popover-foreground: #f3f1e4;
+  --primary: #dff25c;
+  --primary-foreground: #111111;
+  --secondary: #1f1f1f;
+  --secondary-foreground: #f3f1e4;
+  --muted: #1f1f1f;
+  --muted-foreground: #cfcfcf;
+  --accent: #bce3f2;
+  --accent-foreground: #111111;
+  --destructive: #e53935;
+  --destructive-foreground: #ffffff;
+  --border: #f3f1e4;
+  --input: #f3f1e4;
+  --ring: #dff25c;
+  --sidebar: #111111;
+  --sidebar-foreground: #f3f1e4;
+  --sidebar-primary: #dff25c;
+  --sidebar-primary-foreground: #111111;
+  --sidebar-accent: #1f1f1f;
+  --sidebar-accent-foreground: #f3f1e4;
+  --sidebar-border: #f3f1e4;
+  --sidebar-ring: #dff25c;
+}
+
+.high-contrast {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #000000;
+  --muted: #ffffff;
+  --muted-foreground: #000000;
+  --accent: #000000;
+  --accent-foreground: #ffffff;
+  --destructive: #cc0000;
+  --destructive-foreground: #ffffff;
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #000000;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #000000;
+  --sidebar-ring: #000000;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(124, 200, 162, 0.28), transparent 28%),
+      radial-gradient(circle at 85% 8%, rgba(245, 198, 107, 0.32), transparent 24%),
+      linear-gradient(135deg, #f8efe2 0%, #eef8fb 48%, #f6e0c5 100%);
+    color: var(--color-foreground);
+    font-family: var(--font-mono);
+    /* Disable the browser's native pull-to-refresh so the custom Feed
+       PullToRefresh component is the only path that triggers a refetch
+       (issue #1917). */
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    font-weight: 700;
+  }
+
+  /* Focus rings for interactive form elements */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
+  }
+
+  /* Focus rings for all interactive elements */
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
+  }
+}
+
+@layer components {
+  .auth-mode-transition {
+    animation: auth-mode-transition 240ms ease-out;
+  }
+
+  @keyframes auth-mode-transition {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .college-shell {
+    background:
+      radial-gradient(circle at top left, rgba(124, 200, 162, 0.16), transparent 30%),
+      linear-gradient(135deg, rgba(248, 239, 226, 0.96), rgba(238, 248, 251, 0.95));
+  }
+
+  .college-nav {
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgba(18, 58, 87, 0.08);
+  }
+
+  .college-hero {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(120deg, rgba(9, 42, 71, 0.97), rgba(17, 76, 115, 0.94)),
+      radial-gradient(circle at top right, rgba(245, 198, 107, 0.33), transparent 28%);
+  }
+
+  .college-hero::before {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 120px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.12) 20%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.12) 80%,
+      transparent 100%
+    );
+    background-size: 220px 100%;
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .college-card {
+    background: rgba(255, 255, 255, 0.92);
+    border: var(--border-thickness) solid #123a57;
+    border-radius: var(--border-radius);
+    box-shadow: 6px 6px 0 0 #123a57;
+    backdrop-filter: blur(6px);
+  }
+
+  .college-pill {
+    border: var(--border-thickness) solid #123a57;
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 4px 4px 0 0 #123a57;
+  }
+}
+
+/*
+ * Glassmorphism navbar effect, toggled on/off via IntersectionObserver
+ * (see useScrollSentinel + Navbar.tsx) rather than always-on, since
+ * backdrop-filter is expensive to composite on mobile GPUs.
+ *
+ * Safari (desktop + iOS) only recognizes the -webkit- prefixed property.
+ * Without it, Safari silently ignores backdrop-filter and the navbar
+ * renders as a flat, opaque block instead of frosted glass.
+ */
+@utility navbar-glass {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+@utility neu-border {
+  border: var(--border-thickness) solid #000000;
+  border-radius: var(--border-radius);
+}
+
+@utility neu-shadow {
+  box-shadow: 6px 6px 0 0 #000000;
+}
+
+@utility neu-shadow-sm {
+  box-shadow: 3px 3px 0 0 #000000;
+}
+
+@utility neu-press {
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+  &:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 0 #000000;
+  }
+  &:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 0 #000000;
+  }
+}
+
+@utility eyebrow {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.7rem;
+}
+
+@utility markdown-content {
+  & > *:first-child {
+    margin-top: 0;
+  }
+  & > *:last-child {
+    margin-bottom: 0;
+  }
+
+  p {
+    margin: 0.5em 0;
+    white-space: pre-wrap;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+
+  em {
+    font-style: italic;
+  }
+
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  code {
+    background: var(--cream);
+    border: 2px solid #000000;
+    padding: 0 0.3em;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--cream);
+    border: 2px solid #000000;
+    padding: 0.75em;
+    overflow-x: auto;
+    margin: 0.5em 0;
+  }
+  pre code {
+    border: none;
+    padding: 0;
+  }
+
+  ul,
+  ol {
+    margin: 0.5em 0;
+    padding-left: 1.4em;
+  }
+  ul {
+    list-style-type: disc;
+  }
+  ol {
+    list-style-type: decimal;
+  }
+  li {
+    margin: 0.15em 0;
+  }
+
+  blockquote {
+    border-left: 3px solid #000000;
+    padding-left: 0.75em;
+    margin: 0.5em 0;
+    font-style: italic;
+  }
+
+  h1,
+  h2,
+  h3 {
+    margin: 0.6em 0 0.3em;
+  }
+}
+
+/* Hero Section CSS Animations & Keyframes */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes float-blob-1 {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(45px, -65px) scale(1.18);
+  }
+  66% {
+    transform: translate(-30px, 35px) scale(0.85);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+@keyframes float-blob-2 {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(-40px, 50px) scale(0.9);
+  }
+  66% {
+    transform: translate(50px, -30px) scale(1.1);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+@keyframes float-blob-3 {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(35px, -45px) scale(1.2);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+@keyframes gradient-bg {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@utility animate-hero-bg {
+  background: linear-gradient(-45deg, #123a57, #1c4b6e, #0e293e, #123a57);
+  background-size: 400% 400%;
+  animation: gradient-bg 18s ease infinite;
+}
+
+@utility animate-fade-in-up {
+  animation: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+@utility animate-fade-in {
+  animation: fade-in 1s ease-out forwards;
+}
+
+@utility animate-blob-1 {
+  animation: float-blob-1 18s ease-in-out infinite;
+}
+
+@utility animate-blob-2 {
+  animation: float-blob-2 22s ease-in-out infinite;
+}
+
+@utility animate-blob-3 {
+  animation: float-blob-3 25s ease-in-out infinite;
+}
+
+@utility animate-delay-100 {
+  animation-delay: 100ms;
+}
+
+@utility animate-delay-300 {
+  animation-delay: 300ms;
+}
+
+@utility animate-delay-500 {
+  animation-delay: 500ms;
+}
+
+@utility animate-delay-700 {
+  animation-delay: 700ms;
+}
+
+/* Scroll Reveal Classes */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scroll-reveal:not(.visible) {
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Accessibility: Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    background-attachment: initial !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+}
+/* Neubrutalist overrides for React Big Calendar */
+.rbc-calendar {
+  font-family: var(--font-mono);
+  background-color: #ea7272;
+  color: #000000;
+}
+
+.rbc-month-view {
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
+}
+
+.rbc-day-bg {
+  border-left: 2px solid #000000 !important;
+}
+
+.rbc-month-row {
+  border-bottom: 2px solid #000000 !important;
+}
+
+.rbc-header {
+  border-bottom: 2px solid #000000 !important;
+  border-left: 2px solid #000000 !important;
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  padding: 8px 0 !important;
+  font-size: 0.85rem !important;
+  background-color: var(--lime) !important;
+}
+
+.rbc-header:first-child {
+  border-left: none !important;
+}
+
+.rbc-day-bg:first-child {
+  border-left: none !important;
+}
+
+.rbc-today {
+  background-color: var(--sky) !important;
+}
+
+.rbc-off-range-bg {
+  background-color: #f7f5ea !important;
+}
+
+.rbc-event {
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
+  background-color: var(--peach) !important;
+  color: #000000 !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+  transition: transform 120ms ease;
+}
+
+.rbc-event:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px 0px #000000 !important;
+}
+
+.rbc-toolbar {
+  margin-bottom: 20px !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+}
+
+.rbc-toolbar-label {
+  font-family: var(--font-display) !important;
+  font-weight: 900 !important;
+  font-size: 1.5rem !important;
+  text-transform: uppercase !important;
+}
+
+.rbc-toolbar button {
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  font-size: 12px !important;
+  padding: 6px 12px !important;
+  transition: all 120ms ease !important;
+  cursor: pointer !important;
+  box-shadow: 3px 3px 0px 0px #000000 !important;
+}
+
+.rbc-toolbar button:hover {
+  background-color: var(--cream) !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
+.rbc-toolbar button:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 1px 1px 0px 0px #000000 !important;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #000000 !important;
+
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+/* ============================================================
+   Announcement Marquee — pure CSS keyframe ticker
+   - Animation applied to each child div individually.
+   - translateX(-100%) on a child = scroll exactly one full
+     copy off-screen; the second copy replaces it seamlessly.
+   - No JS timers, no state, no rAF. GPU transform only.
+   - prefers-reduced-motion: animation off, text centered.
+   ============================================================ */
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.marquee-wrapper {
+  display: flex;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-child {
+  animation: marquee 20s linear infinite;
+  /* Shrink-0 keeps the child at its natural width inside the flex row */
+  flex-shrink: 0;
+  min-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-child {
+    animation: none;
+    /* Static centered text when motion is reduced */
+    min-width: unset;
+    flex: 1;
+    text-align: center;
+  }
+  /* Hide the second duplicate copy — only one copy needed when static */
+  .marquee-child + .marquee-child {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Feed Reaction Spring Micro-Interaction (issue #483)
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.45);
+  }
+  55% {
+    transform: scale(0.85);
+  }
+  75% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@utility reaction-burst {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  will-change: transform;
+  animation: reaction-spring 450ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ============================================================
+   First RSVP Confetti Celebration (issue #260)
+   - Pure CSS confetti burst, triggered when a user's RSVP
+     count for event_rsvps reaches 1 for the first time.
+   - Auto-dismissed after 3s via setTimeout in events.tsx.
+   - Respects prefers-reduced-motion (handled globally above).
+   ============================================================ */
+
+.confetti-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -10px;
+  left: calc(var(--i) * 3.33%);
+  width: 10px;
+  height: 10px;
+  background: var(--lime);
+  animation: confetti-fall 3s ease-in forwards;
+  animation-delay: calc(var(--i) * 40ms);
+}
+
+.confetti-piece:nth-child(3n) {
+  background: var(--sky);
+  border-radius: 50%;
+}
+
+.confetti-piece:nth-child(3n + 1) {
+  background: var(--peach);
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* Neubrutalist scrollbars, applied globally */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 var(--cream);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background-color: var(--cream);
+  border-left: 2px solid #000000;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #000000;
+  border: 2px solid #000000;
+  border-radius: 0px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #1f1f1f;
+}
+
+/* --- Neubrutalist Custom Component Animation System --- */
+@theme {
+  --animate-wiggle: wiggle 3s ease-in-out infinite;
+  --animate-subtle-bounce: subtle-bounce 2s ease-in-out infinite;
+
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(2deg);
+    }
+  }
+
+  @keyframes subtle-bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+}
+
+/* Disable default fade transition for root view transitions */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Ensure the new snapshot layers on top during clip-path expansion */
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* ─── Tiptap Collaboration Cursors ──────────────────────────────────────────── */
+
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid var(--color, #000);
+  border-right: none;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 2px solid #000;
+  background-color: var(--color, #000);
+  color: #fff;
+  user-select: none;
+  pointer-events: none;
+  transform: translateY(-2px);
+  box-shadow: 2px 2px 0 #000;
+}
+
+/* ─── Tiptap editor base styles ─────────────────────────────────────────────── */
+
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #aaa;
+  pointer-events: none;
+  height: 0;
+  font-family: monospace;
+}
+
+/* Neobrutalist editor focus ring */
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* High Contrast accessibility overrides */
+.high-contrast body {
+  background: #ffffff !important;
+}
+
+.high-contrast a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+.high-contrast a:hover {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}

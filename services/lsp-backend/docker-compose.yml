@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  lsp-backend:
+    build: .
+    container_name: campus-connect-lsp
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - NODE_ENV=production
+    restart: always

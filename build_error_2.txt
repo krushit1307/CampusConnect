@@ -1,0 +1,158 @@
+
+> build:dev
+> vite build --mode development
+
+[Module Federation] Ignoring `output.manualChunks` because it conflicts with module federation. Module federation transforms shared dependency imports with async init wrappers, and grouping these transformed modules into a single chunk creates circular async dependencies that cause the application to silently hang.
+[36mvite v8.1.4 [32mbuilding client environment for development...[36m[39m
+[2Ktransforming...✓ 6035 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/manifest.webmanifest                                                                                                          0.17 kB
+dist/assets/compress.worker-Bvp_F4Iv.js                                                                                            1.01 kB
+dist/assets/mf-entry-bootstrap-0-1bbb5b72.js                                                                                       1.35 kB
+dist/index.html                                                                                                                    3.73 kB │ gzip:   1.07 kB
+dist/assets/Leaderboard-DsHlmjWm.css                                                                                               1.44 kB │ gzip:   0.56 kB
+dist/assets/MentionRenderer-BkMz4SdF.css                                                                                           7.09 kB │ gzip:   1.72 kB
+dist/assets/EventsCalendar-B5NkZjem.css                                                                                           10.51 kB │ gzip:   2.39 kB
+dist/assets/leaflet-CHtXxHHg.css                                                                                                  15.01 kB │ gzip:   6.35 kB
+dist/assets/clubs-e9Q0RDai.css                                                                                                    33.28 kB │ gzip:   5.83 kB
+dist/assets/index-BFZ7qUfV.css                                                                                                   189.85 kB │ gzip:  29.80 kB
+dist/assets/virtual_mf-exposes___mfe_internal__host__remoteEntry-_hash_-DnnXQRkG.js                                                0.04 kB │ gzip:   0.06 kB
+dist/assets/virtualExposes-DI4roZ-N.js                                                                                             0.11 kB │ gzip:   0.12 kB
+dist/assets/chevron-down-BFZYB-Od.js                                                                                               0.12 kB │ gzip:   0.14 kB
+dist/assets/chevron-up-BmUo6JZA.js                                                                                                 0.12 kB │ gzip:   0.14 kB
+dist/assets/remoteEntry-4rt9OTe_.js                                                                                                0.13 kB │ gzip:   0.13 kB
+dist/assets/loader-circle-CM9ETC-z.js                                                                                              0.14 kB │ gzip:   0.15 kB
+dist/assets/plus-C2FI1QTb.js                                                                                                       0.15 kB │ gzip:   0.15 kB
+dist/assets/objectWithoutPropertiesLoose-Do6ywDBO.js                                                                               0.15 kB │ gzip:   0.14 kB
+dist/assets/arrow-left-BjHvBi9F.js                                                                                                 0.16 kB │ gzip:   0.16 kB
+dist/assets/arrow-right-s6hIVJSF.js                                                                                                0.16 kB │ gzip:   0.16 kB
+dist/assets/upload-DMc6MAzG.js                                                                                                     0.23 kB │ gzip:   0.19 kB
+dist/assets/extends-CvVTau-c.js                                                                                                    0.23 kB │ gzip:   0.18 kB
+dist/assets/clubs-BO5HL1me.js                                                                                                      0.23 kB │ gzip:   0.19 kB
+dist/assets/copy-3koKUiW3.js                                                                                                       0.23 kB │ gzip:   0.20 kB
+dist/assets/link-2-Bi-znlAh.js                                                                                                     0.24 kB │ gzip:   0.20 kB
+dist/assets/chart-column-CiJYRLWW.js                                                                                               0.25 kB │ gzip:   0.19 kB
+dist/assets/eye-DkckgOGJ.js                                                                                                        0.25 kB │ gzip:   0.20 kB
+dist/assets/map-pin-DdtDSg4A.js                                                                                                    0.25 kB │ gzip:   0.22 kB
+dist/assets/triangle-alert-Bt13cda6.js                                                                                             0.26 kB │ gzip:   0.21 kB
+dist/assets/pencil-D2DuhccM.js                                                                                                     0.27 kB │ gzip:   0.22 kB
+dist/assets/skeleton-oq4TkEKa.js                                                                                                   0.29 kB │ gzip:   0.23 kB
+dist/assets/list-BOVMzvRU.js                                                                                                       0.30 kB │ gzip:   0.18 kB
+dist/assets/dist-DvoxfIRJ.js                                                                                                       0.30 kB │ gzip:   0.21 kB
+dist/assets/shield-check-BMOLNnXP.js                                                                                               0.32 kB │ gzip:   0.24 kB
+dist/assets/refresh-cw-vSG-DCMW.js                                                                                                 0.32 kB │ gzip:   0.22 kB
+dist/assets/startOfWeek-1W-iLMhs.js                                                                                                0.33 kB │ gzip:   0.23 kB
+dist/assets/vcardUtils-BAUZUNA9.js                                                                                                 0.48 kB │ gzip:   0.35 kB
+dist/assets/sparkles-DEbftSJj.js                                                                                                   0.49 kB │ gzip:   0.28 kB
+dist/assets/users-DlWwqr6c.js                                                                                                      0.68 kB │ gzip:   0.40 kB
+dist/assets/confirm-modal-BZVkeahC.js                                                                                              0.70 kB │ gzip:   0.43 kB
+dist/assets/MapSkeleton-DayU3v0L.js                                                                                                0.75 kB │ gzip:   0.45 kB
+dist/assets/input-HNfnKwq9.js                                                                                                      0.78 kB │ gzip:   0.43 kB
+dist/assets/differenceInCalendarDays-CRbh6Jte.js                                                                                   0.80 kB │ gzip:   0.46 kB
+dist/assets/label-BEL0v5ws.js                                                                                                      0.80 kB │ gzip:   0.46 kB
+dist/assets/dist-CVqB5GKE.js                                                                                                       0.83 kB │ gzip:   0.46 kB
+dist/assets/createLucideIcon-Dmy3khE3.js                                                                                           1.18 kB │ gzip:   0.71 kB
+dist/assets/vite-preload-helper-Czpn1I53.js                                                                                        1.19 kB │ gzip:   0.67 kB
+dist/assets/authErrors-DBirSQig.js                                                                                                 1.20 kB │ gzip:   0.54 kB
+dist/assets/rolldown-runtime-DAXXjFlN.js                                                                                           1.26 kB │ gzip:   0.70 kB
+dist/assets/withAuth-Dxt8Yu7D.js                                                                                                   1.47 kB │ gzip:   0.77 kB
+dist/assets/EventMap-DnhTvohg.js                                                                                                   1.53 kB │ gzip:   0.80 kB
+dist/assets/OptimizedImage-CkEhqNAx.js                                                                                             1.72 kB │ gzip:   0.89 kB
+dist/assets/password-strength-DGAXbgFB.js                                                                                          2.11 kB │ gzip:   1.05 kB
+dist/assets/progress-iW74bqkg.js                                                                                                   2.17 kB │ gzip:   1.06 kB
+dist/assets/hostInit-D6-NMdLr.js                                                                                                   2.27 kB │ gzip:   1.08 kB
+dist/assets/schemas-B00hC025.js                                                                                                    2.36 kB │ gzip:   0.85 kB
+dist/assets/_virtual_mf-localSharedImportMap___mfe_internal__host__mf_owner__1-CJCIxmVG.js                                         2.38 kB │ gzip:   0.62 kB
+dist/assets/eventUtils-Br19Bd_O.js                                                                                                 2.42 kB │ gzip:   1.13 kB
+dist/assets/_virtual_mf___mfe_internal__host__mf_owner__1__loadShare__react_mf_1_jsx_mf_2_runtime__loadShare__.js-DCelBYZ9.js      2.57 kB │ gzip:   1.08 kB
+dist/assets/tslib.es6-C98rlihb.js                                                                                                  2.68 kB │ gzip:   1.20 kB
+dist/assets/EventCapacityGauge-CCHF9ebY.js                                                                                         2.83 kB │ gzip:   1.35 kB
+dist/assets/dateUtils-DiDurv4A.js                                                                                                  2.85 kB │ gzip:   1.32 kB
+dist/assets/useExperimentStore-09KMykv6.js                                                                                         3.01 kB │ gzip:   1.47 kB
+dist/assets/dashboard-CsRKCskk.js                                                                                                  3.10 kB │ gzip:   1.13 kB
+dist/assets/events.map-DNJZtUPx.js                                                                                                 3.11 kB │ gzip:   1.37 kB
+dist/assets/forgot-password-BMOM4s2d.js                                                                                            3.45 kB │ gzip:   1.53 kB
+dist/assets/reset-password-Do3sBVeg.js                                                                                             3.66 kB │ gzip:   1.60 kB
+dist/assets/AnimatePresence-0Fh0up_l.js                                                                                            4.12 kB │ gzip:   1.94 kB
+dist/assets/ShareMenu-Bsw_AqNn.js                                                                                                  4.16 kB │ gzip:   1.67 kB
+dist/assets/verify-email-DUuWvqCP.js                                                                                               4.65 kB │ gzip:   1.81 kB
+dist/assets/DashboardWidgetSkeleton-B0t6THgJ.js                                                                                    4.68 kB │ gzip:   1.11 kB
+dist/assets/dashboard.rsvps-DO6VL32V.js                                                                                            4.77 kB │ gzip:   2.06 kB
+dist/assets/ReportDialog-gba98BE4.js                                                                                               4.83 kB │ gzip:   2.03 kB
+dist/assets/EmptyState-QcGokcSu.js                                                                                                 4.88 kB │ gzip:   1.41 kB
+dist/assets/alert-dialog-DG1x-GqE.js                                                                                               5.46 kB │ gzip:   2.24 kB
+dist/assets/events._eventId.dashboard-CPn2T76a.js                                                                                  5.46 kB │ gzip:   2.18 kB
+dist/assets/dashboard.calendar-ChPVT7KC.js                                                                                         5.57 kB │ gzip:   2.37 kB
+dist/assets/workbox-window.prod.es5-Bd17z0YL.js                                                                                    5.65 kB │ gzip:   2.20 kB
+dist/assets/EventClusterMap-BoNrAUUU.js                                                                                            5.99 kB │ gzip:   2.29 kB
+dist/assets/Leaderboard-nAD87sfx.js                                                                                                5.99 kB │ gzip:   2.43 kB
+dist/assets/dashboard.bookmarks-Bsd29nN6.js                                                                                        6.08 kB │ gzip:   2.40 kB
+dist/assets/admin.clubs.pending-BDju4Y0K.js                                                                                        6.21 kB │ gzip:   2.32 kB
+dist/assets/_virtual_mf___mfe_internal__host__mf_owner__1__loadShare__react_mf_2_dom__loadShare__.js-CfygFn0C.js                   7.06 kB │ gzip:   2.54 kB
+dist/assets/useWebAuthn-y4kLLi1u.js                                                                                                7.55 kB │ gzip:   2.69 kB
+dist/assets/admin.reports-DEwlOVJS.js                                                                                              7.58 kB │ gzip:   2.63 kB
+dist/assets/badge-Blg9ZJCx.js                                                                                                      9.62 kB │ gzip:   3.55 kB
+dist/assets/auth-VY30Ck_8.js                                                                                                       9.65 kB │ gzip:   2.99 kB
+dist/assets/_virtual_mf___mfe_internal__host__mf_owner__1__loadShare__react__loadShare__.js-Dl_TyiXo.js                           13.27 kB │ gzip:   4.77 kB
+dist/assets/virtual_mf-REMOTE_ENTRY_ID___mfe_internal__host__remoteEntry-_hash_-CalYKwiE.js                                       14.07 kB │ gzip:   4.90 kB
+dist/assets/dialog-LUHEzqxm.js                                                                                                    14.77 kB │ gzip:   5.23 kB
+dist/assets/challenge--kVGG1QQ.js                                                                                                 16.31 kB │ gzip:   5.87 kB
+dist/assets/certificates-DAVPtKoC.js                                                                                              16.70 kB │ gzip:   4.94 kB
+dist/assets/messages-C3qlktXk.js                                                                                                  16.78 kB │ gzip:   5.58 kB
+dist/assets/esm-DQcga5Rt.js                                                                                                       16.84 kB │ gzip:   6.27 kB
+dist/assets/format-89wq1b7b.js                                                                                                    18.49 kB │ gzip:   5.33 kB
+dist/assets/clubs._slug.manage-DgaUDkkx.js                                                                                        19.53 kB │ gzip:   6.06 kB
+dist/assets/EventCardSkeleton-BDg_KuVJ.js                                                                                         20.87 kB │ gzip:   6.84 kB
+dist/assets/select-BQz592w2.js                                                                                                    20.98 kB │ gzip:   7.46 kB
+dist/assets/settings-Bal1aHPo.js                                                                                                  24.49 kB │ gzip:   7.07 kB
+dist/assets/isPlainObject-mdxU_2oi.js                                                                                             25.53 kB │ gzip:   8.54 kB
+dist/assets/ImageCropUpload-ByZmOK41.js                                                                                           30.80 kB │ gzip:   9.77 kB
+dist/assets/routes-BBNz_egd.js                                                                                                    30.94 kB │ gzip:   9.82 kB
+dist/assets/dist-C7YCGwE3.js                                                                                                      32.70 kB │ gzip:   9.19 kB
+dist/assets/utils-Cb98v41_.js                                                                                                     33.50 kB │ gzip:  11.01 kB
+dist/assets/dashboard.index-1AAcrlbV.js                                                                                           35.38 kB │ gzip:  12.73 kB
+dist/assets/zod-Dojy1Gc4.js                                                                                                       40.72 kB │ gzip:  14.08 kB
+dist/assets/MentionRenderer-Dc86RWE2.js                                                                                           40.73 kB │ gzip:  12.59 kB
+dist/assets/useReactQueryReplacement-c3Wb0EtP.js                                                                                  42.05 kB │ gzip:  12.85 kB
+dist/assets/es2015-DaGt4Ohl.js                                                                                                    48.45 kB │ gzip:  17.81 kB
+dist/assets/clubs._slug-D2B_Fntj.js                                                                                               48.85 kB │ gzip:  16.00 kB
+dist/assets/form-CkOxWjU5.js                                                                                                      58.75 kB │ gzip:  13.72 kB
+dist/assets/dist-qv8Nv37-.js                                                                                                      62.24 kB │ gzip:  18.69 kB
+dist/assets/feed-Bu8Wl57y.js                                                                                                      66.54 kB │ gzip:  20.45 kB
+dist/assets/chunk-KS7C4IRE-CpwsLxku.js                                                                                            93.96 kB │ gzip:  31.58 kB
+dist/assets/lib-CxJbgFMF.js                                                                                                      116.26 kB │ gzip:  35.29 kB
+dist/assets/SiteShell-D3QHinHC.js                                                                                                119.74 kB │ gzip:  39.99 kB
+dist/assets/button-Bt3eXNY_.js                                                                                                   123.26 kB │ gzip:  40.35 kB
+dist/assets/events-v9b8MkTt.js                                                                                                   129.23 kB │ gzip:  40.11 kB
+dist/assets/index-DT5EXMV_.js                                                                                                    132.29 kB │ gzip:  42.06 kB
+dist/assets/leaflet-8_sa_nPs.js                                                                                                  152.88 kB │ gzip:  44.86 kB
+dist/assets/EventsCalendar-BZHBLAjC.js                                                                                           168.79 kB │ gzip:  47.47 kB
+dist/assets/_virtual_mf___mfe_internal__host__mf_owner__1__loadShare__react_mf_2_dom_mf_1_client__loadShare__.js-yvfsFSaH.js     181.34 kB │ gzip:  57.29 kB
+dist/assets/client-BABcNXqi.js                                                                                                   216.89 kB │ gzip:  56.48 kB
+dist/assets/events._eventId-CT22_b9q.js                                                                                          477.25 kB │ gzip: 130.26 kB
+dist/assets/pdf-lib.esm-D_Xw1p_k.js                                                                                              510.63 kB │ gzip: 203.89 kB
+dist/assets/clubs.index-CkvM7qcM.js                                                                                              920.43 kB │ gzip: 321.43 kB
+dist/assets/EChartsWrapper-DSjmrxkk.js                                                                                         1,134.52 kB │ gzip: 376.67 kB
+
+[33m[33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
+  - vite:module-federation-virtual-modules (13%)
+  - proxyPreBuildShared:tree-shaking-graph (9%)
+  - proxyPreBuildShared:resolve-prebuild (9%)
+  - mf:ssr-remote-entry:pre (9%)
+  - proxyPreBuildShared:resolve-shared-loadShare (9%)
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+[39m
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 1000 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 23.34s[39m
+
+PWA v1.3.0
+mode      generateSW
+precache  130 entries (5606.17 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-9c191d2f.js

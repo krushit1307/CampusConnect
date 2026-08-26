@@ -1,0 +1,7 @@
+{
+  "model_name": "rsvp_turnout_regression",
+  "version": "1.0.0",
+  "features": ["normalized_rsvp", "historical_ratio", "weather_score"],
+  "weights": [-0.05, 0.75, 0.15],
+  "bias": 0.1
+}

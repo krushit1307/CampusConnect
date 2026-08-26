@@ -1,0 +1,62 @@
+/*
+ * FlipCard 3D flip styles (issue #2324).
+ *
+ * Structure:
+ *   .flip-card (perspective) > .flip-card-trigger (rotateY) > faces
+ *
+ * The hover flip follows the issue's spec: `perspective: 1000px` on the
+ * container, `transition: transform 0.6s` + `transform-style: preserve-3d`
+ * on the inner trigger, and `backface-visibility: hidden` on both faces.
+ * Touch devices get a state-driven flip instead (`@media (hover: none)`).
+ */
+.flip-card {
+  perspective: 1000px;
+}
+
+.flip-card-trigger {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.flip-card:hover .flip-card-trigger,
+.flip-card.flip-card-is-flipped .flip-card-trigger {
+  transform: rotateY(180deg);
+}
+
+.flip-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+/* Touch devices: no reliable `:hover`; the state toggle drives the flip.
+   `:not(.flip-card-is-flipped)` stops the sticky-tap hover from fighting the
+   state class once a card has been flipped. */
+@media (hover: none) {
+  .flip-card:not(.flip-card-is-flipped):hover .flip-card-trigger {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-card-trigger {
+    transition: none;
+  }
+}

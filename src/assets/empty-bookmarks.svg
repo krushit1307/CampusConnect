@@ -1,0 +1,17 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="transparent"/>
+  <!-- Book cover -->
+  <path d="M40 50C40 44.4772 44.4772 40 50 40H140C151.046 40 160 48.9543 160 60V160C160 171.046 151.046 180 140 180H50C44.4772 180 40 175.523 40 170V50Z" fill="#E2E8F0" stroke="#0F172A" stroke-width="8" stroke-linejoin="round"/>
+  <!-- Pages -->
+  <path d="M40 50C40 44.4772 44.4772 40 50 40H140C145.523 40 150 44.4772 150 50V170C150 175.523 145.523 180 140 180H50C44.4772 180 40 175.523 40 170V50Z" fill="white" stroke="#0F172A" stroke-width="8" stroke-linejoin="round"/>
+  <!-- Spine line -->
+  <line x1="56" y1="40" x2="56" y2="180" stroke="#0F172A" stroke-width="8"/>
+  <!-- Bookmark -->
+  <path d="M100 40V110L115 100L130 110V40H100Z" fill="#F43F5E" stroke="#0F172A" stroke-width="8" stroke-linejoin="round"/>
+  <!-- Decorative lines for text -->
+  <line x1="75" y1="70" x2="90" y2="70" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <line x1="75" y1="90" x2="90" y2="90" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <line x1="75" y1="110" x2="90" y2="110" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <line x1="75" y1="130" x2="130" y2="130" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+  <line x1="75" y1="150" x2="110" y2="150" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+</svg>

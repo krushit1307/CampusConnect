@@ -1,0 +1,125 @@
+<!-- 
+  Campus Map SVG 
+  A clean, responsive vector map of the campus with strict IDs for building targeting.
+  viewBox ensures perfect scaling across all device sizes without hardcoded widths.
+-->
+<svg 
+  xmlns="http://www.w3.org/2000/svg" 
+  viewBox="0 0 800 600" 
+  width="100%" 
+  height="100%"
+  preserveAspectRatio="xMidYMid meet"
+  role="img"
+  aria-label="Interactive Campus Map"
+>
+  <defs>
+    <!-- Pulse Animation for active buildings -->
+    <style>
+      .building {
+        fill: #94a3b8; /* Default slate-400 */
+        stroke: #475569;
+        stroke-width: 2;
+        transition: fill 0.3s ease, stroke 0.3s ease;
+        cursor: pointer;
+      }
+      
+      .building:hover {
+        fill: #cbd5e1; /* Hover state */
+      }
+
+      .building.active {
+        fill: #10b981; /* Emerald-500 for active */
+        stroke: #059669;
+        animation: pulse-green 2s infinite;
+      }
+
+      .pathway {
+        fill: none;
+        stroke: #e2e8f0;
+        stroke-width: 8;
+        stroke-linecap: round;
+      }
+
+      .water {
+        fill: #bae6fd; /* Sky-200 */
+        stroke: #7dd3fc;
+        stroke-width: 2;
+      }
+
+      @keyframes pulse-green {
+        0% {
+          fill: #10b981;
+          filter: drop-shadow(0 0 0px rgba(16, 185, 129, 0.7));
+        }
+        50% {
+          fill: #34d399; /* Emerald-400 */
+          filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.9));
+        }
+        100% {
+          fill: #10b981;
+          filter: drop-shadow(0 0 0px rgba(16, 185, 129, 0.7));
+        }
+      }
+
+      /* Dark mode support via CSS variables or data attribute */
+      [data-theme='dark'] .building {
+        fill: #334155;
+        stroke: #64748b;
+      }
+      [data-theme='dark'] .building.active {
+        fill: #059669;
+        stroke: #10b981;
+      }
+      [data-theme='dark'] .pathway {
+        stroke: #1e293b;
+      }
+      [data-theme='dark'] .water {
+        fill: #0c4a6e;
+        stroke: #075985;
+      }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="600" fill="transparent" />
+
+  <!-- Pathways -->
+  <path class="pathway" d="M 100 300 L 700 300" />
+  <path class="pathway" d="M 400 100 L 400 500" />
+
+  <!-- Water Feature (Lake) -->
+  <path class="water" d="M 550 400 Q 600 350 650 400 T 750 400 L 750 550 L 550 550 Z" />
+
+  <!-- Building 1: Student Union -->
+  <g id="building-1" class="building" data-name="Student Union">
+    <rect x="150" y="150" width="120" height="100" rx="8" />
+    <text x="210" y="205" text-anchor="middle" fill="white" font-size="14" font-weight="bold" pointer-events="none">Student Union</text>
+  </g>
+
+  <!-- Building 2: Library -->
+  <g id="building-library" class="building" data-name="Library">
+    <rect x="500" y="150" width="150" height="120" rx="8" />
+    <text x="575" y="215" text-anchor="middle" fill="white" font-size="14" font-weight="bold" pointer-events="none">Library</text>
+  </g>
+
+  <!-- Building 3: Science Hall -->
+  <g id="building-3" class="building" data-name="Science Hall">
+    <polygon points="150,400 270,400 270,500 150,500" />
+    <text x="210" y="455" text-anchor="middle" fill="white" font-size="14" font-weight="bold" pointer-events="none">Science Hall</text>
+  </g>
+
+  <!-- Building 4: Engineering Building (Target Example) -->
+  <g id="building-4" class="building" data-name="Engineering Building">
+    <rect x="500" y="350" width="180" height="140" rx="8" />
+    <text x="590" y="425" text-anchor="middle" fill="white" font-size="14" font-weight="bold" pointer-events="none">Engineering</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(20, 20)">
+    <rect width="140" height="60" fill="rgba(255,255,255,0.8)" stroke="#cbd5e1" rx="4" />
+    <circle cx="20" cy="20" r="8" fill="#10b981" />
+    <text x="40" y="25" font-size="12" fill="#334155">Event Location</text>
+    <circle cx="20" cy="45" r="8" fill="#94a3b8" />
+    <text x="40" y="50" font-size="12" fill="#334155">Other Buildings</text>
+  </g>
+</svg>

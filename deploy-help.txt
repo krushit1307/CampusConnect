@@ -1,0 +1,41 @@
+﻿DESCRIPTION
+  Deploy a Function to the linked Supabase project.
+
+USAGE
+  supabase functions deploy [flags] <Function name...>
+
+ARGUMENTS
+  Function name... string  Names of Functions to deploy. Deploys all if omitted.
+
+FLAGS
+  --project-ref string    Project ref of the Supabase project.
+  --no-verify-jwt         Disable JWT verification for the Function.
+  --use-api               Bundle functions server-side without using Docker.
+  --import-map string     Path to import map file.
+  --prune                 Delete Functions that exist in Supabase project but not locally.
+  --jobs, -j integer      Maximum number of parallel jobs.
+
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
+  --output-format choice                                              Output format: text (default), json, or stream-json (NDJSON) (choices: text, json, stream-json)
+  --output, -o choice                                                 Output format of status variables. (choices: env, pretty, json, toml, yaml, table, csv)
+  --profile string                                                    Use a specific profile for connecting to Supabase API.
+  --debug                                                             Output debug logs to stderr.
+  --workdir string                                                    Path to a Supabase project directory.
+  --experimental                                                      Enable experimental features.
+  --network-id string                                                 Use the specified Docker network instead of a generated one.
+  --yes                                                               Answer yes to all prompts.
+  --dns-resolver choice                                               Look up domain names using the specified resolver. (choices: native, https)
+  --create-ticket                                                     Create a support ticket for any CLI error.
+  --agent choice                                                      Override agent detection: yes, no, or auto (default auto). (choices: auto, yes, no)
+
+EXAMPLES
+  # Deploy a single function to the linked project
+  supabase functions deploy hello-world
+
+  # Deploy all local functions to a specific project
+  supabase functions deploy --project-ref abcdefghijklmnopqrst
+

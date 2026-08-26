@@ -1,0 +1,806 @@
+import { Link } from "react-router-dom";
+import { useQuery, queryClient } from "@/hooks/useReactQueryReplacement";
+import { createClient } from "@/lib/supabase/client";
+import { useEffect, useRef, useState } from "react";
+import { User } from "@supabase/supabase-js";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import UserIcon from "lucide-react/dist/esm/icons/user";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Users from "lucide-react/dist/esm/icons/users";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import { toast } from "sonner";
+import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
+import SuggestedEventsCarousel from "@/components/SuggestedEventsCarousel";
+import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
+import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
+import LazyHydrate from "@/components/LazyHydrate";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+import { RelativeTime } from "@/components/ui/RelativeTime";
+
+interface Club {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  member_count?: number;
+}
+
+interface SavedEventDetails {
+  id: string;
+  title: string;
+  event_date: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
+interface DashboardSavedEvent {
+  id: string;
+  events: SavedEventDetails[] | SavedEventDetails | null;
+}
+
+interface ActivityItem {
+  id: string;
+  type: "post" | "rsvp" | "club_join";
+  description: string;
+  created_at: string;
+}
+
+interface ActivityPostRow {
+  id: string;
+  content: string;
+  created_at: string;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
+interface ActivityRsvpRow {
+  id: string;
+  rsvp_at: string | null;
+  events: { id: string; title: string } | { id: string; title: string }[] | null;
+}
+
+interface ActivityClubMemberRow {
+  id: string;
+  joined_at: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
+function formatRelativeActivityTime(dateString: string): string {
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+
+  const diffMs = date.getTime() - Date.now();
+  const diffSeconds = Math.round(diffMs / 1000);
+  const diffMinutes = Math.round(diffSeconds / 60);
+  const diffHours = Math.round(diffMinutes / 60);
+  const diffDays = Math.round(diffHours / 24);
+
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+  if (Math.abs(diffSeconds) < 60) return rtf.format(diffSeconds, "second");
+  if (Math.abs(diffMinutes) < 60) return rtf.format(diffMinutes, "minute");
+  if (Math.abs(diffHours) < 24) return rtf.format(diffHours, "hour");
+  return rtf.format(diffDays, "day");
+}
+
+const PROGRESS_REVEAL_DELAY_MS = 250;
+const PROGRESS_SOFT_CEILING = 90;
+const PROGRESS_TICK_MS = 200;
+
+function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
+  const [visible, setVisible] = useState(false);
+  const [percent, setPercent] = useState(0);
+  const revealTimeoutRef = useRef<number | null>(null);
+  const tickIntervalRef = useRef<number | null>(null);
+  const hideTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const clearTimers = () => {
+      if (revealTimeoutRef.current) window.clearTimeout(revealTimeoutRef.current);
+      if (tickIntervalRef.current) window.clearInterval(tickIntervalRef.current);
+      if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
+    };
+
+    if (isLoading) {
+      clearTimers();
+      revealTimeoutRef.current = window.setTimeout(() => {
+        setVisible(true);
+        setPercent((p) => (p === 0 ? 8 : p));
+
+        tickIntervalRef.current = window.setInterval(() => {
+          setPercent((p) => {
+            if (p >= PROGRESS_SOFT_CEILING) return p;
+            const remaining = PROGRESS_SOFT_CEILING - p;
+            const increment = Math.max(0.75, remaining * 0.12);
+            return Math.min(PROGRESS_SOFT_CEILING, p + increment);
+          });
+        }, PROGRESS_TICK_MS);
+      }, PROGRESS_REVEAL_DELAY_MS);
+    } else {
+      clearTimers();
+      setVisible((wasVisible) => {
+        if (wasVisible) {
+          setPercent(100);
+          hideTimeoutRef.current = window.setTimeout(() => {
+            setVisible(false);
+            setPercent(0);
+          }, 350);
+        }
+        return wasVisible;
+      });
+    }
+
+    return clearTimers;
+  }, [isLoading]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className="lg:col-span-3 neu-border bg-white p-4 transition-opacity duration-300"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="mb-1.5 flex items-center justify-between font-mono text-xs font-bold uppercase text-black">
+        <span>Loading club analytics...</span>
+        <span>{Math.round(percent)}%</span>
+      </div>
+      <div className="h-4 w-full border-2 border-black bg-cream overflow-hidden">
+        <div
+          className="h-full bg-lime border-r-2 border-black transition-all duration-200 ease-out"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+import { useDashboardStore } from "@/store/useDashboardStore";
+
+export default function DashboardOverview() {
+  const [supabase] = useState(() => createClient());
+  const [user, setUser] = useState<User | null>(null);
+
+  const welcomeDismissed = useDashboardStore((state) => state.welcomeDismissed);
+  const setWelcomeDismissed = useDashboardStore((state) => state.setWelcomeDismissed);
+  const dismissed = welcomeDismissed;
+
+  // NEW: State for Appeals Workflow
+  const [appealReason, setAppealReason] = useState("");
+  const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
+  const [appealSubmitted, setAppealSubmitted] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user);
+      }
+    });
+  }, [supabase]);
+
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user!.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const [animateIn, setAnimateIn] = useState(false);
+
+  const { data: trendingClubs = [], isLoading: isTrendingLoading } = useQuery({
+    queryKey: ["trendingClubs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clubs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  useEffect(() => {
+    if (!dismissed) {
+      const timer = setTimeout(() => setAnimateIn(true), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [dismissed]);
+
+  const steps = [
+    {
+      id: "handle",
+      label: "Choose a handle",
+      hint: "Create your unique @username",
+      completed: !!profile?.handle,
+    },
+    {
+      id: "college",
+      label: "Specify college",
+      hint: "Connect with your peers",
+      completed: !!profile?.college,
+    },
+    {
+      id: "bio",
+      label: "Write a bio",
+      hint: "Introduce yourself to clubs",
+      completed: !!profile?.bio,
+    },
+    {
+      id: "socials",
+      label: "Add contact/socials",
+      hint: "Phone or LinkedIn link",
+      completed: !!(profile?.linkedin_url || profile?.phone_number),
+    },
+  ];
+
+  const completedCount = steps.filter((s) => s.completed).length;
+  const isFullyCompleted = completedCount === steps.length;
+  const showBanner = !dismissed && !isProfileLoading && !isFullyCompleted;
+
+  // NEW: Shadowban check
+  const isShadowbanned = profile?.is_shadowbanned === true;
+
+  const { data: userClubs = [], isLoading: isClubsLoading } = useQuery({
+    queryKey: ["userClubs", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("club_members")
+        .select(`role_id, club_roles (id, title, permissions_level), clubs (id, name, slug)`)
+        .eq("user_id", user!.id)
+        .eq("status", "approved");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: upcomingEvents = [], isLoading: isUpcomingLoading } = useQuery({
+    queryKey: ["upcomingEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select(`*, clubs (name), event_rsvps!inner (id, user_id)`)
+        .eq("event_rsvps.user_id", user!.id)
+        .gte("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true })
+        .limit(3);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
+    queryKey: ["recommendedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recommend_events_for_user", {
+        p_user_id: user!.id,
+        p_limit: 10,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: savedEvents = [], isLoading: isSavedLoading } = useQuery({
+    queryKey: ["savedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("saved_events")
+        .select(
+          `
+          id,
+          events (
+            id,
+            title,
+            event_date,
+            clubs (
+              name
+            )
+          )
+        `,
+        )
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: recentActivity = [], isLoading: isActivityLoading } = useQuery({
+    queryKey: ["recentActivity", user?.id],
+    queryFn: async (): Promise<ActivityItem[]> => {
+      const [postsRes, rsvpsRes, membersRes] = await Promise.all([
+        supabase
+          .from("posts")
+          .select("id, content, created_at, clubs(name)")
+          .eq("author_id", user!.id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("event_rsvps")
+          .select("id, rsvp_at, events(id, title)")
+          .eq("user_id", user!.id)
+          .order("rsvp_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("club_members")
+          .select("id, joined_at, clubs(name)")
+          .eq("user_id", user!.id)
+          .eq("status", "approved")
+          .order("joined_at", { ascending: false })
+          .limit(5),
+      ]);
+
+      const posts: ActivityItem[] = (postsRes.data || []).map((p: ActivityPostRow) => {
+        const club = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs;
+        return {
+          id: `post-${p.id}`,
+          type: "post",
+          description: club?.name ? `You posted in ${club.name}` : "You made a post",
+          created_at: p.created_at,
+        };
+      });
+
+      const rsvps: ActivityItem[] = (rsvpsRes.data || []).map((r: ActivityRsvpRow) => {
+        const event = Array.isArray(r.events) ? r.events[0] : r.events;
+        return {
+          id: `rsvp-${r.id}`,
+          type: "rsvp",
+          description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
+          created_at: r.rsvp_at || "",
+        };
+      });
+
+      const clubJoins: ActivityItem[] = (membersRes.data || []).map((m: ActivityClubMemberRow) => {
+        const club = Array.isArray(m.clubs) ? m.clubs[0] : m.clubs;
+        return {
+          id: `club-${m.id}`,
+          type: "club_join",
+          description: club?.name ? `You joined ${club.name}` : "You joined a club",
+          created_at: m.joined_at || "",
+        };
+      });
+
+      return [...posts, ...rsvps, ...clubJoins]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5);
+    },
+    enabled: !!user?.id,
+  });
+
+  const colors = ["bg-lime", "bg-sky", "bg-peach"];
+
+  const isAnalyticsLoading =
+    isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
+
+  // NEW: Submit Appeal Logic
+  const submitAppeal = async () => {
+    if (!appealReason.trim() || !user) return;
+    setIsSubmittingAppeal(true);
+
+    const { error } = await supabase.from("admin_appeals_queue").insert({
+      user_id: user.id,
+      reason: appealReason.trim(),
+      status: "pending",
+    });
+
+    setIsSubmittingAppeal(false);
+
+    if (error) {
+      toast.error("Failed to submit appeal. Please try again.");
+    } else {
+      toast.success("Appeal submitted successfully.");
+      setAppealSubmitted(true);
+    }
+  };
+
+  if (!user) return null;
+
+  return (
+    <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
+      {/* NEW: Shadowban Banner */}
+      {isShadowbanned && (
+        <div className="lg:col-span-3 neu-border bg-[#fca5a5] p-6 md:p-8 relative neu-shadow mb-2 overflow-hidden text-black shadow-[4px_4px_0_0_#000]">
+          <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-black text-white px-3 py-1 font-mono text-xs font-bold uppercase mb-4 shadow-[2px_2px_0_0_#fff]">
+                <AlertTriangle className="h-4 w-4" /> Account Restricted
+              </div>
+              <h2 className="text-3xl font-display font-black tracking-tight mb-2 uppercase">
+                Your account is restricted due to community guideline violations.
+              </h2>
+              <p className="font-mono text-sm leading-relaxed max-w-2xl font-bold text-black/80">
+                Our automated NLP moderation system flagged a recent message. While restricted, your
+                public posts and RSVPs will be hidden from other users.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 bg-white neu-border p-5 shadow-[4px_4px_0_0_#000]">
+            {appealSubmitted ? (
+              <div className="text-center font-mono font-bold py-6 text-green-700 uppercase flex flex-col items-center">
+                <Check className="h-10 w-10 mb-3 border-2 border-green-700 rounded-full p-1" />
+                Your appeal is currently under review by the Student Union Admins.
+              </div>
+            ) : (
+              <>
+                <p className="font-mono text-xs font-bold uppercase mb-2">Appeal Decision</p>
+                <textarea
+                  value={appealReason}
+                  onChange={(e) => setAppealReason(e.target.value)}
+                  maxLength={500}
+                  placeholder="Explain the context of your message (e.g., 'I meant the event is killer as in awesome!')..."
+                  className="w-full neu-border border-2 border-black p-3 font-mono text-sm outline-none focus:bg-yellow-100 transition-colors h-24 resize-none shadow-[2px_2px_0_0_#000]"
+                />
+                <div className="flex justify-between items-center mt-3">
+                  <span className="font-mono text-[10px] font-bold text-gray-500 uppercase">
+                    {appealReason.length} / 500 characters
+                  </span>
+                  <button
+                    onClick={submitAppeal}
+                    disabled={isSubmittingAppeal || appealReason.length === 0}
+                    className="neu-border bg-black text-white px-6 py-2.5 font-mono text-xs font-bold uppercase hover:-translate-y-0.5 transition-transform disabled:opacity-50 disabled:hover:translate-y-0 shadow-[2px_2px_0_0_#000]"
+                  >
+                    {isSubmittingAppeal ? "Submitting..." : "Submit Appeal"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showBanner && !isShadowbanned && (
+        <div
+          className={`transition-all duration-700 ease-out transform ${
+            animateIn ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-4 scale-95"
+          } lg:col-span-3 neu-border bg-lavender p-6 md:p-8 relative neu-shadow mb-2 overflow-hidden`}
+        >
+          <div className="absolute -top-12 -right-12 w-40 h-40 bg-peach rounded-full border-4 border-black opacity-30 pointer-events-none" />
+          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-lime rounded-full border-4 border-black opacity-30 pointer-events-none" />
+
+          <button
+            onClick={() => {
+              setAnimateIn(false);
+              setTimeout(() => {
+                setWelcomeDismissed(true);
+                localStorage.setItem("cc_welcome_dismissed", "true");
+              }, 500);
+            }}
+            className="absolute top-4 right-4 neu-border bg-white hover:bg-peach p-2 transition-colors cursor-pointer group"
+            aria-label="Dismiss banner"
+          >
+            <X className="h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
+          </button>
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 bg-lime neu-border px-3 py-1 font-mono text-xs font-bold uppercase mb-4 animate-bounce">
+                <Sparkles className="h-4 w-4 fill-black" />
+                New Account Checklist
+              </div>
+              <h2 className="text-3xl font-display font-black text-black tracking-tight md:text-4xl mb-2">
+                Welcome to CampusConnect, {profile?.first_name || "Student"}!
+              </h2>
+              <p className="text-sm font-mono text-gray-800 leading-relaxed max-w-xl">
+                Complete your profile details below to connect with peer groups, customize your
+                theme, and unlock all campus features.
+              </p>
+            </div>
+
+            <div className="shrink-0 flex flex-col items-center justify-center bg-white neu-border neu-shadow-sm p-4 w-full md:w-48 text-center">
+              <span className="font-mono text-xs uppercase font-bold text-gray-600">
+                Setup Progress
+              </span>
+              <span className="font-display text-4xl font-black text-black my-1">
+                {Math.round((completedCount / steps.length) * 100)}%
+              </span>
+              <span className="font-mono text-sm text-gray-500 dark:text-gray-300">
+                {completedCount} of {steps.length} completed
+              </span>
+              <div className="w-full bg-cream border-2 border-black h-3 mt-3 overflow-hidden rounded-none relative">
+                <div
+                  className="bg-lime h-full border-r-2 border-black transition-all duration-500 ease-out"
+                  style={{ width: `${(completedCount / steps.length) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 relative z-10">
+            {steps.map((step) => {
+              const Icon =
+                {
+                  handle: UserIcon,
+                  college: GraduationCap,
+                  bio: FileText,
+                  socials: Link2,
+                }[step.id as "handle" | "college" | "bio" | "socials"] || UserIcon;
+
+              return (
+                <Link
+                  key={step.id}
+                  to="/settings"
+                  className={`neu-border p-4 flex flex-col justify-between transition-all duration-200 cursor-pointer text-left relative ${
+                    step.completed
+                      ? "bg-cream/80 border-dashed border-gray-400 opacity-85 hover:opacity-100"
+                      : "bg-white hover:bg-lime/10 neu-press"
+                  }`}
+                >
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      <div
+                        className={`p-2 border-2 border-black ${step.completed ? "bg-lime" : "bg-sky"}`}
+                      >
+                        <Icon className="h-5 w-5 text-black" />
+                      </div>
+                      <div>
+                        {step.completed ? (
+                          <span className="bg-black text-lime neu-border text-[9px] font-bold px-2 py-0.5 uppercase font-mono tracking-wider flex items-center gap-1">
+                            <Check className="h-2.5 w-2.5 stroke-[4]" /> Done
+                          </span>
+                        ) : (
+                          <span className="bg-white text-black neu-border text-[9px] font-bold px-2 py-0.5 uppercase font-mono tracking-wider">
+                            To-do
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <h3 className="font-display font-bold text-base text-black mb-1">
+                      {step.label}
+                    </h3>
+                    <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
+                      {step.hint}
+                    </p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-end font-mono text-[10px] font-bold uppercase group">
+                    <span className="underline group-hover:no-underline transition-all">
+                      {step.completed ? "Update Info" : "Set Up"}
+                    </span>
+                    <ArrowRight className="ml-1 h-3 w-3 transform group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
+
+      <div className="lg:col-span-3">
+        <SuggestedEventsCarousel />
+      </div>
+
+      <div className="lg:col-span-3">
+        <RecommendedCarousel
+          userId={user?.id || ""}
+          hasInterestVector={!!profile?.interest_vector}
+          events={recommendedEvents}
+          isLoading={isRecommendedLoading}
+          refetch={refetchRecommended}
+        />
+      </div>
+
+      <div className="lg:col-span-3">
+        {isTrendingLoading ? (
+          <TrendingCarouselSkeleton />
+        ) : (
+          <TrendingCarousel clubs={trendingClubs as unknown as Club[]} />
+        )}
+      </div>
+
+      <ErrorBoundary fallback={<WidgetError title="Upcoming events" />}>
+        <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
+          {isUpcomingLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : upcomingEvents.length === 0 ? (
+            <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+              No upcoming events yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {upcomingEvents.map((r, i) => {
+                const e = r;
+                const c = Array.isArray(r.clubs) ? r.clubs[0] : r.clubs;
+                return (
+                  <li key={r.id}>
+                    <Link
+                      to={`/events/${e.id}`}
+                      className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
+                    >
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
+                      <span className="neu-border shrink-0 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors duration-300 group-hover:bg-lime">
+                        RSVP'd
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
+
+      <ErrorBoundary fallback={<WidgetError title="Saved events" />}>
+        <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
+          {isSavedLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : savedEvents.length === 0 ? (
+            <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+              No saved events yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {savedEvents.map((item: DashboardSavedEvent, i) => {
+                const rawEvent = item.events;
+                if (!rawEvent) return null;
+                const e = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
+                if (!e) return null;
+                const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
+                return (
+                  <li key={item.id}>
+                    <Link
+                      to={`/events/${e.id}`}
+                      className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
+                    >
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
+
+      <ErrorBoundary fallback={<WidgetError title="Your clubs" />}>
+        <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
+          {isClubsLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : userClubs.length === 0 ? (
+            <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
+              You haven't joined any clubs yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {userClubs.map((c) => {
+                const club = Array.isArray(c.clubs) ? c.clubs[0] : c.clubs;
+                return (
+                  <li
+                    key={club?.id}
+                    className="neu-border flex items-center justify-between bg-cream p-3"
+                  >
+                    <div>
+                      <p className="font-display font-bold">
+                        <Link to={`/clubs/${club?.slug || ""}`}>{club?.name}</Link>
+                      </p>
+                      <p className="font-mono text-xs">Active</p>
+                    </div>
+                    <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
+                      {c.club_roles?.title || "Member"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+
+        <Widget title="Campus Engagement Map" className="lg:col-span-3">
+          <LazyHydrate height="260px">
+            <AttendanceHeatmap userId={user.id} />
+          </LazyHydrate>
+        </Widget>
+      </ErrorBoundary>
+
+      <ErrorBoundary fallback={<WidgetError title="Recent activity" />}>
+        <Widget title="Recent activity" className="lg:col-span-3">
+          {isActivityLoading ? (
+            <WidgetListSkeleton rows={4} />
+          ) : recentActivity.length === 0 ? (
+            <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
+                No recent activity yet.
+              </li>
+            </ul>
+          ) : (
+            <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+              {recentActivity.map((item) => {
+                const Icon =
+                  item.type === "rsvp" ? Calendar : item.type === "post" ? MessageCircle : Users;
+                return (
+                  <li key={item.id} className="flex items-start gap-2">
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      {item.description}
+                      <RelativeTime date={item.created_at} className="ml-2 text-black/50" />
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
+    </div>
+  );
+}
+
+function Widget({
+  title,
+  cta,
+  className = "",
+  children,
+}: {
+  title: string;
+  cta?: { label: string; to: string };
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`neu-border bg-white p-4 sm:p-6 ${className}`}>
+      <div className="mb-4 flex items-center justify-between border-b-2 border-black pb-3">
+        <h2 className="text-xl font-bold">{title}</h2>
+        {cta && (
+          <Link to={cta.to} className="font-mono text-xs font-bold uppercase underline">
+            {cta.label} →
+          </Link>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function WidgetError({ title }: { title: string }) {
+  return <WidgetErrorFallback title={title} />;
+}

@@ -1,0 +1,9 @@
+{
+  "name": "lsp-backend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}

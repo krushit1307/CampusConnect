@@ -1,0 +1,353 @@
+import { Link } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import CalendarPlus from "lucide-react/dist/esm/icons/calendar-plus";
+import Ticket from "lucide-react/dist/esm/icons/ticket";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { createClient } from "@/lib/supabase/client";
+import { useEffect, useMemo, useState } from "react";
+import { User } from "@supabase/supabase-js";
+import { EventCard } from "@/components/EventCard";
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
+import { toast } from "sonner";
+import { useTicketDownload } from "@/hooks/useTicketDownload";
+import { TicketTransferDialog } from "@/components/tickets/TicketTransferDialog";
+
+export default function DashboardRsvps() {
+  const [supabase] = useState(() => createClient());
+  const [user, setUser] = useState<User | null>(null);
+  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const {
+    downloadTicket,
+    isGenerating: isTicketGenerating,
+    generatingEventId,
+  } = useTicketDownload();
+  // Event whose ticket is currently being transferred, if any.
+  const [transferringEvent, setTransferringEvent] = useState<{
+    id: string;
+    title: string;
+    startsAt: string;
+  } | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user);
+      }
+    });
+  }, [supabase]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch events the user has RSVP'd to, including all RSVPs for total count
+  const {
+    data: rsvps = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["userRsvps", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_rsvps")
+        .select(
+          `
+          id,
+          checked_in,
+          event:events (
+            id,
+            title,
+            description,
+            event_date,
+            start_date,
+            end_date,
+            location,
+            banner_url,
+            created_at,
+            announce_date,
+            clubs (
+              name,
+              average_lead_time_days
+            ),
+            event_rsvps (
+              id,
+              user_id,
+              no_media_consent
+            ),
+            saved_events (
+              id,
+              user_id
+            )
+          )
+        `,
+        )
+        .eq("user_id", user!.id);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const toggleRsvp = useMutation({
+    mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const { data, error } = await supabase.functions.invoke("toggle-rsvp", {
+        body: { eventId, hasRsvpd },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
+        },
+      });
+      if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
+      return data;
+    },
+    onSuccess: () => {
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update RSVP. Please try again.");
+    },
+  });
+
+  // Extract event objects and clean type
+  // Postgrest returns event as an object or array. We normalize it.
+  const events = rsvps
+    .map((r) => {
+      const rawEvent = r.event;
+      if (!rawEvent) return null;
+      // In case postgrest returns it as an array
+      const event = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
+      return event;
+    })
+    .filter((e): e is NonNullable<typeof e> => !!e);
+
+  // Sort events by date ascending
+  events.sort((a, b) => {
+    if (!a.event_date) return 1;
+    if (!b.event_date) return -1;
+    return new Date(a.event_date).getTime() - new Date(b.event_date).getTime();
+  });
+
+  const now = new Date().toISOString();
+  const upcomingRsvps = events.filter((e) => e.event_date && e.event_date >= now);
+  const pastRsvps = events.filter((e) => !e.event_date || e.event_date < now);
+
+  const displayedEvents = useMemo(() => {
+    const eventsToDisplay = activeTab === "upcoming" ? upcomingRsvps : pastRsvps;
+
+    const query = debouncedSearch.trim().toLowerCase();
+
+    if (!query) return eventsToDisplay;
+
+    return eventsToDisplay.filter((event) => {
+      const title = event.title?.toLowerCase() ?? "";
+      const location = event.location?.toLowerCase() ?? "";
+
+      return title.includes(query) || location.includes(query);
+    });
+  }, [activeTab, upcomingRsvps, pastRsvps, debouncedSearch]);
+
+  if (!user) return null;
+
+  return (
+    <div className="space-y-6">
+      {/* Search Bar */}
+      <div className="max-w-md">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search RSVP'd events..."
+          aria-label="Search RSVP'd events"
+          className="neu-border w-full bg-white px-4 py-3 font-mono text-sm outline-none dark:bg-black"
+        />
+      </div>
+
+      {/* Filtering Tabs */}
+      <div className="flex gap-2 border-b-2 border-black pb-4 dark:border-cream">
+        <button
+          onClick={() => setActiveTab("upcoming")}
+          aria-pressed={activeTab === "upcoming"}
+          className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all hover:scale-105 active:scale-95 ${
+            activeTab === "upcoming"
+              ? "bg-black text-cream dark:bg-cream dark:text-black"
+              : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+          }`}
+        >
+          Upcoming ({upcomingRsvps.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("past")}
+          aria-pressed={activeTab === "past"}
+          className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all hover:scale-105 active:scale-95 ${
+            activeTab === "past"
+              ? "bg-black text-cream dark:bg-cream dark:text-black"
+              : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+          }`}
+        >
+          Past ({pastRsvps.length})
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => setViewMode("list")}
+          className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all ${
+            viewMode === "list" ? "bg-black text-white" : "bg-white text-black"
+          }`}
+        >
+          List
+        </button>
+        <button
+          onClick={() => setViewMode("calendar")}
+          className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all ${
+            viewMode === "calendar" ? "bg-black text-white" : "bg-white text-black"
+          }`}
+        >
+          Calendar
+        </button>
+      </div>
+
+      <AnimatePresence mode="sync">
+        {isLoading ? (
+          <motion.div
+            key="rsvps-loading-skeletons"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
+            {Array.from({ length: 3 }).map((_, i) => (
+              <EventCardSkeleton key={`rsvp-skel-${i}`} index={i} />
+            ))}
+          </motion.div>
+        ) : displayedEvents.length === 0 ? (
+          <motion.section
+            key="rsvps-empty"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10 dark:bg-brand-gray-base-800"
+          >
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_var(--color-ink)]">
+              <CalendarPlus aria-hidden="true" size={30} strokeWidth={2.5} />
+            </div>
+            <h3 className="mt-6 text-2xl font-black">
+              {debouncedSearch
+                ? "No matching RSVP events"
+                : activeTab === "upcoming"
+                  ? "No upcoming RSVPs yet"
+                  : "No past RSVPs yet"}
+            </h3>
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-700 dark:text-gray-300">
+              {debouncedSearch
+                ? "Try searching using a different event title or location."
+                : activeTab === "upcoming"
+                  ? "You haven't RSVP'd to any upcoming events. Browse what's happening on campus and find something worth joining."
+                  : "Events you've attended will show up here once they've passed."}
+            </p>
+            <Link
+              to="/events"
+              className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+            >
+              Browse events →
+            </Link>
+          </motion.section>
+        ) : viewMode === "calendar" ? (
+          <motion.div
+            key="rsvps-calendar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <ScheduleVisualizer
+              events={displayedEvents}
+              onCancelRsvp={(id) => toggleRsvp.mutate({ eventId: id, hasRsvpd: true })}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`rsvps-loaded-grid-${activeTab}`}
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
+            {displayedEvents.map((e, index) => (
+              <motion.div key={e.id} layout className="flex flex-col gap-2">
+                <EventCard
+                  event={e}
+                  index={index}
+                  user={user}
+                  onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                  isRsvpPending={toggleRsvp.isPending}
+                  onBookmarkToggle={() => {
+                    toast.error("Bookmarking from RSVPs tab is not supported yet.");
+                  }}
+                  isBookmarkPending={false}
+                />
+                {/* Transfer Ticket — price capped and rate limited by the resale guard */}
+                {activeTab === "upcoming" && user && (
+                  <button
+                    onClick={() =>
+                      setTransferringEvent({
+                        id: e.id,
+                        title: e.title,
+                        startsAt: e.event_date ?? new Date().toISOString(),
+                      })
+                    }
+                    className="neu-border flex w-full items-center justify-center gap-2 bg-white px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-95"
+                  >
+                    <Ticket size={14} /> Transfer Ticket
+                  </button>
+                )}
+                {/* Download Ticket — shown for all upcoming RSVP'd events */}
+                {activeTab === "upcoming" && (
+                  <button
+                    onClick={() => downloadTicket(e)}
+                    disabled={isTicketGenerating && generatingEventId === e.id}
+                    className="neu-border flex w-full items-center justify-center gap-2 bg-lime px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                  >
+                    <Ticket size={14} />
+                    {isTicketGenerating && generatingEventId === e.id
+                      ? "Generating…"
+                      : "🎟 Download Ticket"}
+                  </button>
+                )}
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {transferringEvent && user && (
+        <TicketTransferDialog
+          eventId={transferringEvent.id}
+          eventTitle={transferringEvent.title}
+          eventStartsAt={transferringEvent.startsAt}
+          ticketId={transferringEvent.id}
+          sellerId={user.id}
+          onClose={() => setTransferringEvent(null)}
+        />
+      )}
+    </div>
+  );
+}

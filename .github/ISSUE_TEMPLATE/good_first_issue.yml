@@ -1,0 +1,43 @@
+name: Good First Issue (Maintainer Only)
+description: Create a task suitable for new contributors (for maintainers)
+title: "[Task]: "
+labels: ["good-first-issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        *Note: This template is primarily for maintainers to quickly spec out accessible tasks.*
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: What needs to be done?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know this is complete?
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files Likely Involved
+      description: Point the contributor to the right files/folders to look at.
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty
+      options:
+        - good-first-issue
+        - intermediate
+        - advanced
+    validations:
+      required: true
+  - type: input
+    id: estimated_time
+    attributes:
+      label: Estimated Time
+      description: e.g. 1-2 hours, 1 day
