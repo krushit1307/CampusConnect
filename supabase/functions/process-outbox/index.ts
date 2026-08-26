@@ -265,6 +265,83 @@ Deno.serve(async (req) => {
           }
         }
       }
+    } else if (table === "lost_found_items" && action === "PROCESS_FOUND_IMAGE") {
+      const foundItem = record;
+      if (foundItem?.id && foundItem?.image_url) {
+        console.log(`[Outbox Worker] [AWS Rekognition] Analyzing found item image: ${foundItem.image_url}`);
+
+        const textToAnalyze = `${foundItem.title} ${foundItem.description || ""}`.toLowerCase();
+        const mockLabels = ["Item"];
+        if (textToAnalyze.includes("bottle") || textToAnalyze.includes("hydroflask")) mockLabels.push("Bottle", "Container");
+        if (textToAnalyze.includes("red")) mockLabels.push("Red");
+        if (textToAnalyze.includes("blue")) mockLabels.push("Blue");
+        if (textToAnalyze.includes("black")) mockLabels.push("Black");
+        if (textToAnalyze.includes("phone") || textToAnalyze.includes("iphone")) mockLabels.push("Phone", "Electronics");
+        if (textToAnalyze.includes("wallet")) mockLabels.push("Wallet", "Pocketbook");
+        if (textToAnalyze.includes("keys") || textToAnalyze.includes("key")) mockLabels.push("Keys", "Metal");
+        if (textToAnalyze.includes("backpack") || textToAnalyze.includes("bag")) mockLabels.push("Bag", "Backpack");
+        if (textToAnalyze.includes("jacket") || textToAnalyze.includes("hoodie")) mockLabels.push("Jacket", "Clothing");
+
+        console.log(`[AWS Rekognition] Extracted labels: ${JSON.stringify(mockLabels)}`);
+
+        const { data: lostItems, error: errLost } = await supabase
+          .from("lost_found_items")
+          .select("id, title, description, user_id, location")
+          .eq("type", "lost")
+          .eq("status", "active");
+
+        if (errLost) {
+          console.error("Failed to query lost items:", errLost);
+          throw errLost;
+        }
+
+        for (const lostItem of lostItems || []) {
+          const lostText = `${lostItem.title} ${lostItem.description || ""}`.toLowerCase();
+          
+          let matchCount = 0;
+          for (const label of mockLabels) {
+            if (lostText.includes(label.toLowerCase())) {
+              matchCount++;
+            }
+          }
+
+          const confidence = mockLabels.length > 1 ? (matchCount / (mockLabels.length - 1)) * 100 : 0;
+          console.log(`Matching against lost item "${lostItem.title}" (ID: ${lostItem.id}) - Confidence: ${confidence}%`);
+
+          if (confidence >= 50) {
+            console.log(`[High Confidence Match Found] Alerting user: ${lostItem.user_id}`);
+            
+            await supabase.from("lost_item_matches").insert({
+              lost_item_id: lostItem.id,
+              found_item_id: foundItem.id,
+              score: confidence,
+            });
+
+            const pushBody = {
+              user_id: lostItem.user_id,
+              title: "Possible Match!",
+              message: `A ${foundItem.title || "item"} was just found at the ${foundItem.location || "campus"}. Is this yours?`,
+              url: `/lost-found`,
+              type: "lost_found_match",
+            };
+
+            const pushRes = await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify(pushBody),
+            });
+
+            if (!pushRes.ok) {
+              console.error("Failed to send push notification:", await pushRes.text());
+            } else {
+              console.log("Push notification sent successfully!");
+            }
+          }
+        }
+      }
     } else if (table === "leadership_transitions" && action === "TRANSITION_INITIATED") {
       const transition = record;
       if (transition?.id) {
