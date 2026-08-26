@@ -27,6 +27,8 @@ import {
 } from "../../../lib/floorplan/types";
 import { allFirePathways } from "../../../lib/floorplan/collision";
 import { AccessibleRoute } from "../../../lib/floorplan/accessibility";
+import { EventLayoutHeatmapLayer } from "./EventLayoutHeatmapLayer";
+import type { EventLayoutZone } from "../../../lib/eventLayoutHeatmap";
 
 interface FloorplanCanvasProps {
   venue: VenueBounds;
@@ -46,6 +48,9 @@ interface FloorplanCanvasProps {
   onSelectPoi?: (poi: AccessibilityPoi) => void;
   onMovePoi?: (id: string, x_ft: number, y_ft: number) => void;
   onRemovePoi?: (id: string) => void;
+  /** #4722 live occupancy overlay from zone door QR scans. */
+  heatmapZones?: EventLayoutZone[];
+  onZoneDoorClick?: (zone: EventLayoutZone) => void;
 }
 
 /** Short glyph inside each POI marker. */
@@ -72,6 +77,8 @@ export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
   onSelectPoi,
   onMovePoi,
   onRemovePoi,
+  heatmapZones,
+  onZoneDoorClick,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
@@ -207,6 +214,11 @@ export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
             strokeWidth={2}
           />
         ))}
+
+        {/* #4722 D3 occupancy heatmap + zone door check-in markers */}
+        {heatmapZones && heatmapZones.length > 0 && (
+          <EventLayoutHeatmapLayer zones={heatmapZones} onDoorClick={onZoneDoorClick} />
+        )}
 
         {/* Draggable assets */}
         {assets.map((asset) => {

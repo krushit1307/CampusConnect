@@ -155,6 +155,7 @@ const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
 const EventFloorplan = lazy(() => import("./routes/events.$eventId.floorplan"));
+const EventZoneCheckIn = lazy(() => import("./routes/events.$eventId.zones.$zoneId.check-in"));
 const LostFound = lazy(() => import("./routes/lost-found"));
 const Leaderboard = lazy(() => import("./routes/leaderboard"));
 const Recap = lazy(() => import("./routes/recap"));
@@ -520,6 +521,12 @@ const router = createBrowserRouter(
             />
 
             <Route path="/events/:eventId/gantt" element={<EventGantt />} />
+            <Route path="/events/:eventId/floorplan" element={<EventFloorplan />} />
+            <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+            <Route
+              path="/events/:eventId/zones/:zoneId/check-in"
+              element={<EventZoneCheckIn />}
+            />
 
             <Route path="/events/map" element={<EventsMapPage />} />
 

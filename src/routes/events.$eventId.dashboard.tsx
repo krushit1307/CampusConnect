@@ -24,6 +24,7 @@ import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
 import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
 import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
 import { MissingPhotoIncentiveWidget } from "@/components/events/MissingPhotoIncentiveWidget";
+import { EventLayoutHeatmapAnalyzer } from "@/components/events/EventLayoutHeatmapAnalyzer";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -417,6 +418,9 @@ export default function EventDashboard() {
                 eventId={eventId!}
                 eventTitle={eventData?.title || "Outdoor Event"}
               />
+            </div>
+            <div className="mt-4">
+              <EventLayoutHeatmapAnalyzer eventId={eventId!} />
             </div>
             <div className="mt-4">
               <MissingPhotoIncentiveWidget

@@ -14,13 +14,14 @@
 // =============================================================================
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useFloorplan } from "@/hooks/useFloorplan";
 import { FloorplanCanvas } from "@/components/events/floorplan/FloorplanCanvas";
 import { FloorplanEditor } from "@/components/events/floorplan/FloorplanEditor";
 import { EventCapacityThermalMap } from "@/components/events/EventCapacityThermalMap";
+import { useEventLayoutHeatmap } from "@/hooks/useEventLayoutHeatmap";
 import { describeAssignment } from "@/lib/floorplan/serialize";
 import { buildSearchIndex, searchBooths } from "@/lib/floorplan/search";
 import { computeAccessibleRoute } from "@/lib/floorplan/accessibility";
@@ -36,8 +37,10 @@ type Mode = "attendee" | "organizer";
 
 export default function EventFloorplanPage() {
   const { eventId = "" } = useParams();
+  const navigate = useNavigate();
   const supabase = createClient();
   const floorplan = useFloorplan(eventId || null);
+  const heatmap = useEventLayoutHeatmap(eventId || null, floorplan.venue);
   const [mode, setMode] = useState<Mode>("attendee");
   const [canEdit, setCanEdit] = useState(false);
   const [selected, setSelected] = useState<FloorplanAsset | null>(null);
@@ -182,6 +185,16 @@ export default function EventFloorplanPage() {
             </div>
           ) : mode === "organizer" && canEdit ? (
             <div className="space-y-6">
+              {heatmap.securityMessage && (
+                <div
+                  className="border-2 border-red-900 bg-[#7f1d1d] p-4 text-white"
+                  data-testid="campus-security-alert"
+                  role="alert"
+                >
+                  <p className="font-display text-sm font-black uppercase">Campus Security Alert</p>
+                  <p className="mt-1 font-mono text-xs">{heatmap.securityMessage}</p>
+                </div>
+              )}
               <FloorplanEditor
                 eventId={eventId}
                 venue={floorplan.venue}
@@ -198,6 +211,10 @@ export default function EventFloorplanPage() {
                 onMovePoi={floorplan.movePoi}
                 onUpdatePoi={floorplan.updatePoi}
                 onRemovePoi={floorplan.removePoi}
+                heatmapZones={heatmap.zones}
+                onZoneDoorClick={(zone) =>
+                  navigate(`/events/${eventId}/zones/${zone.id}/check-in`)
+                }
               />
               <EventCapacityThermalMap eventId={eventId} />
             </div>
