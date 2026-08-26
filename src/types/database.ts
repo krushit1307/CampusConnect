@@ -432,6 +432,8 @@ export interface ClubLeaderboardEntry {
   slug: string;
   monthly_points: number;
   rank_position: number;
+}
+
 export interface VolunteerShift {
   id: string;
   event_id: string;
