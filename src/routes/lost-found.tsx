@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { ImageAutoTagger } from "@/components/lost-found/ImageAutoTagger";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,8 @@ interface NewItemForm {
   location: string;
   contact_info: string;
   bounty_amount: number;
+  image_url: string;
+  tags?: string[];
 }
 
 const EMPTY_FORM: NewItemForm = {
@@ -100,6 +103,8 @@ const EMPTY_FORM: NewItemForm = {
   location: "",
   contact_info: "",
   bounty_amount: 0,
+  image_url: "",
+  tags: [],
 };
 
 // ─── Badge helpers ─────────────────────────────────────────────────────────────
@@ -227,6 +232,15 @@ function ItemCard({
           </Button>
         )}
       </div>
+
+      {/* Image Preview */}
+      {item.image_url && (
+        <img
+          src={item.image_url}
+          alt={item.title}
+          className="h-40 w-full object-cover rounded-lg border-2 border-black"
+        />
+      )}
 
       {/* Title & description */}
       <div>
@@ -575,6 +589,25 @@ function NewItemDialog({
             </div>
           )}
 
+          {form.type === "found" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold uppercase tracking-wider">
+                Item Image (AI Auto-Tagging)
+              </label>
+              <ImageAutoTagger
+                onTagsChange={(tags, imageUrl) =>
+                  setForm((f) => ({ ...f, tags, image_url: imageUrl || "" }))
+                }
+                onPiiDetected={(reason) => {
+                  toast.warning(`PII Detected: ${reason}`);
+                }}
+                onClear={() => {
+                  setForm((f) => ({ ...f, tags: [], image_url: "" }));
+                }}
+              />
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
             <Button
@@ -655,7 +688,7 @@ export default function LostFoundPage() {
         p_location: form.location.trim() || null,
         p_contact_info: form.contact_info.trim() || null,
         p_bounty_amount: form.type === "lost" ? form.bounty_amount : 0,
-        p_image_url: null, // Modify if implementing image upload
+        p_image_url: form.image_url.trim() || null,
       });
       if (error) throw error;
     },

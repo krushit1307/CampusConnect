@@ -25,7 +25,7 @@ import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
-import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
+import { LiveCapacityMeter } from "@/components/events/LiveCapacityMeter";import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
 import { FlashSaleBanner } from "@/components/events/FlashSaleBanner";
 import { FlashSaleControl } from "@/components/events/FlashSaleControl";
 import { formatDateLong } from "@/lib/dateFormatter";
@@ -68,6 +68,10 @@ import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastF
 import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
+import {
+  CampusSafetyGeofenceAlerts,
+  CampusSafetyGeofenceMonitor,
+} from "@/components/events/CampusSafetyGeofenceMonitor";
 import Ticket from "lucide-react/dist/esm/icons/ticket";
 import Send from "lucide-react/dist/esm/icons/send";
 import { useTicketDownload } from "@/hooks/useTicketDownload";
@@ -677,7 +681,7 @@ export default function EventDetailsPage() {
           clubs (name, slug, logo_url, primary_color, secondary_color),         event_rsvps (id, user_id),
           attendee_count,
           venues (
-            name, building, capacity, accessibility_features
+            name, building, capacity, accessibility_features, latitude, longitude, geofence_radius_meters
           ),
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code, base_price, surge_multiplier,
           profiles (full_name, email),
@@ -1890,6 +1894,9 @@ export default function EventDetailsPage() {
               />
             </div>
 
+            <div className="mt-4 max-w-md">
+              <LiveCapacityMeter eventId={event.id} />
+            </div>
             <div id="ticket-pricing-section" className="mt-6 max-w-2xl">
               <FlashSaleBanner eventId={event.id} />
               <TicketPricingTimeline eventId={event.id} isOrganizer={isOrganizer} />
@@ -1908,6 +1915,35 @@ export default function EventDetailsPage() {
                   onCheckedIn={() => refetch()}
                 />
               </div>
+            )}
+
+            {user && hasRsvpd && myRsvpId && !isOrganizer && !hasEnded && (
+              <CampusSafetyGeofenceMonitor
+                rsvpId={myRsvpId}
+                eventStart={(event as Record<string, unknown>).start_date as string | null}
+                eventEnd={(event as Record<string, unknown>).end_date as string | null}
+                geofencingEnabled={Boolean((event as Record<string, unknown>).geofencing_enabled)}
+                latitude={
+                  ((event as Record<string, unknown>).latitude as number | null) ??
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)?.latitude as
+                    number | null)
+                }
+                longitude={
+                  ((event as Record<string, unknown>).longitude as number | null) ??
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)?.longitude as
+                    number | null)
+                }
+                radiusMeters={
+                  ((event as Record<string, unknown>).geofence_radius_meters as number | undefined) ??
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
+                    ?.geofence_radius_meters as number | undefined) ??
+                  500
+                }
+              />
+            )}
+
+            {isOrganizer && Boolean((event as Record<string, unknown>).geofencing_enabled) && (
+              <CampusSafetyGeofenceAlerts eventId={event.id} eventTitle={event.title} />
             )}
 
             <div className="mt-8 hidden items-center gap-4 md:flex">
@@ -3716,7 +3752,7 @@ export default function EventDetailsPage() {
 clubs (name, slug, logo_url, primary_color, secondary_color),          event_rsvps (id, user_id),
           attendee_count,
           venues (
-            name, building, capacity, accessibility_features
+            name, building, capacity, accessibility_features, latitude, longitude, geofence_radius_meters
           )
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code, base_price, surge_multiplier,
           profiles (full_name, email),
