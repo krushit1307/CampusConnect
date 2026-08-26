@@ -375,6 +375,89 @@ Deno.serve(async (req) => {
         return new Response("Missing rsvp_id or tier_id metadata parameter", { status: 400 });
       }
 
+      // 5c. Dynamic Club Revenue Profit-Sharing (Issue #4415)
+      let ticketEventId = session.metadata?.event_id;
+      if (!ticketEventId && rsvpId) {
+        const { data: rsvpEvt } = await supabase
+          .from("event_rsvps")
+          .select("event_id")
+          .eq("id", rsvpId)
+          .single();
+        ticketEventId = rsvpEvt?.event_id;
+      }
+
+      if (ticketEventId) {
+        try {
+          const { data: coSponsors } = await supabase
+            .from("co_sponsors")
+            .select("club_id, revenue_split")
+            .eq("event_id", ticketEventId)
+            .eq("status", "approved")
+            .not("revenue_split", "is", null);
+
+          if (coSponsors && coSponsors.length > 0) {
+            const splitConfig = coSponsors[0].revenue_split;
+
+            if (splitConfig && Object.keys(splitConfig).length > 0) {
+              console.log(
+                `[Webhook Ingestion] Processing Revenue Split for event ${ticketEventId}`,
+              );
+
+              let netAmountCents = session.amount_total ?? 0;
+              if (session.payment_intent) {
+                try {
+                  const paymentIntent = await stripe.paymentIntents.retrieve(
+                    session.payment_intent as string,
+                    {
+                      expand: ["latest_charge.balance_transaction"],
+                    },
+                  );
+                  const charge = paymentIntent.latest_charge as any;
+                  if (charge && charge.balance_transaction) {
+                    netAmountCents = charge.balance_transaction.net;
+                  }
+                } catch (e) {
+                  console.error("Failed to retrieve balance_transaction:", e);
+                }
+              }
+
+              const transfers = [];
+              for (const [clubId, percentage] of Object.entries(splitConfig)) {
+                if (typeof percentage === "number" && percentage > 0) {
+                  transfers.push({
+                    club_id: clubId,
+                    amount_cents: Math.floor(netAmountCents * (percentage / 100)),
+                    pct: percentage,
+                    stripe_account_id: null,
+                    transfer_id: `sys_split_${Date.now()}_${clubId}`,
+                  });
+                }
+              }
+
+              if (transfers.length > 0) {
+                const { error: splitError } = await supabase.rpc("process_cohost_revenue_split", {
+                  p_event_id: ticketEventId,
+                  p_charge_id:
+                    typeof session.payment_intent === "string"
+                      ? session.payment_intent
+                      : session.id,
+                  p_total_amount_cents: netAmountCents,
+                  p_transfers: transfers,
+                });
+
+                if (splitError) {
+                  console.error(`[DB Error] Failed to process revenue split:`, splitError);
+                } else {
+                  console.log(`[Webhook Ingestion] Successfully executed revenue split.`);
+                }
+              }
+            }
+          }
+        } catch (splitErr) {
+          console.error(`[Webhook Ingestion] Error processing revenue split:`, splitErr);
+        }
+      }
+
       // 6. Handle Micro-Donation splitting (Issue #2876)
       if (
         session.metadata?.include_charity_donation === "true" ||
