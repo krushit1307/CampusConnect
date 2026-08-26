@@ -24,6 +24,11 @@ import LazyHydrate from "@/components/LazyHydrate";
 import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
  feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
+ feature/design-marketplace-4049
+ feature/design-marketplace-4049
+ main
 
  feature/membership-trial-period-4406
  main
@@ -787,6 +792,11 @@ export default function ClubProfile() {
         <ClubTransparencyLedger clubId={club.id} />
  feature/double-booking-penalty-4045
  feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
+
+ feature/design-marketplace-4049
+ feature/design-marketplace-4049
+ main
 
  feature/membership-trial-period-4406
  main
@@ -802,8 +812,15 @@ export default function ClubProfile() {
         </section>
  feature/double-booking-penalty-4045
  feature/double-booking-penalty-4045
+ feature/double-booking-penalty-4045
 
  feature/membership-trial-period-4406
+
+ feature/design-marketplace-4049
+ feature/design-marketplace-4049
+
+ /membership-trial-period-4406
+ main
  main
 
         feature/rsvp-prereq-blocker-3946 feature/rsvp-prereq-blocker-3946

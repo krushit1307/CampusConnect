@@ -13,8 +13,9 @@ import { formatStandardDate } from "@/utils/dateUtils";
 
 interface VerificationResult {
   valid: boolean;
-  status: "verified" | "valid" | "pending_anchor" | "pending" | "tampered" | "unverified" | "not_found" | "bad_request" | "error";
+  status: "verified" | "valid" | "pending_anchor" | "pending" | "tampered" | "revoked" | "unverified" | "not_found" | "bad_request" | "error";
   message?: string;
+  revocationReason?: string | null;
   error?: string;
   certificate?: {
     id: string;
@@ -64,6 +65,32 @@ async function fetchVerificationResult(rawInput: string): Promise<VerificationRe
 function ResultCard({ result }: { result: VerificationResult }) {
   const { certificate, proof } = result;
   const isValid = result.valid;
+
+  if (result.status === "revoked") {
+    return (
+      <div className="neu-border bg-red-700 p-6 md:p-8 text-white animate-fade-in-up shadow-[10px_10px_0_0_#111]">
+        <div className="neu-border border-white bg-red-600 p-6 md:p-8 text-center">
+          <AlertTriangle className="mx-auto mb-4 h-16 w-16" aria-hidden="true" />
+          <p className="eyebrow mb-2 text-xs font-bold uppercase tracking-[0.2em]">Credential Status</p>
+          <h1 className="font-display text-4xl font-black uppercase leading-none md:text-6xl">REVOKED</h1>
+          <p className="mt-4 font-mono text-sm font-bold leading-relaxed md:text-base">
+            This credential has been invalidated by the issuing organization.
+          </p>
+          <p className="mt-4 border-t-2 border-white/60 pt-4 font-mono text-xs leading-relaxed md:text-sm">
+            Reason: {result.revocationReason || result.message || "The issuing organization has withdrawn this credential."}
+          </p>
+        </div>
+        {certificate && (
+          <div className="mt-6 neu-border border-black bg-white p-5 font-mono text-xs text-black">
+            <p className="font-bold uppercase text-gray-600">Credential holder</p>
+            <p className="mt-1 text-lg font-bold">{certificate.holder || "Student"}</p>
+            <p className="mt-3 font-bold uppercase text-gray-600">Event series</p>
+            <p className="mt-1 text-lg font-bold">{certificate.event || "Event series credential"}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!isValid || result.status === "not_found" || result.status === "bad_request" || result.status === "tampered") {
     return (
