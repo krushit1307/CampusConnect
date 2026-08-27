@@ -30,6 +30,8 @@ import { MissingPhotoIncentiveWidget } from "@/components/events/MissingPhotoInc
 import { MissingPhotoChaserTaskCard } from "@/components/events/MissingPhotoChaserTaskCard";
 import { dispatchPhotoChaserToTaskSystem } from "@/services/missingPhotoTaskRbacService";
 import { EventLayoutHeatmapAnalyzer } from "@/components/events/EventLayoutHeatmapAnalyzer";
+import { EarlyBirdSecretUrlManager } from "@/components/events/EarlyBirdSecretUrlManager";
+
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -450,7 +452,17 @@ export default function EventDashboard() {
               </div>
             )}
 
+            <div className="mt-4">
+              <EarlyBirdSecretUrlManager
+                eventId={eventId!}
+                eventTitle={eventData?.title || "Campus Event"}
+                isOrganizer={true}
+              />
+            </div>
+
+
             <div className="flex flex-wrap gap-3 items-center mt-4 sm:mt-0">
+
               {/* Public Showcase Toggle */}
               <label className="flex items-center gap-2 font-mono text-xs font-bold uppercase cursor-pointer select-none bg-blue-50 dark:bg-blue-950/20 border-2 border-black dark:border-white p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors">
                 <input
