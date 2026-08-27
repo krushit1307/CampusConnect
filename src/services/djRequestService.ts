@@ -1,8 +1,8 @@
 // =============================================================================
 // Service: DJ Request System
-// Issue: #3462 - Build an 'Interactive Live DJ Request System'
+// Issue: #3462 - Build an 'Interactive Live DJ Request System' & #4490 DJ Mode
 // Description: Manages song requests, upvoting architecture (Issue #3272),
-// and swipe-to-dismiss actions for DJ booth iPad management.
+// swipe-to-dismiss actions for DJ booth iPad management, and Admin overrides.
 // =============================================================================
 
 import { createClient } from "../lib/supabase/client";
@@ -143,4 +143,29 @@ export async function dismissSongRequest(
     console.error("[djRequestService] Dismiss error:", err);
     return { success: false, error: err.message || "Failed to dismiss request." };
   }
+}
+
+/**
+ * Overrides the crowd queue, manually setting the order based on admin drag-and-drop.
+ */
+export async function overrideAdminQueue(
+  items: Array<{ id: string; overridden_by_admin: boolean; admin_sort_order?: number }>,
+): Promise<{ success: boolean }> {
+  const supabase = createClient();
+
+  const promises = items.map((item) =>
+    supabase
+      .from("event_song_requests")
+      .update({
+        overridden_by_admin: item.overridden_by_admin,
+        admin_sort_order: item.admin_sort_order,
+      })
+      .eq("id", item.id),
+  );
+
+  const results = await Promise.all(promises);
+  if (results.some((res) => res.error)) {
+    throw new Error("Failed to sync queue.");
+  }
+  return { success: true };
 }

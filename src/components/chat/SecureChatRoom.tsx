@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: SecureChatRoom
---Issue: #2905 - Implement 'End-to-End Encryption' for Sensitive Club Direct Messages
---Description: The UI for a zero - knowledge secure channel.Displays warnings
---about new devices, disables the search feature(since ciphertext cannot be 
---searched via SQL), and renders decrypted messages locally.
+//Issue: #2905 - Implement 'End-to-End Encryption' for Sensitive Club Direct Messages
+//Description: The UI for a zero - knowledge secure channel.Displays warnings
+//about new devices, disables the search feature(since ciphertext cannot be 
+//searched via SQL), and renders decrypted messages locally.
 // =============================================================================
 
 import React, { useState, useRef, useEffect } from 'react';

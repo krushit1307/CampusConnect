@@ -1,21 +1,25 @@
 // =============================================================================
 // Hook: useFloorplan
 // Issues: #3675 / #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4420 - Real-Time "Accessibility Need" Venue Map
 // Description: Loads the persisted canvas from events.floorplan_json, exposes
-// CRUD ops for draggable assets (incl. sponsor assignment), recomputes
-// fire-exit collisions on every mutation and serializes the canvas back to
-// the JSON contract requested by #4145.
+// CRUD ops for draggable assets (incl. sponsor assignment) and accessibility
+// POIs, recomputes fire-exit collisions on every mutation and serializes the
+// canvas back to the JSON contract requested by #4145.
 // =============================================================================
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  AccessibilityPoi,
+  AccessibilityPoiKind,
   AssetKind,
   DEFAULT_VENUE,
   FloorplanAsset,
   SponsorAssignment,
   VenueBounds,
   makeAsset,
+  makePoi,
 } from "../lib/floorplan/types";
 import { findCollisions, clampToVenue } from "../lib/floorplan/collision";
 import { toFloorplanState } from "../lib/floorplan/serialize";
@@ -34,6 +38,11 @@ interface UseFloorplanReturn {
   assignSponsor: (id: string, assignment: SponsorAssignment | null) => void;
   removeAsset: (id: string) => void;
   setVenueSize: (widthFt: number, heightFt: number) => void;
+  /** #4420 accessibility POI operations, stored inside the venue JSON. */
+  addPoi: (kind: AccessibilityPoiKind, at?: { x_ft: number; y_ft: number }) => void;
+  movePoi: (id: string, x_ft: number, y_ft: number) => void;
+  updatePoi: (id: string, patch: Partial<Omit<AccessibilityPoi, "id" | "kind">>) => void;
+  removePoi: (id: string) => void;
   save: () => Promise<boolean>;
 }
 
@@ -123,6 +132,53 @@ export function useFloorplan(eventId: string | null): UseFloorplanReturn {
     }));
   }, []);
 
+  // #4420: POIs live inside the venue JSON, next to fire_exits.
+  const addPoi = useCallback((kind: AccessibilityPoiKind, at?: { x_ft: number; y_ft: number }) => {
+    setVenue((prev) => {
+      const existing = prev.accessibility_pois ?? [];
+      const base = at ?? {
+        x_ft: prev.width_ft / 2,
+        y_ft: prev.height_ft / 2,
+      };
+      const poi = makePoi(kind, base.x_ft, base.y_ft, existing.length);
+      return { ...prev, accessibility_pois: [...existing, poi] };
+    });
+  }, []);
+
+  const movePoi = useCallback((id: string, x_ft: number, y_ft: number) => {
+    setVenue((prev) => ({
+      ...prev,
+      accessibility_pois: (prev.accessibility_pois ?? []).map((p) =>
+        p.id === id
+          ? {
+              ...p,
+              x_ft: Math.min(Math.max(x_ft, 0), prev.width_ft),
+              y_ft: Math.min(Math.max(y_ft, 0), prev.height_ft),
+            }
+          : p,
+      ),
+    }));
+  }, []);
+
+  const updatePoi = useCallback(
+    (id: string, patch: Partial<Omit<AccessibilityPoi, "id" | "kind">>) => {
+      setVenue((prev) => ({
+        ...prev,
+        accessibility_pois: (prev.accessibility_pois ?? []).map((p) =>
+          p.id === id ? { ...p, ...patch } : p,
+        ),
+      }));
+    },
+    [],
+  );
+
+  const removePoi = useCallback((id: string) => {
+    setVenue((prev) => ({
+      ...prev,
+      accessibility_pois: (prev.accessibility_pois ?? []).filter((p) => p.id !== id),
+    }));
+  }, []);
+
   const save = useCallback(async (): Promise<boolean> => {
     if (!eventId) return false;
     setIsSaving(true);
@@ -151,6 +207,10 @@ export function useFloorplan(eventId: string | null): UseFloorplanReturn {
     assignSponsor,
     removeAsset,
     setVenueSize,
+    addPoi,
+    movePoi,
+    updatePoi,
+    removePoi,
     save,
   };
 }

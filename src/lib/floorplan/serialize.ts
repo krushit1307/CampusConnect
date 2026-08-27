@@ -1,6 +1,7 @@
 // =============================================================================
 // Utility: Floorplan serialization + attendee location descriptions
-// Issue: #4145 - Interactive "Event Layout" Floorplan Builder
+// Issues: #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4157 - Interactive "Career Fair" Digital Map
 // Description: Pure helpers converting between the in-memory asset model and
 // the persisted wire JSON ({ x, y, width, height, type, assignment }), plus
 // human-readable quadrant descriptions ("Northwest corner") used on the
@@ -8,12 +9,42 @@
 // =============================================================================
 
 import {
+  AccessibilityPoi,
+  AccessibilityPoiKind,
   DEFAULT_VENUE,
   FloorplanAsset,
   FloorplanAssetJson,
   FloorplanState,
+  SponsorAssignment,
+  SponsorAssignmentJson,
   VenueBounds,
 } from "./types";
+
+/** In-memory -> wire for an assignment, including #4157 hiring_tags. */
+export function assignmentToWire(assignment: SponsorAssignment): SponsorAssignmentJson {
+  const wire: SponsorAssignmentJson = {
+    sponsorId: assignment.sponsorId ?? null,
+    companyName: assignment.companyName,
+  };
+  if (assignment.hiringTags && assignment.hiringTags.length > 0) {
+    wire.hiring_tags = assignment.hiringTags;
+  }
+  return wire;
+}
+
+/** Wire -> in-memory for an assignment; tolerates missing/malformed tags. */
+export function assignmentFromWire(
+  raw: Partial<SponsorAssignmentJson> | null,
+): SponsorAssignment | null {
+  if (!raw || typeof raw !== "object" || !raw.companyName) return null;
+  return {
+    sponsorId: typeof raw.sponsorId === "string" ? raw.sponsorId : null,
+    companyName: raw.companyName,
+    hiringTags: Array.isArray(raw.hiring_tags)
+      ? raw.hiring_tags.filter((t): t is string => typeof t === "string").map((t) => t.trim())
+      : undefined,
+  };
+}
 
 /** Serialize one asset to the #4145 wire contract. */
 export function toWireJson(asset: FloorplanAsset): FloorplanAssetJson {
@@ -25,7 +56,7 @@ export function toWireJson(asset: FloorplanAsset): FloorplanAssetJson {
     y: Math.round(asset.y * 100) / 100,
     width: Math.round(asset.width * 100) / 100,
     height: Math.round(asset.height * 100) / 100,
-    assignment: asset.assignment ?? null,
+    assignment: asset.assignment ? assignmentToWire(asset.assignment) : null,
   };
 }
 
@@ -36,6 +67,27 @@ export function toFloorplanState(assets: FloorplanAsset[], venue: VenueBounds): 
     venue,
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** Defensive parse of saved accessibility POIs (#4420); never throws. */
+const POI_KINDS: AccessibilityPoiKind[] = ["ramp", "elevator", "ada_bathroom", "stairs"];
+
+export function parseAccessibilityPois(raw: unknown): AccessibilityPoi[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (p): p is Partial<AccessibilityPoi> =>
+        !!p &&
+        typeof p === "object" &&
+        POI_KINDS.includes((p as Partial<AccessibilityPoi>).kind as AccessibilityPoiKind),
+    )
+    .map((p) => ({
+      id: typeof p.id === "string" ? p.id : `poi_${Math.random().toString(36).slice(2, 10)}`,
+      kind: p.kind as AccessibilityPoiKind,
+      label: typeof p.label === "string" ? p.label : "",
+      x_ft: Number(p.x_ft) || 0,
+      y_ft: Number(p.y_ft) || 0,
+    }));
 }
 
 /** Defensive parse of a saved floorplan_json blob (never throws). */
@@ -54,6 +106,7 @@ export function parseFloorplanState(raw: unknown): {
           fire_exits: Array.isArray(state.venue.fire_exits)
             ? state.venue.fire_exits
             : DEFAULT_VENUE.fire_exits,
+          accessibility_pois: parseAccessibilityPois(state.venue.accessibility_pois),
         }
       : DEFAULT_VENUE;
 
@@ -73,7 +126,7 @@ export function parseFloorplanState(raw: unknown): {
           y: Number(a.y) || 0,
           width: Number(a.width) || 1,
           height: Number(a.height) || 1,
-          assignment: a.assignment ?? null,
+          assignment: assignmentFromWire(a.assignment),
         }))
     : [];
 

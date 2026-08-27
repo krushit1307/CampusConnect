@@ -1,7 +1,7 @@
 // src/components/events/DietaryForecastPanel.test.tsx
 // -----------------------------------------------------------------------------
 // Component tests for src/components/events/DietaryForecastPanel.tsx
-// (Issue #3931).
+// (Issue #3931 & Issue #4220).
 // -----------------------------------------------------------------------------
 
 import React from "react";
@@ -9,6 +9,29 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { DietaryForecastPanel } from "./DietaryForecastPanel";
 import type { DietaryForecast } from "@/lib/dietaryForecast";
+
+// Mock Supabase client
+const mockSelect = vi.fn().mockReturnValue([]);
+const mockUpsert = vi.fn().mockResolvedValue({ error: null });
+const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
+
+const mockFrom = vi.fn().mockReturnValue({
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockImplementation(() => {
+    return Promise.resolve({ data: mockSelect(), error: null });
+  }),
+  upsert: vi.fn().mockImplementation((val) => {
+    mockUpsert(val);
+    return Promise.resolve({ error: null });
+  }),
+});
+
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({
+    from: mockFrom,
+    rpc: mockRpc,
+  }),
+}));
 
 const mockUseDietaryForecast = vi.fn();
 vi.mock("@/hooks/useDietaryForecast", () => ({
@@ -39,6 +62,9 @@ function makeForecast(overrides: Partial<DietaryForecast> = {}): DietaryForecast
 describe("DietaryForecastPanel", () => {
   beforeEach(() => {
     mockUseDietaryForecast.mockReset();
+    mockSelect.mockReset().mockReturnValue([]);
+    mockUpsert.mockClear();
+    mockRpc.mockClear();
   });
 
   it("renders a loading state initially", () => {
@@ -145,5 +171,62 @@ describe("DietaryForecastPanel", () => {
     render(<DietaryForecastPanel eventId="e1" />);
     expect(screen.queryByTestId("forecast-row-none")).toBeNull();
     expect(screen.getByTestId("forecast-row-vegan")).toBeTruthy();
+  });
+
+  it("renders min order inputs and saves constraints on set click", async () => {
+    mockUseDietaryForecast.mockReturnValue({
+      forecast: makeForecast(), isLoading: false, error: null, refresh: vi.fn(),
+    });
+    mockSelect.mockReturnValue([{ dietary_tag: "vegan", minimum_order_quantity: 10 }]);
+
+    render(<DietaryForecastPanel eventId="e1" />);
+
+    // Verification of pre-filled input value
+    const input = await screen.findByTestId("min-order-input-vegan");
+    expect((input as HTMLInputElement).value).toBe("10");
+
+    // Modify input and set
+    fireEvent.change(input, { target: { value: "25" } });
+    fireEvent.click(screen.getByTestId("min-order-save-vegan"));
+
+    await waitFor(() => {
+      expect(mockUpsert).toHaveBeenCalledWith({
+        event_id: "e1",
+        dietary_tag: "vegan",
+        minimum_order_quantity: 25,
+      });
+    });
+  });
+
+  it("renders Yield Optimizer prompt card when RSVPs < min order quantity", async () => {
+    mockUseDietaryForecast.mockReturnValue({
+      forecast: makeForecast(), isLoading: false, error: null, refresh: vi.fn(),
+    });
+    mockSelect.mockReturnValue([{ dietary_tag: "vegan", minimum_order_quantity: 20 }]); // vegan RSVPs is 15 in makeForecast()
+
+    render(<DietaryForecastPanel eventId="e1" />);
+
+    // Yield Optimizer card should display
+    const prompt = await screen.findByTestId("yield-optimizer-prompt-vegan");
+    expect(prompt.textContent).toContain("caterer's minimum order requirement of 20");
+    expect(prompt.textContent).toContain("5 extra Vegan meals");
+
+    // Click Yes
+    mockRpc.mockResolvedValue({
+      data: [{ name: "Alice Blue" }, { name: "Bob Green" }],
+      error: null,
+    });
+    fireEvent.click(screen.getByTestId("yield-optimizer-yes-vegan"));
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith("assign_excess_dietary_meals", {
+        p_event_id: "e1",
+        p_dietary_tag: "vegan",
+        p_excess_count: 5,
+      });
+    });
+
+    const successCard = await screen.findByTestId("yield-optimizer-success");
+    expect(successCard.textContent).toContain("Alice Blue, Bob Green");
   });
 });

@@ -1,8 +1,8 @@
 // =============================================================================
 // Component: LeaderboardTable
---Issue: #2971 - Develop a 'Cross-Club Leaderboard'(Gamification)
---Description: Renders the full ranked table of clubs below the podium.
---Includes trending indicators(up / down arrows) and detailed metric breakdowns.
+//Issue: #2971 - Develop a 'Cross-Club Leaderboard'(Gamification)
+//Description: Renders the full ranked table of clubs below the podium.
+//Includes trending indicators(up / down arrows) and detailed metric breakdowns.
 // =============================================================================
 
 import React from 'react';
@@ -54,7 +54,14 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({ entries }) =
                                         )}
                                     </div>
                                     <div>
-                                        <p className="font-bold text-gray-900 dark:text-white">{entry.club_name}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-gray-900 dark:text-white">{entry.club_name}</p>
+                                            {((entry as any).is_probation || (entry as any).status === 'probation') && (
+                                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded border border-red-500/30">
+                                                    ❄️ FROZEN (Probation)
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">{entry.total_members} members</p>
                                     </div>
                                 </div>

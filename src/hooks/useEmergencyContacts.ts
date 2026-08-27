@@ -156,7 +156,7 @@ export function useEmergencyContacts(): UseEmergencyContactsReturn {
   }, []);
 
   const togglePinned = useCallback((id: string) => {
-    setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, isPinned: !c.isPinned } : c))
+    setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, isPinned: !c.isPinned } : c)));
   }, []);
 
   const clearAllData = useCallback(() => {

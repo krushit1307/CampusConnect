@@ -75,8 +75,7 @@ export default function NotesSharingBoard() {
           <button onClick={()=>upvoteNote(n.id)} className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg bg-slate-800/40 hover:bg-blue-500/15 text-slate-500 hover:text-blue-400"><ThumbsUp size={12} /><span className="text-[9px] font-mono">{n.upvotes}</span></button>
           <button onClick={()=>toggleBookmark(n.id)} className={"p-1 rounded "+(n.isBookmarked?"text-amber-400":"text-slate-700 hover:text-amber-400")}><Bookmark size={12} fill={n.isBookmarked?"currentColor":"none"} /></button></div>
         <div className="flex-1 min-w-0">
-          <div classNam
-e={ie?"":"line-clamp-2")}>{n.content}</p>
+          <p className={"text-xs text-slate-400 whitespace-pre-wrap " + (ie?"":"line-clamp-2")}>{n.content}</p>
           {n.content.length>150&&<button onClick={()=>setExp(ie?null:n.id)} className="text-[10px] text-blue-400 mt-1">{ie?"Show less":"Read more"}</button>}
           {n.tags.length>0&&<div className="flex gap-1 mt-2 flex-wrap">{n.tags.map(tg=>(<span key={tg} className="flex items-center gap-0.5 text-[9px] bg-slate-800/60 text-slate-500 px-1.5 py-0.5 rounded"><Tag size={8} /> {tg}</span>))}</div>}
         </div>

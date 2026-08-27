@@ -5,7 +5,7 @@
 //              and pitch deck proposal generator for student organizations.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import type {
   ClubHistoricalReach,
   ValuationModelParams,

@@ -1,7 +1,7 @@
 // src/components/EventCreationWizard/steps/ReviewStepForm.tsx
 import { useEventWizardStore } from "../../../store/useEventWizardStore";
 import { WIZARD_STEPS } from "../../../lib/eventWizardSchema";
-
+import { ComplianceChecklist } from "./ComplianceChecklist";
 /**
  * Step 5 (final): Review & Submit.
  * Shows a read-only summary of all collected form data.
@@ -179,6 +179,8 @@ export function ReviewStepForm() {
           </div>
         </dl>
       </section>
+
+      <ComplianceChecklist />
     </div>
   );
 }

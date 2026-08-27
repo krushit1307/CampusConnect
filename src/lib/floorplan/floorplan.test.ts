@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { makeAsset, DEFAULT_VENUE, ASSET_DEFAULTS } from "./types";
+import { makeAsset, makePoi, DEFAULT_VENUE, ASSET_DEFAULTS, POI_DEFAULTS } from "./types";
 import { findCollisions } from "./collision";
 import {
   toWireJson,
   toFloorplanState,
   parseFloorplanState,
+  parseAccessibilityPois,
   describeLocation,
   describeAssignment,
 } from "./serialize";
@@ -64,6 +65,46 @@ describe("floorplan serialization (#4145 JSON contract)", () => {
     expect(() => parseFloorplanState(null)).not.toThrow();
     expect(() => parseFloorplanState("garbage")).not.toThrow();
     expect(parseFloorplanState(undefined).assets).toEqual([]);
+  });
+});
+
+describe("accessibility POIs (#4420 venue JSON)", () => {
+  it("creates POIs with display defaults per kind", () => {
+    const ramp = makePoi("ramp", 20, 2, 0);
+    expect(ramp.id).toMatch(/^poi_/);
+    expect(ramp.label).toBe(POI_DEFAULTS.ramp.label);
+    expect(POI_DEFAULTS.stairs.accessible).toBe(false);
+    expect(POI_DEFAULTS.ramp.color).toBe("#2563eb"); // bright blue highlight
+  });
+
+  it("round-trips accessibility_pois through the persisted document", () => {
+    const poi = makePoi("elevator", 4, 30, 1);
+    const venue = { ...DEFAULT_VENUE, accessibility_pois: [poi] };
+    const state = toFloorplanState([makeAsset("stage", 8, 2, 5)], venue);
+    const parsed = parseFloorplanState(JSON.parse(JSON.stringify(state)));
+    expect(parsed.venue.accessibility_pois).toEqual([poi]);
+  });
+
+  it("drops malformed POI entries instead of throwing", () => {
+    const pois = parseAccessibilityPois([
+      { id: "ok", kind: "ramp", label: "Ramp", x_ft: 3, y_ft: 4 },
+      { kind: "jetpack", label: "Nope", x_ft: 0, y_ft: 0 },
+      "junk",
+      null,
+      { id: "no-coords", kind: "stairs" },
+    ]);
+    expect(pois).toHaveLength(2);
+    expect(pois[0].kind).toBe("ramp");
+    expect(pois[1].kind).toBe("stairs");
+    expect(pois[1].x_ft).toBe(0); // defaulted, not NaN
+  });
+
+  it("defaults old documents to an empty POI list", () => {
+    const legacy = parseFloorplanState({
+      assets: [],
+      venue: { width_ft: 50, height_ft: 40, fire_exits: [] },
+    });
+    expect(legacy.venue.accessibility_pois).toEqual([]);
   });
 });
 
