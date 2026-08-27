@@ -1,9 +1,22 @@
 /**
  * Venue and Facility Types for CampusConnect
- * Defines interfaces for venue layouts, accessibility nodes, and spatial data.
+ * Defines interfaces for venue layouts, accessibility nodes, and evacuation routes.
  */
 
 export type FacilityNodeType = 'wheelchair_ramp' | 'elevator' | 'accessible_restroom' | 'emergency_exit';
+
+export interface Point {
+    x: number;
+    y: number;
+}
+
+export interface EvacuationRoute {
+    id: string;
+    name: string;
+    points: Point[];
+    color: string;
+    width: number;
+}
 
 export interface FacilityNode {
     id: string;
@@ -23,13 +36,7 @@ export interface VenueLayout {
     background_image_url?: string;
     grid_size: number;
     facilities: FacilityNode[];
+    evacuation_routes: EvacuationRoute[];
     created_at: string;
     updated_at: string;
-}
-
-export interface SerializedVenueData {
-    venue_id: string;
-    layout_name: string;
-    grid_size: number;
-    facilities_json: string;
 }
