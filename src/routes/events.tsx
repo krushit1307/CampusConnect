@@ -9,10 +9,11 @@ import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
 import { useDebounce } from "@/hooks/use-debounce";
 import { AutocompleteDropdown, AutocompleteResult } from "@/components/AutocompleteDropdown";
 import { useNavigate } from "react-router-dom";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import {
   Select,
@@ -58,7 +59,7 @@ function EventsPage() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
-const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [nearMeActive, setNearMeActive] = useState(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusMiles, setRadiusMiles] = useState(5);
@@ -77,7 +78,7 @@ const debouncedSearchQuery = useDebounce(searchQuery, 300);
       const { data, error } = await supabase
         .from("events")
         .select("id, title, location")
-        .or(`title.ilike.%${debouncedSearchQuery}%,location.ilike.%${debouncedSearchQuery}%`)
+        .or(`title.ilike.%${debouncedSearchQuery.trim()}%,location.ilike.%${debouncedSearchQuery.trim()}%`)
         .limit(5);
 
       if (error) {
@@ -106,7 +107,7 @@ const debouncedSearchQuery = useDebounce(searchQuery, 300);
         .from("events")
         .select(
           `
-          id, title, description, event_date, location, banner_url, created_at, announce_date,
+          id, title, description, tldr_summary, event_date, location, banner_url, created_at, announce_date,
           clubs (name, average_lead_time_days),
           event_rsvps (id, user_id),
           saved_events (id, user_id)
@@ -156,7 +157,7 @@ const debouncedSearchQuery = useDebounce(searchQuery, 300);
     },
   });
 
-const events = queryData || [];
+  const events = queryData || [];
 
   const { data: nearbyEvents, isFetching: isFetchingNearby } = useQuery({
     queryKey: ["events-nearby", userCoords, radiusMiles],
@@ -215,6 +216,8 @@ const events = queryData || [];
         console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -223,9 +226,11 @@ const events = queryData || [];
         body: { eventId, hasRsvpd },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ eventId, hasRsvpd }) => {
       await queryClient.cancelQueries({ queryKey: ["events"] });
@@ -331,7 +336,7 @@ const events = queryData || [];
   const filteredEvents = events.filter((e) => {
     if (hidePastEvents && e.event_date && new Date(e.event_date) < new Date()) return false;
     if (debouncedSearchQuery.trim()) {
-      const q = debouncedSearchQuery.toLowerCase();
+      const q = debouncedSearchQuery.trim().toLowerCase();
       return e.title.toLowerCase().includes(q) || (e.location?.toLowerCase().includes(q) ?? false);
     }
     return true;

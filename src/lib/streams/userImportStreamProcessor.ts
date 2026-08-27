@@ -1,4 +1,3 @@
-import { Writable, WritableCallback } from "node:stream";
 import {
   BulkImportOptions,
   BulkImportSummary,
@@ -9,152 +8,101 @@ import {
 import { UserImportRepository } from "../db/userImportRepository";
 import { ParsedCsvRowRecord } from "./csvParserStream";
 
-export class UserImportStreamProcessor extends Writable {
+/** Batch processor shared by browser Web Streams and buffered imports. */
+export class UserImportStreamProcessor {
   private batchBuffer: ValidatedUserRow[] = [];
-  private batchSize: number = 500;
-  private maxFailedRowsLog: number = 200;
-
-  private totalProcessed: number = 0;
-  private insertedCount: number = 0;
-  private failedCount: number = 0;
+  private readonly batchSize: number;
+  private readonly maxFailedRowsLog: number;
+  private totalProcessed = 0;
+  private insertedCount = 0;
+  private failedCount = 0;
   private failedRows: FailedRowReport[] = [];
+  private readonly startTime = Date.now();
+  private readonly initialHeapMB = this.getMemoryHeapMB();
+  private peakHeapMB = this.initialHeapMB;
 
-  private startTime: number = 0;
-  private initialHeapMB: number = 0;
-  private peakHeapMB: number = 0;
-
-  private dbRepository: UserImportRepository;
-
-  constructor(options: BulkImportOptions = {}, dbRepository?: UserImportRepository) {
-    super({ objectMode: true });
+  constructor(
+    options: BulkImportOptions = {},
+    private readonly dbRepository: UserImportRepository = new UserImportRepository(),
+  ) {
     this.batchSize = options.batchSize || 500;
     this.maxFailedRowsLog = options.maxFailedRowsLog || 200;
-    this.dbRepository = dbRepository || new UserImportRepository();
-
-    this.startTime = Date.now();
-    this.initialHeapMB = this.getMemoryHeapMB();
-    this.peakHeapMB = this.initialHeapMB;
   }
 
-  private getMemoryHeapMB(): number {
-    if (typeof process !== "undefined" && process.memoryUsage) {
-      const bytes = process.memoryUsage().heapUsed;
-      return Math.round((bytes / 1024 / 1024) * 100) / 100;
-    }
-    return 0;
-  }
-
-  private updatePeakMemory(): void {
-    const currentHeap = this.getMemoryHeapMB();
-    if (currentHeap > this.peakHeapMB) {
-      this.peakHeapMB = currentHeap;
-    }
-  }
-
-  _write(chunk: ParsedCsvRowRecord, encoding: BufferEncoding, callback: WritableCallback): void {
-    this.totalProcessed++;
+  public async process(record: ParsedCsvRowRecord): Promise<void> {
+    this.totalProcessed += 1;
     this.updatePeakMemory();
 
-    const { rowNumber, data } = chunk;
-
-    // Validate incoming CSV row using Zod
-    const validationResult = BulkUserRowSchema.safeParse(data);
-
+    const validationResult = BulkUserRowSchema.safeParse(record.data);
     if (!validationResult.success) {
-      this.failedCount++;
-      const errorMessage = validationResult.error.errors
-        .map((e) => `${e.path.join(".")}: ${e.message}`)
-        .join("; ");
-
+      this.failedCount += 1;
       if (this.failedRows.length < this.maxFailedRowsLog) {
         this.failedRows.push({
-          rowNumber,
-          email: data.email || undefined,
-          error: errorMessage,
-          rawRow: data,
+          rowNumber: record.rowNumber,
+          email: record.data.email || undefined,
+          error: validationResult.error.errors
+            .map((error) => `${error.path.join(".")}: ${error.message}`)
+            .join("; "),
+          rawRow: record.data,
         });
       }
-
-      callback();
       return;
     }
 
-    const validatedUser: ValidatedUserRow = {
+    this.batchBuffer.push({
       ...validationResult.data,
-      rowNumber,
+      rowNumber: record.rowNumber,
       importedAt: new Date().toISOString(),
-    };
+    });
 
-    this.batchBuffer.push(validatedUser);
-
-    // If batch buffer reaches batch threshold (500 rows), execute bulk database insertion
-    if (this.batchBuffer.length >= this.batchSize) {
-      this.flushBatchBuffer()
-        .then(() => callback())
-        .catch((err) => callback(err));
-    } else {
-      callback();
-    }
+    if (this.batchBuffer.length >= this.batchSize) await this.flushBatchBuffer();
   }
 
-  _final(callback: WritableCallback): void {
-    // Flush remaining buffer rows in stream final step
-    if (this.batchBuffer.length > 0) {
-      this.flushBatchBuffer()
-        .then(() => {
-          this.updatePeakMemory();
-          callback();
-        })
-        .catch((err) => callback(err));
-    } else {
-      this.updatePeakMemory();
-      callback();
-    }
+  public async finish(): Promise<void> {
+    await this.flushBatchBuffer();
+    this.updatePeakMemory();
   }
 
-  /**
-   * Flushes accumulated 500-row batch buffer into database repository
-   */
+  private getMemoryHeapMB(): number {
+    if (typeof process === "undefined" || !process.memoryUsage) return 0;
+    return Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100;
+  }
+
+  private updatePeakMemory(): void {
+    this.peakHeapMB = Math.max(this.peakHeapMB, this.getMemoryHeapMB());
+  }
+
   private async flushBatchBuffer(): Promise<void> {
     if (this.batchBuffer.length === 0) return;
 
-    const currentBatch = [...this.batchBuffer];
-    this.batchBuffer = []; // Clear RAM buffer immediately for memory safety
-
+    const currentBatch = this.batchBuffer;
+    this.batchBuffer = [];
     const result = await this.dbRepository.bulkInsertUsers(currentBatch);
     this.insertedCount += result.inserted;
+    this.failedCount += result.failed.length;
 
-    if (result.failed.length > 0) {
-      this.failedCount += result.failed.length;
-      for (const failedItem of result.failed) {
-        if (this.failedRows.length < this.maxFailedRowsLog) {
-          this.failedRows.push({
-            rowNumber: failedItem.rowNumber,
-            email: failedItem.email,
-            error: failedItem.error,
-            rawRow: failedItem.rawRow,
-          });
-        }
-      }
+    for (const failedItem of result.failed) {
+      if (this.failedRows.length >= this.maxFailedRowsLog) break;
+      this.failedRows.push({
+        rowNumber: failedItem.rowNumber,
+        email: failedItem.email,
+        error: failedItem.error,
+        rawRow: failedItem.rawRow,
+      });
     }
 
     this.updatePeakMemory();
   }
 
-  /**
-   * Returns final execution metrics & stream import summary report
-   */
   public getImportSummary(): BulkImportSummary {
     const finalHeapMB = this.getMemoryHeapMB();
-    const executionTimeMs = Date.now() - this.startTime;
-
     return {
       success: this.failedCount === 0,
       totalProcessed: this.totalProcessed,
       insertedCount: this.insertedCount,
       failedCount: this.failedCount,
       failedRows: this.failedRows,
-      executionTimeMs,
+      executionTimeMs: Date.now() - this.startTime,
       batchSize: this.batchSize,
       memoryMetrics: {
         initialHeapMB: this.initialHeapMB,

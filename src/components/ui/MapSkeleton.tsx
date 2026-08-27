@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
 
 export function MapSkeleton({ className }: { className?: string }) {
   return (

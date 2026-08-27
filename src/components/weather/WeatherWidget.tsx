@@ -1,4 +1,4 @@
-import { CloudOff } from "lucide-react";
+import CloudOff from "lucide-react/dist/esm/icons/cloud-off";
 import { WEATHER_ICON_COMPONENT } from "./icons";
 import { type WeatherState } from "./types";
 import { useWeather } from "./useWeather";

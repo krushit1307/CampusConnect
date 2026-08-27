@@ -9,7 +9,9 @@ import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Badge } from "../ui/badge";
-import { Search, SlidersHorizontal, Image as ImageIcon } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal";
+import ImageIcon from "lucide-react/dist/esm/icons/image";
 import { cn } from "../../lib/utils";
 
 interface PhotoGalleryProps {

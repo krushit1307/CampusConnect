@@ -41,7 +41,7 @@ describe("ImageCropUpload Component (#2427)", () => {
         label="profile picture"
         hint="Square images look best"
         onUploaded={handleUploaded}
-      />
+      />,
     );
 
     expect(screen.getByText("Drag & drop or click to upload")).toBeInTheDocument();
@@ -50,13 +50,7 @@ describe("ImageCropUpload Component (#2427)", () => {
 
   it("triggers file picker when clicked", () => {
     const handleUploaded = vi.fn();
-    render(
-      <ImageCropUpload
-        aspect={1}
-        bucket="avatars"
-        onUploaded={handleUploaded}
-      />
-    );
+    render(<ImageCropUpload aspect={1} bucket="avatars" onUploaded={handleUploaded} />);
 
     const dropZone = screen.getByRole("button");
     expect(dropZone).toBeInTheDocument();

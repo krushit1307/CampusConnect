@@ -1,13 +1,14 @@
 import { useMemo, useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
 import { VirtualList } from "@/components/ui/VirtualList";
 import { UserCard } from "@/components/Directory/UserCard";
 import { generateMockUsers, filterUsers } from "@/components/Directory/userData";
 import type { UserProfile } from "@/components/Directory/types";
+import { useDirectoryStore } from "@/store/useDirectoryStore";
 
 export default function Directory() {
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { search, setSearch, resetFilters } = useDirectoryStore();
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 800);
@@ -20,8 +21,8 @@ export default function Directory() {
   }, [loading]);
 
   const filteredUsers = useMemo(() => {
-    return filterUsers(users, searchQuery);
-  }, [searchQuery, users]);
+    return filterUsers(users, search);
+  }, [search, users]);
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -36,8 +37,8 @@ export default function Directory() {
         <input
           type="text"
           placeholder="Search by name, major, or interests..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           className="pl-10 py-6 text-lg w-full bg-background neu-border"
         />
       </div>
@@ -56,7 +57,7 @@ export default function Directory() {
               <p className="text-muted-foreground">Try a different name, major, or interest.</p>
               <button
                 type="button"
-                onClick={() => setSearchQuery("")}
+                onClick={() => resetFilters()}
                 className="mt-4 neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-white"
               >
                 Clear search

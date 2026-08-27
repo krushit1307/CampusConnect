@@ -6,11 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper for delays/rate limiting
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 serve(async (req: Request) => {
-  // Handle CORS Preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -34,177 +32,180 @@ serve(async (req: Request) => {
       });
     }
 
-    // Initialize Supabase Client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const appUrl = Deno.env.get("APP_URL") || "https://campusconnect.app";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Dequeue next pending job using SKIP LOCKED database RPC
-    const { data: job, error: dequeueError } = await supabase
-      .rpc("dequeue_bulk_email_job")
-      .single();
+    const body = await req.json().catch(() => ({}));
+    const { newsletterId, clubId } = body;
 
-    if (dequeueError) {
-      throw new Error(`Failed to dequeue job: ${dequeueError.message}`);
+    if (!newsletterId || !clubId) {
+      return new Response(JSON.stringify({ error: "newsletterId and clubId are required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    if (!job) {
+    // 1. Fetch newsletter record
+    const { data: newsletter, error: newsErr } = await supabase
+      .from("newsletters")
+      .select("*")
+      .eq("id", newsletterId)
+      .single();
+
+    if (newsErr || !newsletter) {
+      throw new Error(`Newsletter not found: ${newsErr?.message}`);
+    }
+
+    // 2. Fetch club name
+    const { data: club } = await supabase.from("clubs").select("name").eq("id", clubId).single();
+
+    const clubName = club?.name || "CampusConnect Club";
+
+    // 3. Update status to 'sending'
+    await supabase
+      .from("newsletters")
+      .update({ status: "sending", updated_at: new Date().toISOString() })
+      .eq("id", newsletterId);
+
+    // 4. Retrieve eligible members via get_eligible_newsletter_recipients RPC (excludes unsubscribed)
+    let recipients: { user_id: string; email: string; first_name?: string }[] = [];
+    try {
+      const { data: rData, error: rErr } = await supabase.rpc(
+        "get_eligible_newsletter_recipients",
+        { p_club_id: clubId },
+      );
+
+      if (!rErr && Array.isArray(rData)) {
+        recipients = rData;
+      }
+    } catch {
+      // Fallback direct join query
+      const { data: mData } = await supabase
+        .from("club_members")
+        .select("user_id, profiles(email, first_name)")
+        .eq("club_id", clubId)
+        .eq("status", "approved");
+
+      if (mData) {
+        recipients = mData
+          .filter((m: any) => m.profiles?.email)
+          .map((m: any) => ({
+            user_id: m.user_id,
+            email: m.profiles.email,
+            first_name: m.profiles.first_name,
+          }));
+      }
+    }
+
+    if (recipients.length === 0) {
+      await supabase
+        .from("newsletters")
+        .update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          total_recipients: 0,
+          successful_sends: 0,
+          failed_sends: 0,
+        })
+        .eq("id", newsletterId);
+
       return new Response(
-        JSON.stringify({ message: "No pending email newsletter jobs in queue" }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        JSON.stringify({ message: "No eligible recipients found", newsletterId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const jobId = job.id;
-    const clubId = job.club_id;
+    // 5. Dispatch in batches of 50
+    const batchSize = 50;
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    let successfulSends = 0;
+    let failedSends = 0;
 
-    try {
-      // 1. Fetch club info
-      const { data: club, error: clubError } = await supabase
-        .from("clubs")
-        .select("name")
-        .eq("id", clubId)
-        .single();
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+      const batchEmails = batch.map((r) => r.email);
 
-      if (clubError || !club) {
-        throw new Error(`Club not found or inaccessible: ${clubError?.message}`);
-      }
+      // Build email content with tracking pixel & unsubscribe link
+      const trackingPixel = `<img src="${supabaseUrl}/functions/v1/track-newsletter?n=${newsletterId}&type=open" width="1" height="1" style="display:none" alt="" />`;
+      const unsubscribeFooter = `
+        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; font-family: sans-serif; font-size: 11px; color: #777;">
+          <p>You received this email because you are a member of <strong>${clubName}</strong>.</p>
+          <p>Don't want to receive newsletters from this club? <a href="${appUrl}/unsubscribe?clubId=${clubId}" style="color: #4f46e5; text-decoration: underline;">Unsubscribe from ${clubName} Newsletters</a>.</p>
+        </div>
+      `;
 
-      // 2. Retrieve all approved member emails for this club
-      const { data: members, error: membersError } = await supabase.rpc("get_club_member_emails", {
-        p_club_id: clubId,
-      });
+      const finalHtml = `${newsletter.content_html}${trackingPixel}${unsubscribeFooter}`;
 
-      if (membersError) {
-        throw new Error(`Failed to retrieve club members: ${membersError.message}`);
-      }
+      const emailPayload = {
+        from: `${clubName} <notifications@campusconnect.app>`,
+        to: ["notifications@campusconnect.app"], // Dummy to header; recipients in bcc
+        bcc: batchEmails,
+        subject: newsletter.subject || `Newsletter from ${clubName}`,
+        html: finalHtml,
+      };
 
-      const emails: string[] = (members || []).map((m: { email: string }) => m.email);
-
-      // If no members are in the club, complete the job immediately
-      if (emails.length === 0) {
-        await supabase
-          .from("bulk_email_jobs")
-          .update({
-            status: "completed",
-            total_count: 0,
-            processed_count: 0,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", jobId);
-
-        return new Response(
-          JSON.stringify({ message: "Job completed: No members found for club", jobId }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      // Update total_count on the job
-      await supabase
-        .from("bulk_email_jobs")
-        .update({
-          total_count: emails.length,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", jobId);
-
-      // 3. Batch emails in chunks of 100 to respect mail provider payload limits and spam prevention
-      const batchSize = 100;
-      const resendApiKey = Deno.env.get("RESEND_API_KEY");
-
-      for (let i = 0; i < emails.length; i += batchSize) {
-        const batch = emails.slice(i, i + batchSize);
-
-        const emailBody = {
-          from: "CampusConnect <notifications@campusconnect.app>",
-          to: ["notifications@campusconnect.app"], // Dummy to address
-          bcc: batch,
-          subject: `Newsletter from ${club.name}`,
-          html: `
-            <h2>Club Announcement</h2>
-            <p>Hello member, here is the latest newsletter update from <strong>${club.name}</strong>!</p>
-            <p>Make sure to check out our club page on CampusConnect for upcoming events and announcements.</p>
-          `,
-        };
-
+      try {
         if (resendApiKey) {
-          // Send via Resend API
           const res = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${resendApiKey}`,
             },
-            body: JSON.stringify(emailBody),
+            body: JSON.stringify(emailPayload),
           });
 
           if (!res.ok) {
-            const resData = await res.json().catch(() => ({}));
-            throw new Error(`Resend API Error during sending batch: ${JSON.stringify(resData)}`);
+            const errData = await res.json().catch(() => ({}));
+            console.error("Resend API Batch Error:", errData);
+            failedSends += batch.length;
+          } else {
+            successfulSends += batch.length;
           }
         } else {
-          // Mock sending logs for development/testing
-          console.log(`[newsletter-worker] Mock email batch sent to:`, batch);
+          // Mock send in test/dev
+          console.log(
+            `[newsletter-worker] Mock batch of ${batch.length} emails sent for club ${clubName}`,
+          );
+          successfulSends += batch.length;
         }
-
-        // Update processed_count on the job
-        await supabase
-          .from("bulk_email_jobs")
-          .update({
-            processed_count: i + batch.length,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", jobId);
-
-        // Throttling: Add a 1-second delay between batches to respect rate limits
-        if (i + batchSize < emails.length) {
-          await delay(1000);
-        }
+      } catch (err) {
+        console.error("Batch dispatch exception:", err);
+        failedSends += batch.length;
       }
 
-      // 4. Update status to completed
-      await supabase
-        .from("bulk_email_jobs")
-        .update({
-          status: "completed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", jobId);
-
-      return new Response(
-        JSON.stringify({ message: "Newsletter sent successfully to all members", jobId }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    } catch (jobError: unknown) {
-      console.error(`Error processing job ${jobId}:`, jobError);
-      const errorMessage =
-        jobError instanceof Error ? jobError.message : "Unknown processing error";
-
-      // Mark the job as failed with the captured error message
-      await supabase
-        .from("bulk_email_jobs")
-        .update({
-          status: "failed",
-          error_message: errorMessage,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", jobId);
-
-      return new Response(JSON.stringify({ error: `Job failed: ${errorMessage}`, jobId }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Throttle 1 second between batches
+      if (i + batchSize < recipients.length) {
+        await delay(1000);
+      }
     }
+
+    // 6. Update newsletter status to 'sent'
+    await supabase
+      .from("newsletters")
+      .update({
+        status: failedSends > 0 && successfulSends === 0 ? "failed" : "sent",
+        sent_at: new Date().toISOString(),
+        total_recipients: recipients.length,
+        successful_sends: successfulSends,
+        failed_sends: failedSends,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", newsletterId);
+
+    return new Response(
+      JSON.stringify({
+        message: "Newsletter dispatch completed",
+        newsletterId,
+        totalRecipients: recipients.length,
+        successfulSends,
+        failedSends,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error: unknown) {
-    console.error("newsletter-worker function error:", error);
+    console.error("newsletter-worker error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

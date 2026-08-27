@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { LSPEditor } from "@/components/LSPEditor";
-import { Play, RotateCcw, Award, Code, CheckCircle, Terminal, HelpCircle } from "lucide-react";
+import Play from "lucide-react/dist/esm/icons/play";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import Award from "lucide-react/dist/esm/icons/award";
+import Code from "lucide-react/dist/esm/icons/code";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Terminal from "lucide-react/dist/esm/icons/terminal";
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
 import { toast } from "sonner";
 
 interface Challenge {

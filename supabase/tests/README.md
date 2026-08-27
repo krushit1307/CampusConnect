@@ -12,6 +12,7 @@ constraints and RLS policies — the same way we test application code.
 | `member_count_trigger.test.sql`      | The `update_club_member_count` trigger (aka `on_member_added`) that keeps `clubs.member_count` in sync via `handle_club_member_change()`.   |
 | `upcoming_events_feed_rpc.test.sql`  | The event discovery RPC `public.get_upcoming_events_feed(UUID)` (upcoming/canceled filtering, ordering, RSVP counts, saved/bookmark state). |
 | `club_attendance_stats_rpc.test.sql` | The attendance aggregation RPC `public.get_club_attendance_stats(UUID)` (average & median RSVPs computed in Postgres, empty-club handling). |
+| `event_feedback_metrics.test.sql` | The dynamic rating system (issue #3434): `event_feedback_metrics` table, `events.rating_metrics`, score CHECK/UNIQUE constraints, and `public.get_event_feedback_metrics_summary(UUID)` aggregation + organizer authorization. |
 
 ## Prerequisites
 

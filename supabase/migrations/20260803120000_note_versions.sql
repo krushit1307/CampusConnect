@@ -52,10 +52,7 @@ CREATE POLICY "club_admins_delete_note_versions" ON public.club_meeting_note_ver
   USING (
     EXISTS (
       SELECT 1 FROM public.club_meeting_notes n
-      JOIN public.club_members cm ON cm.club_id = n.club_id
       WHERE n.id = club_meeting_note_versions.note_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
+        AND public.is_club_admin(n.club_id, auth.uid())
     )
   );

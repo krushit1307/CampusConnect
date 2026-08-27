@@ -3,19 +3,22 @@ import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
 import { toast } from "sonner";
-import {
-  Search,
-  Plus,
-  X,
-  MapPin,
-  Tag,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Filter,
-  Package,
-  Loader2,
-} from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import X from "lucide-react/dist/esm/icons/x";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Tag from "lucide-react/dist/esm/icons/tag";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Filter from "lucide-react/dist/esm/icons/filter";
+import Package from "lucide-react/dist/esm/icons/package";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Coins from "lucide-react/dist/esm/icons/coins";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import Scan from "lucide-react/dist/esm/icons/scan";
+import { QRCodeSVG } from "qrcode.react";
+import { Html5QrcodeScanner } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { ImageAutoTagger } from "@/components/lost-found/ImageAutoTagger";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,7 +69,18 @@ export interface LostFoundItem {
   status: ItemStatus;
   created_at: string;
   updated_at: string;
+  bounty_amount: number;
   profiles?: { full_name: string | null; handle: string | null } | null;
+  lost_item_bounties?: { id: string; amount: number; status: string }[] | null;
+  lost_item_claims?:
+    | {
+        id: string;
+        finder_id: string;
+        status: string;
+        verification_nonce: string | null;
+        profiles?: { full_name: string | null; handle: string | null } | null;
+      }[]
+    | null;
 }
 
 interface NewItemForm {
@@ -75,6 +90,9 @@ interface NewItemForm {
   category: ItemCategory;
   location: string;
   contact_info: string;
+  bounty_amount: number;
+  image_url: string;
+  tags?: string[];
 }
 
 const EMPTY_FORM: NewItemForm = {
@@ -84,6 +102,9 @@ const EMPTY_FORM: NewItemForm = {
   category: "Other",
   location: "",
   contact_info: "",
+  bounty_amount: 0,
+  image_url: "",
+  tags: [],
 };
 
 // ─── Badge helpers ─────────────────────────────────────────────────────────────
@@ -110,17 +131,57 @@ function CategoryBadge({ category }: { category: ItemCategory }) {
   );
 }
 
-// ─── Item Card ─────────────────────────────────────────────────────────────────
+function QRScanner({ onScan, onClose }: { onScan: (data: string) => void; onClose: () => void }) {
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 }, false);
+    scanner.render(
+      (decodedText) => {
+        scanner.clear();
+        onScan(decodedText);
+      },
+      () => {},
+    );
+    return () => {
+      scanner.clear().catch(console.error);
+    };
+  }, [onScan]);
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="neu-border bg-white sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-mono text-xl font-black uppercase text-black">
+            Scan QR Code
+          </DialogTitle>
+          <DialogDescription className="text-sm text-black/60">
+            Scan the finder's QR code to release the bounty.
+          </DialogDescription>
+        </DialogHeader>
+        <div id="qr-reader" className="overflow-hidden rounded-xl border-2 border-black" />
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function ItemCard({
   item,
   onResolve,
   currentUserId,
+  onClaim,
+  onAcceptClaim,
+  onRejectClaim,
+  onVerifyQR,
 }: {
   item: LostFoundItem;
   onResolve: (id: string) => void;
   currentUserId: string | null;
+  onClaim: (id: string) => void;
+  onAcceptClaim: (claimId: string) => void;
+  onRejectClaim: (claimId: string) => void;
+  onVerifyQR: (claimId: string, nonce: string) => void;
 }) {
+  const [showScannerForClaim, setShowScannerForClaim] = useState<string | null>(null);
+
   const isOwner = currentUserId === item.user_id;
   const timeAgo = (() => {
     const diff = Date.now() - new Date(item.created_at).getTime();
@@ -132,6 +193,16 @@ function ItemCard({
     return `${Math.floor(hrs / 24)}d ago`;
   })();
 
+  // Bounty logic
+  const activeBounty = item.lost_item_bounties?.find((b) => b.status === "escrow");
+  const hasBounty = !!activeBounty && item.bounty_amount > 0;
+
+  // Claims logic
+  const myClaim = item.lost_item_claims?.find((c) => c.finder_id === currentUserId);
+  const activeClaims =
+    item.lost_item_claims?.filter((c) => ["pending", "accepted"].includes(c.status)) || [];
+  const acceptedClaim = activeClaims.find((c) => c.status === "accepted");
+
   return (
     <article
       className="group relative flex flex-col gap-3 rounded-xl border-2 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-150 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5"
@@ -142,8 +213,14 @@ function ItemCard({
         <div className="flex flex-wrap items-center gap-2">
           <TypeBadge type={item.type} />
           <CategoryBadge category={item.category} />
+          {hasBounty && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-peach px-2 py-0.5 text-[10px] font-bold text-black/70 ring-1 ring-black/10">
+              <Coins className="h-3 w-3" />
+              {item.bounty_amount} Bounty
+            </span>
+          )}
         </div>
-        {isOwner && item.status === "active" && (
+        {isOwner && item.status === "active" && !hasBounty && (
           <Button
             size="sm"
             variant="outline"
@@ -155,6 +232,15 @@ function ItemCard({
           </Button>
         )}
       </div>
+
+      {/* Image Preview */}
+      {item.image_url && (
+        <img
+          src={item.image_url}
+          alt={item.title}
+          className="h-40 w-full object-cover rounded-lg border-2 border-black"
+        />
+      )}
 
       {/* Title & description */}
       <div>
@@ -186,6 +272,96 @@ function ItemCard({
           {item.contact_info}
         </div>
       )}
+
+      {/* Claims (Finder View) */}
+      {!isOwner && item.status === "active" && item.type === "lost" && (
+        <div className="mt-2 border-t-2 border-dashed border-black/10 pt-3">
+          {!myClaim ? (
+            <Button
+              className="w-full neu-border bg-lime font-mono font-black uppercase text-black hover:bg-lime/80"
+              onClick={() => onClaim(item.id)}
+            >
+              <CheckCircle className="mr-2 h-4 w-4" /> I Found This
+            </Button>
+          ) : myClaim.status === "pending" ? (
+            <div className="rounded-lg bg-cream p-3 text-center text-xs font-medium text-black">
+              Claim pending... Waiting for owner to accept.
+            </div>
+          ) : myClaim.status === "accepted" && myClaim.verification_nonce ? (
+            <div className="rounded-lg bg-peach/20 p-4 text-center">
+              <p className="mb-3 text-xs font-bold uppercase text-black">
+                Claim Accepted! Show this QR to the owner to receive your bounty:
+              </p>
+              <div className="mx-auto flex justify-center bg-white p-2 border-2 border-black rounded-lg w-max">
+                <QRCodeSVG value={`lost-found://verify/${myClaim.verification_nonce}`} size={160} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Claims (Owner View) */}
+      {isOwner && item.status === "active" && activeClaims.length > 0 && (
+        <div className="mt-2 border-t-2 border-dashed border-black/10 pt-3 flex flex-col gap-2">
+          {acceptedClaim ? (
+            <div className="rounded-lg bg-lime/20 p-3 text-center border-2 border-black">
+              <p className="mb-2 text-xs font-bold uppercase text-black">
+                Claim accepted from {acceptedClaim.profiles?.full_name || "a user"}
+              </p>
+              <Button
+                size="sm"
+                className="w-full bg-black font-mono font-black text-white hover:bg-black/80 uppercase"
+                onClick={() => setShowScannerForClaim(acceptedClaim.id)}
+              >
+                <Scan className="mr-2 h-4 w-4" /> Scan QR to Resolve
+              </Button>
+            </div>
+          ) : (
+            activeClaims.map((claim) => (
+              <div
+                key={claim.id}
+                className="rounded-lg bg-cream p-3 flex items-center justify-between gap-2 border-2 border-black"
+              >
+                <span className="text-xs font-semibold">
+                  {claim.profiles?.full_name || "A user"} found this!
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[10px] uppercase border-black"
+                    onClick={() => onRejectClaim(claim.id)}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 px-2 text-[10px] uppercase bg-black text-white hover:bg-black/80"
+                    onClick={() => onAcceptClaim(claim.id)}
+                  >
+                    Accept
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {showScannerForClaim && (
+        <QRScanner
+          onClose={() => setShowScannerForClaim(null)}
+          onScan={(data) => {
+            if (data.startsWith("lost-found://verify/")) {
+              const nonce = data.split("/verify/")[1];
+              onVerifyQR(showScannerForClaim, nonce);
+              setShowScannerForClaim(null);
+            } else {
+              toast.error("Invalid QR code format.");
+            }
+          }}
+        />
+      )}
     </article>
   );
 }
@@ -203,8 +379,26 @@ function NewItemDialog({
   onSubmit: (form: NewItemForm) => void;
   isSubmitting: boolean;
 }) {
+  const supabase = createClient();
+  const { user } = useAuthHydration();
+
   const [form, setForm] = useState<NewItemForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof NewItemForm, string>>>({});
+
+  const { data: walletBalance = 0 } = useQuery({
+    queryKey: ["wallet_balance", user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { data, error } = await supabase
+        .from("user_wallets")
+        .select("balance")
+        .eq("user_id", user.id)
+        .single();
+      if (error && error.code !== "PGRST116") throw error; // ignore not found
+      return data?.balance || 0;
+    },
+    enabled: !!user,
+  });
 
   const validate = (): boolean => {
     const errs: typeof errors = {};
@@ -213,6 +407,13 @@ function NewItemDialog({
     }
     if (!form.description.trim() || form.description.trim().length < 10) {
       errs.description = "Description must be at least 10 characters.";
+    }
+    if (form.type === "lost" && form.bounty_amount > 0) {
+      if (!Number.isInteger(form.bounty_amount)) {
+        errs.bounty_amount = "Bounty must be a whole number.";
+      } else if (form.bounty_amount > walletBalance) {
+        errs.bounty_amount = "Insufficient balance.";
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -352,6 +553,61 @@ function NewItemDialog({
             />
           </div>
 
+          {/* Token Bounty (Only for Lost Items) */}
+          {form.type === "lost" && (
+            <div className="flex flex-col gap-1 rounded-lg border-2 border-black bg-cream p-3">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="lf-bounty"
+                  className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-black"
+                >
+                  <Coins className="h-4 w-4" />
+                  Token Bounty (Optional)
+                </label>
+                <span className="text-xs font-mono font-medium text-black/70">
+                  Available: <strong>{walletBalance}</strong> ConnectCoins
+                </span>
+              </div>
+              <p className="mb-2 text-xs text-black/60">
+                Offer a reward to incentivize people to look for your lost item.
+              </p>
+              <Input
+                id="lf-bounty"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={form.bounty_amount || ""}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, bounty_amount: parseInt(e.target.value) || 0 }))
+                }
+                className="border-2 border-black font-mono"
+              />
+              {errors.bounty_amount && (
+                <span className="text-xs text-red-600">{errors.bounty_amount}</span>
+              )}
+            </div>
+          )}
+
+          {form.type === "found" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold uppercase tracking-wider">
+                Item Image (AI Auto-Tagging)
+              </label>
+              <ImageAutoTagger
+                onTagsChange={(tags, imageUrl) =>
+                  setForm((f) => ({ ...f, tags, image_url: imageUrl || "" }))
+                }
+                onPiiDetected={(reason) => {
+                  toast.warning(`PII Detected: ${reason}`);
+                }}
+                onClear={() => {
+                  setForm((f) => ({ ...f, tags: [], image_url: "" }));
+                }}
+              />
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
             <Button
@@ -405,7 +661,9 @@ export default function LostFoundPage() {
     queryFn: async () => {
       let query = supabase
         .from("lost_found_items")
-        .select("*, profiles(full_name, handle)")
+        .select(
+          "*, profiles(full_name, handle), lost_item_bounties(id, amount, status), lost_item_claims(id, finder_id, status, verification_nonce, profiles(full_name, handle))",
+        )
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
@@ -422,14 +680,15 @@ export default function LostFoundPage() {
   const { mutate: createItem, isPending: isCreating } = useMutation({
     mutationFn: async (form: NewItemForm) => {
       if (!user) throw new Error("You must be signed in to post an item.");
-      const { error } = await supabase.from("lost_found_items").insert({
-        user_id: user.id,
-        type: form.type,
-        title: form.title.trim(),
-        description: form.description.trim(),
-        category: form.category,
-        location: form.location.trim() || null,
-        contact_info: form.contact_info.trim() || null,
+      const { error } = await supabase.rpc("create_lost_item_with_bounty", {
+        p_type: form.type,
+        p_title: form.title.trim(),
+        p_description: form.description.trim(),
+        p_category: form.category,
+        p_location: form.location.trim() || null,
+        p_contact_info: form.contact_info.trim() || null,
+        p_bounty_amount: form.type === "lost" ? form.bounty_amount : 0,
+        p_image_url: form.image_url.trim() || null,
       });
       if (error) throw error;
     },
@@ -459,6 +718,61 @@ export default function LostFoundPage() {
     },
     onError: () => {
       toast.error("Failed to resolve item. Please try again.");
+    },
+  });
+
+  // ── Claim Flow ─────────────────────────────────────────────────────────────
+  const { mutate: claimItem } = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error("Must be logged in.");
+      const { error } = await supabase.from("lost_item_claims").insert({
+        lost_item_id: id,
+        finder_id: user.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Claim submitted! Waiting for owner to accept.");
+      refetch();
+    },
+  });
+
+  const { mutate: acceptClaim } = useMutation({
+    mutationFn: async (claimId: string) => {
+      const { error } = await supabase.rpc("accept_lost_item_claim", { p_claim_id: claimId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Claim accepted! Scan their QR code to verify and release bounty.");
+      refetch();
+    },
+  });
+
+  const { mutate: rejectClaim } = useMutation({
+    mutationFn: async (claimId: string) => {
+      const { error } = await supabase.rpc("reject_lost_item_claim", { p_claim_id: claimId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Claim rejected.");
+      refetch();
+    },
+  });
+
+  const { mutate: verifyQR } = useMutation({
+    mutationFn: async ({ claimId, nonce }: { claimId: string; nonce: string }) => {
+      const { error } = await supabase.rpc("verify_lost_item_return", {
+        p_claim_id: claimId,
+        p_nonce: nonce,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Item verified and bounty released successfully! 🎉");
+      refetch();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to verify QR code.");
     },
   });
 
@@ -637,6 +951,10 @@ export default function LostFoundPage() {
                   item={item}
                   onResolve={(id) => resolveItem(id)}
                   currentUserId={user?.id ?? null}
+                  onClaim={(id) => claimItem(id)}
+                  onAcceptClaim={(claimId) => acceptClaim(claimId)}
+                  onRejectClaim={(claimId) => rejectClaim(claimId)}
+                  onVerifyQR={(claimId, nonce) => verifyQR({ claimId, nonce })}
                 />
               ))}
             </div>

@@ -5,7 +5,8 @@ import {
   unsubscribeFromPushNotifications,
 } from "@/services/pushNotifications";
 import { Switch } from "@/components/ui/switch";
-import { Bell, BellOff } from "lucide-react";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import BellOff from "lucide-react/dist/esm/icons/bell-off";
 import { toast } from "sonner";
 
 interface PushNotificationSettingsProps {

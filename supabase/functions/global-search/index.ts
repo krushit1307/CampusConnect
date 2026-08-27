@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
-import { globalSearchLimiter } from "../_shared/rateLimiter.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,32 +30,10 @@ serve(async (req) => {
     );
   }
 
+  const limited = await rateLimiter(req, "global-search", 60, 60);
+  if (limited) return limited;
+
   try {
-    // Determine the real client IP
-    const ip =
-      req.headers.get("true-client-ip") ??
-      req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-      "unknown";
-
-    const { success, remaining } = await globalSearchLimiter.limit(ip);
-
-    if (!success) {
-      return new Response(
-        JSON.stringify({
-          error: "Too many requests",
-          message: "Search rate limit exceeded. Please wait a few seconds before trying again.",
-        }),
-        {
-          status: 429,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-            "X-RateLimit-Remaining": remaining.toString(),
-          },
-        },
-      );
-    }
-
     const body = await req.json();
     const query = body.query;
 
@@ -104,7 +82,6 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/json",
-        "X-RateLimit-Remaining": remaining.toString(),
       },
     });
   } catch (err) {

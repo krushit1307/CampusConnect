@@ -7,6 +7,7 @@ export interface Event {
   id: string;
   title: string;
   description: string | null;
+  tldr_summary?: string | null;
   event_date: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -150,7 +151,7 @@ export function EventCardProvider({
     } else {
       toast.error("Failed to copy link.");
     }
-  };
+  }, [copyToClipboard]);
 
   const handleShare = useCallback(async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;

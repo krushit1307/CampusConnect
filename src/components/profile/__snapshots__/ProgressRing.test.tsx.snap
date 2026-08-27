@@ -22,7 +22,7 @@ exports[`ProgressRing & Onboarding Profile Completeness (#1971) > matches Progre
         stroke-width="6"
       />
       <circle
-        class="transition-[stroke-dashoffset] duration-1000 ease-in-out stroke-emerald-500 dark:stroke-emerald-400"
+        class="transition-[stroke-dashoffset] duration-[1500ms] ease-in-out stroke-emerald-500 dark:stroke-emerald-400"
         cx="60"
         cy="60"
         fill="none"

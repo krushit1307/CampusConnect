@@ -37,6 +37,10 @@ WHERE id IN (
 DROP INDEX IF EXISTS idx_club_members_club_id;
 DROP INDEX IF EXISTS idx_club_members_user_id;
 
+-- Step 3.5: Drop dependent views that reference club_members.id column
+DROP VIEW IF EXISTS public.club_recent_activity_metrics CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS public.club_analytics_mat_view CASCADE;
+
 -- Step 4: Remove the id column primary key constraint
 ALTER TABLE club_members DROP CONSTRAINT club_members_pkey;
 
@@ -67,6 +71,49 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Step 8.5: Recreate the views using user_id instead of id
+CREATE MATERIALIZED VIEW public.club_analytics_mat_view AS
+SELECT 
+    c.id AS club_id,
+    c.name AS club_name,
+    COUNT(DISTINCT cm.user_id) AS total_members,
+    COUNT(DISTINCT e.id) AS total_events
+FROM 
+    public.clubs c
+LEFT JOIN 
+    public.club_members cm ON c.id = cm.club_id AND cm.status = 'approved'
+LEFT JOIN 
+    public.events e ON c.id = e.club_id
+GROUP BY 
+    c.id, c.name;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_club_analytics_mat_view_club_id ON public.club_analytics_mat_view(club_id);
+GRANT SELECT ON public.club_analytics_mat_view TO authenticated, anon;
+
+CREATE OR REPLACE VIEW public.club_recent_activity_metrics AS
+SELECT 
+    c.id AS club_id,
+    c.name AS club_name,
+    COUNT(DISTINCT p.id) AS recent_posts_count,
+    COUNT(DISTINCT cm.user_id) AS recent_approvals_count,
+    COUNT(DISTINCT er.id) AS recent_rsvps_count
+FROM public.clubs c
+LEFT JOIN public.posts p 
+    ON p.club_id = c.id 
+    AND p.created_at >= NOW() - INTERVAL '30 days'
+LEFT JOIN public.club_members cm 
+    ON cm.club_id = c.id 
+    AND cm.status = 'approved' 
+    AND cm.joined_at >= NOW() - INTERVAL '30 days'
+LEFT JOIN public.events e 
+    ON e.club_id = c.id
+LEFT JOIN public.event_rsvps er 
+    ON er.event_id = e.id 
+    AND er.rsvp_at >= NOW() - INTERVAL '30 days'
+GROUP BY c.id, c.name;
+
+GRANT SELECT ON public.club_recent_activity_metrics TO authenticated;
 
 -- Step 9: Verify the migration
 DO $$

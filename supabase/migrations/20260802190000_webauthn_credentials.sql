@@ -1,4 +1,6 @@
 -- WebAuthn Passkeys Table
+DROP TABLE IF EXISTS public.user_passkeys CASCADE;
+DROP TABLE IF EXISTS public.webauthn_challenges CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_passkeys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,

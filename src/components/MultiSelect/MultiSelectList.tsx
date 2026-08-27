@@ -6,7 +6,8 @@ import { EmptyState } from "./EmptyState";
 import { LoadingState } from "./LoadingState";
 
 export function MultiSelectList() {
-  const { availableOptions, inputValue, allowCustom, selected, addTag, setInputValue } = useMultiSelectContext();
+  const { availableOptions, inputValue, allowCustom, selected, addTag, setInputValue } =
+    useMultiSelectContext();
 
   const exactMatch =
     availableOptions.some((opt) => opt.value.toLowerCase() === inputValue.trim().toLowerCase()) ||

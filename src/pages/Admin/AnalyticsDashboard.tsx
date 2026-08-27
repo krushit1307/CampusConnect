@@ -3,7 +3,8 @@ import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import type { RawEventData } from "@/workers/analytics.worker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, AlertCircle } from "lucide-react";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
 
 /**
  * AnalyticsDashboard Page

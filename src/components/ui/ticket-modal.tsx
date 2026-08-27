@@ -1,13 +1,14 @@
-import { useState } from "react";
-import { QRCodeCanvas } from "qrcode.react";
+import { useState, useEffect } from "react";
+import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { Modal } from "@/components/ui/modal";
-import { SteganographicQRCode } from "@/components/SteganographicQRCode";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import ScratchTicket from "@/components/ScratchTicket/ScratchTicket";
 import { formatEventDateRange } from "@/lib/utils";
 import { DownloadTicketButton } from "@/lib/ticket/DownloadTicketButton";
 import { useQrCodeDataUrl } from "@/lib/ticket/useQrCodeDataUrl";
 import type { TicketPdfInput } from "@/lib/ticket/types";
+import { MEDIA_CONSENT_COPY } from "@/lib/mediaConsent";
+import { signChallenge } from "@/lib/crypto/ticketCrypto";
 
 interface Event {
   id: string;
@@ -23,9 +24,16 @@ interface TicketDialogProps {
   onOpenChange: (open: boolean) => void;
   event: Event;
   rsvpId: string;
+  noMediaConsent?: boolean;
 }
 
-export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialogProps) {
+export function TicketDialog({
+  open,
+  onOpenChange,
+  event,
+  rsvpId,
+  noMediaConsent,
+}: TicketDialogProps) {
   const ticketId = rsvpId.slice(-6).toUpperCase();
   const [activeTab, setActiveTab] = useState<"ticket" | "scanner">("ticket");
   const { qrCodeDataUrl, qrCanvasRef } = useQrCodeDataUrl(ticketId);
@@ -40,8 +48,33 @@ export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialog
     attendee: {},
     ticketId,
     qrCodeDataUrl,
+    noMediaConsent,
   };
   const [ticketRevealed, setTicketRevealed] = useState(false);
+
+  // Decentralized Ticketing: Dynamic Time-based Challenge
+  const [dynamicPayload, setDynamicPayload] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== "ticket") return;
+
+    const generatePayload = async () => {
+      try {
+        // Challenge changes every 30 seconds
+        const challenge = Math.floor(Date.now() / 30000).toString();
+        const signature = await signChallenge(challenge);
+        const payload = JSON.stringify({ ticketId: rsvpId, challenge, signature });
+        setDynamicPayload(payload);
+      } catch (err) {
+        console.error("Failed to generate dynamic QR payload:", err);
+        setDynamicPayload(rsvpId); // Fallback
+      }
+    };
+
+    generatePayload();
+    const interval = setInterval(generatePayload, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab, rsvpId]);
 
   const customHeader = (
     <div className="flex flex-col space-y-1.5 text-center sm:text-left w-full">
@@ -86,7 +119,27 @@ export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialog
       {activeTab === "ticket" ? (
         <ScratchTicket onRevealed={() => setTicketRevealed(true)}>
           <div className="mt-2 flex flex-col items-center gap-4">
-            <SteganographicQRCode rsvpId={rsvpId} size={200} />
+            {dynamicPayload ? (
+              <div className="relative p-2 bg-white rounded-xl border-4 border-violet-500 animate-pulse-border">
+                <QRCodeSVG value={dynamicPayload} size={200} level="H" />
+                <div className="absolute inset-0 border-4 border-violet-500 rounded-xl opacity-50 blur-sm pointer-events-none" />
+              </div>
+            ) : (
+              <div className="w-[200px] h-[200px] bg-muted animate-pulse rounded-xl" />
+            )}
+            {noMediaConsent && (
+              <div
+                role="alert"
+                className="w-full rounded-md border-2 border-red-900 bg-red-700 p-3 text-left text-white"
+              >
+                <p className="font-mono text-sm font-black uppercase tracking-wide">
+                  {MEDIA_CONSENT_COPY.ticketLabel}
+                </p>
+                <p className="mt-1 font-mono text-[10px] font-bold leading-relaxed">
+                  {MEDIA_CONSENT_COPY.staffInstruction}
+                </p>
+              </div>
+            )}
             <div className="w-full space-y-2 text-center">
               <h3 className="text-lg font-bold">{event.title}</h3>
               <p className="text-sm text-muted-foreground">{formatEventDateRange(event)}</p>

@@ -2,7 +2,7 @@ import React, { useEffect, useState, ComponentType } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 
 export interface WithAuthProps {
   user: User;

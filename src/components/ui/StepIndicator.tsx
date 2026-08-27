@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+import Check from "lucide-react/dist/esm/icons/check";
 
 export interface StepIndicatorProps {
   currentStep: number; // 1-indexed, e.g., 1-5

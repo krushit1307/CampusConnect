@@ -1,6 +1,12 @@
 import React, { useState, useRef, useMemo } from "react";
 import { EventTask } from "@/types/eventTasks";
-import { Calendar, Plus, Trash2, Edit2, ArrowRight, CheckCircle2, Clock } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Edit2 from "lucide-react/dist/esm/icons/edit-2";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Clock from "lucide-react/dist/esm/icons/clock";
 import format from "date-fns/format";
 import differenceInDays from "date-fns/differenceInDays";
 import addDays from "date-fns/addDays";

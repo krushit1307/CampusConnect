@@ -1,4 +1,3 @@
-import { Transform, TransformCallback } from "node:stream";
 import { normalizeCsvHeaderKeys, RawUserCsvRow } from "../validations/bulkImportValidation";
 
 export interface ParsedCsvRowRecord {
@@ -6,107 +5,75 @@ export interface ParsedCsvRowRecord {
   data: RawUserCsvRow;
 }
 
-export class CSVStreamParser extends Transform {
-  private bufferRemainder: string = "";
+/** Incremental CSV parser that works in browsers and Node without Node streams. */
+export class CSVStreamParser {
+  private bufferRemainder = "";
   private headerColumns: string[] | null = null;
-  private currentRowIndex: number = 0;
-  private delimiter: string = ",";
+  private currentRowIndex = 0;
+  private readonly delimiter: string;
+  private readonly decoder = new TextDecoder();
 
-  constructor(delimiter: string = ",") {
-    super({ objectMode: true });
+  constructor(delimiter = ",") {
     this.delimiter = delimiter;
   }
 
-  _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {
-    try {
-      const textChunk = typeof chunk === "string" ? chunk : chunk.toString("utf8");
-      this.bufferRemainder += textChunk;
+  public write(chunk: string | Uint8Array): ParsedCsvRowRecord[] {
+    this.bufferRemainder +=
+      typeof chunk === "string" ? chunk : this.decoder.decode(chunk, { stream: true });
 
-      const lines = this.extractLines();
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-
-        const fields = this.parseCsvLine(line);
-
-        if (!this.headerColumns) {
-          // First non-empty row is treated as header
-          this.headerColumns = fields.map((f) => f.trim());
-          continue;
-        }
-
-        this.currentRowIndex++;
-        const rawRowObj: RawUserCsvRow = {};
-
-        for (let i = 0; i < this.headerColumns.length; i++) {
-          const colName = this.headerColumns[i];
-          rawRowObj[colName] = fields[i] !== undefined ? fields[i].trim() : "";
-        }
-
-        const normalizedRow = normalizeCsvHeaderKeys(rawRowObj);
-        const record: ParsedCsvRowRecord = {
-          rowNumber: this.currentRowIndex,
-          data: normalizedRow,
-        };
-
-        this.push(record);
-      }
-
-      callback();
-    } catch (err: any) {
-      callback(err);
-    }
+    return this.extractLines().flatMap((line) => this.parseRecord(line));
   }
 
-  _flush(callback: TransformCallback): void {
-    try {
-      if (this.bufferRemainder.trim()) {
-        const line = this.bufferRemainder.trim();
-        if (this.headerColumns && line) {
-          const fields = this.parseCsvLine(line);
-          this.currentRowIndex++;
-          const rawRowObj: RawUserCsvRow = {};
-
-          for (let i = 0; i < this.headerColumns.length; i++) {
-            const colName = this.headerColumns[i];
-            rawRowObj[colName] = fields[i] !== undefined ? fields[i].trim() : "";
-          }
-
-          const normalizedRow = normalizeCsvHeaderKeys(rawRowObj);
-          this.push({
-            rowNumber: this.currentRowIndex,
-            data: normalizedRow,
-          });
-        }
-      }
-      callback();
-    } catch (err: any) {
-      callback(err);
-    }
+  public finish(): ParsedCsvRowRecord[] {
+    this.bufferRemainder += this.decoder.decode();
+    const finalLine = this.bufferRemainder;
+    this.bufferRemainder = "";
+    return this.parseRecord(finalLine);
   }
 
-  /**
-   * Splits raw text buffer into lines, keeping incomplete quotes intact in bufferRemainder
-   */
+  private parseRecord(line: string): ParsedCsvRowRecord[] {
+    if (!line.trim()) return [];
+
+    const fields = this.parseCsvLine(line);
+    if (!this.headerColumns) {
+      this.headerColumns = fields.map((field) => field.trim());
+      return [];
+    }
+
+    this.currentRowIndex += 1;
+    const rawRow: RawUserCsvRow = {};
+    for (let index = 0; index < this.headerColumns.length; index += 1) {
+      rawRow[this.headerColumns[index]] = fields[index]?.trim() ?? "";
+    }
+
+    return [
+      {
+        rowNumber: this.currentRowIndex,
+        data: normalizeCsvHeaderKeys(rawRow),
+      },
+    ];
+  }
+
+  /** Split complete rows while retaining a quoted/incomplete row for the next chunk. */
   private extractLines(): string[] {
     const lines: string[] = [];
     let currentLine = "";
     let insideQuote = false;
 
-    for (let i = 0; i < this.bufferRemainder.length; i++) {
-      const char = this.bufferRemainder[i];
-      const nextChar = this.bufferRemainder[i + 1];
+    for (let index = 0; index < this.bufferRemainder.length; index += 1) {
+      const char = this.bufferRemainder[index];
+      const nextChar = this.bufferRemainder[index + 1];
 
       if (char === '"') {
         if (insideQuote && nextChar === '"') {
-          currentLine += '"';
-          i++; // skip escaped quote
+          currentLine += '""';
+          index += 1;
         } else {
           insideQuote = !insideQuote;
           currentLine += char;
         }
       } else if ((char === "\n" || (char === "\r" && nextChar === "\n")) && !insideQuote) {
-        if (char === "\r") i++; // skip \r
+        if (char === "\r") index += 1;
         lines.push(currentLine);
         currentLine = "";
       } else {
@@ -118,22 +85,19 @@ export class CSVStreamParser extends Transform {
     return lines;
   }
 
-  /**
-   * Parses a single CSV line respecting quotes and delimiter
-   */
   private parseCsvLine(line: string): string[] {
     const fields: string[] = [];
     let currentField = "";
     let insideQuote = false;
 
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      const nextChar = line[index + 1];
 
       if (char === '"') {
         if (insideQuote && nextChar === '"') {
           currentField += '"';
-          i++;
+          index += 1;
         } else {
           insideQuote = !insideQuote;
         }

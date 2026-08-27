@@ -8,6 +8,7 @@ const mockEvent = {
   title: "React Compound Components Workshop",
   description:
     "Learn how to build reusable and modular components using React context and compound patterns.",
+  tldr_summary: "Build reusable React components with hands-on patterns.",
   event_date: "2026-08-15T10:00:00Z",
   start_date: "2026-08-15T10:00:00Z",
   end_date: "2026-08-15T12:00:00Z",
@@ -39,6 +40,9 @@ describe("EventCard Compound Component", () => {
 
     expect(screen.getByText("React Compound Components Workshop")).toBeInTheDocument();
     expect(screen.getByText("Web Dev Club")).toBeInTheDocument();
+    expect(
+      screen.getByText("Build reusable React components with hands-on patterns."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Auditorium A")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /rsvp/i })).toBeInTheDocument();
   });

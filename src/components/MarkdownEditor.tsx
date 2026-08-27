@@ -5,20 +5,21 @@ import MDEditor, { type RefMDEditor } from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { useTheme } from "@/components/theme-provider";
 import { MentionRenderer } from "@/components/MentionRenderer";
-import {
-  Bold,
-  Code2,
-  Eye,
-  Heading2,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  MessageSquareText,
-  Pencil,
-  Quote,
-  AtSign,
-} from "lucide-react";
+import { TableBuilderModal } from "@/components/TableBuilderModal";
+import { insertMarkdownBlock } from "@/lib/insertMarkdownBlock";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Code2 from "lucide-react/dist/esm/icons/code-2";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Heading2 from "lucide-react/dist/esm/icons/heading-2";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import MessageSquareText from "lucide-react/dist/esm/icons/message-square-text";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Quote from "lucide-react/dist/esm/icons/quote";
+import AtSign from "lucide-react/dist/esm/icons/at-sign";
+import TableIcon from "lucide-react/dist/esm/icons/table";
 
 export type MarkdownEditorProps = {
   value: string;
@@ -83,6 +84,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   ) => {
     const mdEditorRef = useRef<RefMDEditor>(null);
     const [mode, setMode] = useState<"write" | "preview">("write");
+    const [isTableBuilderOpen, setIsTableBuilderOpen] = useState(false);
 
     const { theme } = useTheme();
     const [colorMode, setColorMode] = useState<"light" | "dark">("light");
@@ -158,122 +160,157 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       });
     };
 
+    const insertTableMarkdown = (markdown: string) => {
+      const textarea = mdEditorRef.current?.textarea;
+      if (!textarea) return;
+
+      const { nextValue, cursorPosition } = insertMarkdownBlock(
+        value,
+        textarea.selectionStart,
+        textarea.selectionEnd,
+        markdown,
+      );
+      onChange(nextValue);
+
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(cursorPosition, cursorPosition);
+      });
+    };
+
     return (
-      <div
-        className="neu-border bg-white dark:bg-zinc-900 dark:border-zinc-700 transition-colors"
-        aria-label="Markdown editor"
-        data-color-mode={colorMode}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black dark:border-zinc-700 bg-sky dark:bg-zinc-800 p-2 transition-colors">
-          <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
-            {toolbarActions.map((action) => {
-              const Icon = action.icon;
-              return (
+      <>
+        <div
+          className="neu-border bg-white dark:bg-zinc-900 dark:border-zinc-700 transition-colors"
+          aria-label="Markdown editor"
+          data-color-mode={colorMode}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black dark:border-zinc-700 bg-sky dark:bg-zinc-800 p-2 transition-colors">
+            <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
+              {toolbarActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => applyMarkdown(action)}
+                    className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-lime dark:hover:bg-lime dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
+                    aria-label={action.label}
+                    title={action.label}
+                  >
+                    <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
+                  </button>
+                );
+              })}
+              {enableMentions && (
                 <button
-                  key={action.label}
                   type="button"
-                  onClick={() => applyMarkdown(action)}
-                  className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-lime dark:hover:bg-lime dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
-                  aria-label={action.label}
-                  title={action.label}
+                  onClick={insertMention}
+                  className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-peach dark:hover:bg-peach dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
+                  aria-label="Mention user"
+                  title="Mention user (@)"
                 >
-                  <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
+                  <AtSign size={16} strokeWidth={2.5} aria-hidden="true" />
                 </button>
-              );
-            })}
-            {enableMentions && (
+              )}
               <button
                 type="button"
-                onClick={insertMention}
-                className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-peach dark:hover:bg-peach dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
-                aria-label="Mention user"
-                title="Mention user (@)"
+                onClick={() => setIsTableBuilderOpen(true)}
+                className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-lime dark:hover:bg-lime dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
+                aria-label="Insert table"
+                title="Insert table"
               >
-                <AtSign size={16} strokeWidth={2.5} aria-hidden="true" />
+                <TableIcon size={16} strokeWidth={2.5} aria-hidden="true" />
               </button>
-            )}
+            </div>
+
+            <div className="flex" aria-label="Editor mode">
+              <button
+                type="button"
+                onClick={() => setMode("write")}
+                className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase dark:border-zinc-600 transition-colors ${
+                  mode === "write"
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
+                }`}
+                aria-pressed={mode === "write"}
+              >
+                <Pencil size={14} aria-hidden="true" /> Write
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("preview")}
+                className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase dark:border-zinc-600 transition-colors ${
+                  mode === "preview"
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
+                }`}
+                aria-pressed={mode === "preview"}
+              >
+                <Eye size={14} aria-hidden="true" /> Preview
+              </button>
+            </div>
           </div>
 
-          <div className="flex" aria-label="Editor mode">
-            <button
-              type="button"
-              onClick={() => setMode("write")}
-              className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase dark:border-zinc-600 transition-colors ${
-                mode === "write"
-                  ? "bg-black text-cream dark:bg-cream dark:text-black"
-                  : "bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
-              }`}
-              aria-pressed={mode === "write"}
+          {mode === "write" ? (
+            <MDEditor
+              ref={mdEditorRef}
+              value={value}
+              onChange={(val) => onChange(val || "")}
+              preview="edit"
+              hideToolbar={true}
+              height="auto"
+              style={{ minHeight: "200px" }}
+              textareaProps={{
+                id: id,
+                placeholder: placeholder,
+                rows: rows,
+                className: `${minHeightClass} w-full resize-y bg-white dark:bg-zinc-900 text-black dark:text-zinc-100 p-4 font-mono text-sm outline-none placeholder:text-gray-500 dark:placeholder:text-zinc-500 focus:bg-cream/40 dark:focus:bg-zinc-800/50 transition-colors`,
+                "aria-label": "Content in Markdown",
+              }}
+            />
+          ) : (
+            <div
+              className={`${minHeightClass} bg-white dark:bg-zinc-900 p-4 transition-colors`}
+              aria-live="polite"
             >
-              <Pencil size={14} aria-hidden="true" /> Write
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("preview")}
-              className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase dark:border-zinc-600 transition-colors ${
-                mode === "preview"
-                  ? "bg-black text-cream dark:bg-cream dark:text-black"
-                  : "bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
-              }`}
-              aria-pressed={mode === "preview"}
-            >
-              <Eye size={14} aria-hidden="true" /> Preview
-            </button>
+              {value.trim() ? (
+                <div className="markdown-content font-mono text-sm leading-relaxed text-black dark:text-zinc-100">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => (
+                        <p>
+                          <MentionRenderer content={String(children)} />
+                        </p>
+                      ),
+                    }}
+                  >
+                    {value}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500 dark:text-zinc-400">
+                  <MessageSquareText size={32} aria-hidden="true" />
+                  <p className="font-mono text-sm text-gray-800 dark:text-zinc-300">
+                    Your Markdown preview will appear here.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="border-t-2 border-black dark:border-zinc-700 bg-cream dark:bg-zinc-800 dark:text-zinc-300 px-4 py-2 font-mono text-[10px] uppercase text-black transition-colors">
+            Raw Markdown is saved. HTML is not rendered.
           </div>
         </div>
 
-        {mode === "write" ? (
-          <MDEditor
-            ref={mdEditorRef}
-            value={value}
-            onChange={(val) => onChange(val || "")}
-            preview="edit"
-            hideToolbar={true}
-            height="auto"
-            style={{ minHeight: "200px" }}
-            textareaProps={{
-              id: id,
-              placeholder: placeholder,
-              rows: rows,
-              className: `${minHeightClass} w-full resize-y bg-white dark:bg-zinc-900 text-black dark:text-zinc-100 p-4 font-mono text-sm outline-none placeholder:text-gray-500 dark:placeholder:text-zinc-500 focus:bg-cream/40 dark:focus:bg-zinc-800/50 transition-colors`,
-              "aria-label": "Content in Markdown",
-            }}
-          />
-        ) : (
-          <div
-            className={`${minHeightClass} bg-white dark:bg-zinc-900 p-4 transition-colors`}
-            aria-live="polite"
-          >
-            {value.trim() ? (
-              <div className="markdown-content font-mono text-sm leading-relaxed text-black dark:text-zinc-100">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    p: ({ children }) => (
-                      <p>
-                        <MentionRenderer content={String(children)} />
-                      </p>
-                    ),
-                  }}
-                >
-                  {value}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500 dark:text-zinc-400">
-                <MessageSquareText size={32} aria-hidden="true" />
-                <p className="font-mono text-sm text-gray-800 dark:text-zinc-300">
-                  Your Markdown preview will appear here.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="border-t-2 border-black dark:border-zinc-700 bg-cream dark:bg-zinc-800 dark:text-zinc-300 px-4 py-2 font-mono text-[10px] uppercase text-black transition-colors">
-          Raw Markdown is saved. HTML is not rendered.
-        </div>
-      </div>
+        <TableBuilderModal
+          isOpen={isTableBuilderOpen}
+          onClose={() => setIsTableBuilderOpen(false)}
+          onInsert={insertTableMarkdown}
+        />
+      </>
     );
   },
 );

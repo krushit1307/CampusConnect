@@ -3,7 +3,8 @@
 import * as React from "react";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { motion } from "framer-motion";
-import { LayoutGrid, List } from "lucide-react";
+import LayoutGrid from "lucide-react/dist/esm/icons/layout-grid";
+import List from "lucide-react/dist/esm/icons/list";
 import { cn } from "@/lib/utils";
 
 export type FeedViewMode = "grid" | "list";

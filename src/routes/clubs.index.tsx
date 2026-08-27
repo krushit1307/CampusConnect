@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@/hooks/useReactQueryReplacement";
+import { useQuery, useInfiniteQuery, useQueryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
 import { HoverLink } from "@/components/ui/HoverLink";
@@ -10,7 +10,11 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { FilterSidebar, TAGS_SEARCH_PARAM } from "@/components/Clubs/FilterSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Users, Plus } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import X from "lucide-react/dist/esm/icons/x";
+import Users from "lucide-react/dist/esm/icons/users";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
 // Fixed (not Math.random) pattern so the skeleton layout never shifts
@@ -49,6 +53,8 @@ const colors = [
   "bg-purple-100 text-purple-800 border-purple-200",
 ];
 
+const PAGE_SIZE = 12;
+
 export default function ClubsIndex() {
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -66,79 +72,53 @@ export default function ClubsIndex() {
       .filter(Boolean);
   }, [searchParams]);
 
-  const { data: clubs = [], isLoading } = useQuery<Club[]>({
-    queryKey: ["clubs", searchQuery],
-    queryFn: async () => {
-      if (searchQuery.trim()) {
-        try {
-          const { data, error } = await supabase.rpc("search_clubs", {
-            search_term: searchQuery,
-          });
-          if (!error && data) return data as unknown as Club[];
-        } catch (e) {
-          console.warn("RPC search_clubs failed, falling back to client filter", e);
-        }
-      }
-
-      const { data, error } = await supabase.from("clubs").select(`
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteQuery<{
+    clubs: Club[];
+    count: number;
+  }>({
+    queryKey: ["clubs-paginated", searchQuery, activeCategory, activeTags.join(",")],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const { data, count, error } = await (supabase.rpc as any)(
+        "get_filtered_clubs",
+        {
+          p_search: searchQuery.trim() || null,
+          p_category: activeCategory !== "All" ? activeCategory : null,
+          p_tags: activeTags.length > 0 ? activeTags : null,
+        },
+        { count: "exact" },
+      )
+        .select(
+          `
           id, name, slug, description, banner_url, logo_url, category,
           club_stats(total_members),
           club_tags(tag_id, club_tag_labels(name))
-        `);
+        `,
+        )
+        .range((pageParam as number) * PAGE_SIZE, ((pageParam as number) + 1) * PAGE_SIZE - 1);
+
       if (error) throw error;
-      return (data || []) as unknown as Club[];
+      return { clubs: (data || []) as unknown as Club[], count: count ?? 0 };
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      const fetchedItems = allPages.reduce((total, page) => total + page.clubs.length, 0);
+      return fetchedItems < lastPage.count ? allPages.length : undefined;
     },
   });
+
+  const clubs = useMemo(() => data?.pages.flatMap((page: any) => page.clubs) || [], [data]);
 
   const { data: tagLabels = [] } = useQuery<string[]>({
     queryKey: ["club-tag-labels"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("club_tag_labels").select("name").order("name");
+      const { data, error } = await (supabase as any)
+        .from("club_tag_labels")
+        .select("name")
+        .order("name");
       if (error) throw error;
-      return (data || []).map((row) => row.name);
+      return (data || []).map((row: any) => row.name);
     },
   });
-
-  // Sidebar options: DB-defined tag labels, plus any tags present on clubs.
-  const availableTags = useMemo(() => {
-    const tagSet = new Set<string>(tagLabels);
-    for (const club of clubs) {
-      for (const tag of club.club_tags ?? []) {
-        if (tag.club_tag_labels?.name) tagSet.add(tag.club_tag_labels.name);
-      }
-    }
-    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
-  }, [tagLabels, clubs]);
-
-  // Filter by category + tags + search query (as client-side fallback/filter)
-  const filteredClubs = useMemo(() => {
-    return clubs.filter((c) => {
-      // Category filter
-      if (activeCategory !== "All") {
-        const cat = c.category?.toLowerCase() || "";
-        if (cat !== activeCategory.toLowerCase()) return false;
-      }
-
-      // Tag filter: a club must match every selected tag
-      if (activeTags.length > 0) {
-        const clubTagNames = (c.club_tags ?? [])
-          .map((tag) => tag.club_tag_labels?.name?.toLowerCase() ?? "")
-          .filter(Boolean);
-        const matchesAllTags = activeTags.every((tag) => clubTagNames.includes(tag));
-        if (!matchesAllTags) return false;
-      }
-
-      // Search filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = c.name.toLowerCase().includes(q);
-        const matchesDesc = c.description?.toLowerCase().includes(q) || false;
-        return matchesName || matchesDesc;
-      }
-
-      return true;
-    });
-  }, [clubs, activeCategory, searchQuery, activeTags]);
 
   const handlePrefetch = (slug: string) => {
     queryClient.prefetchQuery(createClubProfileQueryOptions(supabase, slug));
@@ -161,6 +141,14 @@ export default function ClubsIndex() {
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <HoverLink
+              to="/clubs/fit"
+              className="neu-border neu-press flex items-center justify-center gap-2 bg-emerald-400 px-4 py-2 font-mono text-sm font-bold uppercase text-black"
+            >
+              <Sparkles className="h-4 w-4" />
+              Find Your Fit
+            </HoverLink>
+
             <HoverLink
               to="/clubs/new"
               className="neu-border neu-press flex items-center justify-center gap-2 bg-sky px-4 py-2 font-mono text-sm font-bold uppercase text-black"
@@ -224,119 +212,94 @@ export default function ClubsIndex() {
               <ClubCardSkeleton key={i} size={size} />
             ))}
           </div>
-        ) : filteredClubs.length === 0 ? (
+        ) : clubs.length === 0 ? (
           <div className="p-4">
             <EmptyState
               illustrationType="no-results"
-              title={searchQuery ? `No clubs match "${searchQuery}"` : "No clubs found"}
-              description="Try adjusting your search query or choosing a different category filter."
+              title={
+                searchQuery
+                  ? `No clubs match "${searchQuery}"`
+                  : activeTags.length > 0
+                    ? "No clubs match the selected tags"
+                    : "No clubs found"
+              }
+              description="Try adjusting your search query or choosing different filters."
             />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredClubs.map((c, index) => {
-              const membersCount = Array.isArray(c.club_stats)
-                ? (c.club_stats[0]?.total_members ?? 0)
-                : c.club_stats
-                  ? (c.club_stats as { total_members: number }).total_members
-                  : 0;
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {clubs.map((c: Club, index: number) => {
+                const membersCount = Array.isArray(c.club_stats)
+                  ? (c.club_stats[0]?.total_members ?? 0)
+                  : c.club_stats
+                    ? (c.club_stats as { total_members: number }).total_members
+                    : 0;
 
-              return (
-                <div
-                  key={c.id}
-                  className="animate-fade-in-up flex flex-col"
-                  onMouseEnter={() => handlePrefetch(c.slug)}
-                >
-                  <HoverLink
-                    to={`/clubs/${c.slug}`}
-                    className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
+                return (
+                  <div
+                    key={c.id}
+                    className="animate-fade-in-up flex flex-col"
+                    onMouseEnter={() => handlePrefetch(c.slug)}
                   >
-                    {cat}
-                  </Button>
-                ))}
-              </div>
+                    <HoverLink
+                      to={`/clubs/${c.slug}`}
+                      className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-4">
+                          <div
+                            className={`club-logo-badge border-2 border-black ${
+                              colors[index % colors.length]
+                            } px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase`}
+                          >
+                            {c.category || "Club"}
+                          </div>
+                        </div>
+
+                        <h2 className="text-xl font-bold font-display text-black mb-2 line-clamp-1">
+                          {c.name}
+                        </h2>
+
+                        <p className="font-mono text-xs text-gray-600 line-clamp-3 mb-6">
+                          {c.description || "No description provided."}
+                        </p>
+                      </div>
+
+                      <div>
+                        <div className="my-3 border-t-2 border-black" />
+                        <div className="flex items-center justify-between font-mono text-xs text-gray-800">
+                          <span className="flex items-center gap-1">
+                            <Users size={14} /> {membersCount} Members
+                          </span>
+
+                          <span className="font-bold uppercase flex items-center gap-1 group-hover:text-blue-600 transition-colors">
+                            View Profile{" "}
+                            <span className="transition-transform duration-300 group-hover:translate-x-1">
+                              →
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </HoverLink>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Content */}
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {SKELETON_SIZES.map((size, i) => (
-                  <ClubCardSkeleton key={i} size={size} />
-                ))}
-              </div>
-            ) : filteredClubs.length === 0 ? (
-              <div className="p-4">
-                <EmptyState
-                  illustrationType="no-results"
-                  title={
-                    searchQuery
-                      ? `No clubs match "${searchQuery}"`
-                      : activeTags.length > 0
-                        ? "No clubs match the selected tags"
-                        : "No clubs found"
-                  }
-                  description="Try adjusting your search query or choosing different tag filters."
-                />
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredClubs.map((c, index) => {
-                  const membersCount = Array.isArray(c.club_stats)
-                    ? (c.club_stats[0]?.total_members ?? 0)
-                    : c.club_stats
-                      ? (c.club_stats as { total_members: number }).total_members
-                      : 0;
-
-                  return (
-                    <div key={c.id} className="animate-fade-in-up flex flex-col">
-                      <SmartLink
-                        to={`/clubs/${c.slug}`}
-                        prefetch={() => handlePrefetch(c.slug)}
-                        className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between gap-2 mb-4">
-                            <div
-                              className={`club-logo-badge border-2 border-black ${
-                                colors[index % colors.length]
-                              } px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase`}
-                            >
-                              {c.category || "Club"}
-                            </div>
-                          </div>
-
-                          <h2 className="text-xl font-bold font-display text-black mb-2 line-clamp-1">
-                            {c.name}
-                          </h2>
-
-                          <p className="font-mono text-xs text-gray-600 line-clamp-3 mb-6">
-                            {c.description || "No description provided."}
-                          </p>
-                        </div>
-
-                        <div>
-                          <div className="my-3 border-t-2 border-black" />
-                          <div className="flex items-center justify-between font-mono text-xs text-gray-800">
-                            <span className="flex items-center gap-1">
-                              <Users size={14} /> {membersCount} Members
-                            </span>
-
-                            <span className="font-bold uppercase flex items-center gap-1 group-hover:text-blue-600 transition-colors">
-                              View Profile{" "}
-                              <span className="transition-transform duration-300 group-hover:translate-x-1">
-                                →
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                      </SmartLink>
-                    </div>
-                  );
-                })}{" "}
+            {hasNextPage && (
+              <div className="flex justify-center mt-12 mb-8">
+                <Button
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="neu-border neu-press bg-black text-white hover:bg-gray-800 px-8 py-3 font-mono font-bold uppercase text-sm"
+                >
+                  {isFetchingNextPage ? "Loading..." : "Load More Clubs"}
+                </Button>
               </div>
             )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </SiteShell>
   );

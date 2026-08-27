@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import { verifyAuth } from "../shared/auth-middleware.ts";
-import { outboundCommunicationLimiter } from "../_shared/rateLimiter.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,13 +9,15 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
-  // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const limited = await rateLimiter(req, "send-newsletter", 10, 60);
+  if (limited) return limited;
+
   try {
-    const { clubId, templateId } = await req.json().catch(() => ({}));
+    const { clubId, newsletterId, templateId } = await req.json().catch(() => ({}));
 
     if (!clubId) {
       return new Response(JSON.stringify({ error: "clubId is required" }), {
@@ -24,12 +26,10 @@ serve(async (req: Request) => {
       });
     }
 
-    // Initialize Supabase Client with service role key to insert into bulk_email_jobs
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user authorization (valid login session)
     let user;
     try {
       user = await verifyAuth(req, supabase);
@@ -40,55 +40,26 @@ serve(async (req: Request) => {
       });
     }
 
-    // --- Outbound Communication Rate Limiting ---
-    const ipAddress = req.headers.get("x-forwarded-for") || "unknown-ip";
-    const identifier = user?.id || ipAddress;
-    const { success } = await outboundCommunicationLimiter.limit(identifier);
-
-    if (!success) {
-      console.warn(`[RateLimit] Outbound communication blocked for identifier: ${identifier}`);
-      return new Response(
-        JSON.stringify({ error: "Too Many Requests. Maximum 5 requests per 15 minutes." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    // --------------------------------------------
-
-    // Verify that the user is an approved admin or organizer of the club
+    // Verify admin/organizer status
     const { data: member, error: memberError } = await supabase
       .from("club_members")
       .select("role")
       .eq("club_id", clubId)
       .eq("user_id", user.id)
       .eq("status", "approved")
-      .single();
+      .maybeSingle();
 
-    if (memberError || !member || (member.role !== "admin" && member.role !== "organizer")) {
+    const isClubAdmin =
+      member && ["admin", "organizer", "president", "officer"].includes(member.role.toLowerCase());
+
+    if (memberError || !isClubAdmin) {
       return new Response(
         JSON.stringify({ error: "Forbidden: Only club admins or organizers can send newsletters" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Insert a pending job into the bulk_email_jobs table
-    const { data: job, error: jobError } = await supabase
-      .from("bulk_email_jobs")
-      .insert({
-        club_id: clubId,
-        template_id: templateId || null,
-        status: "pending",
-      })
-      .select("id")
-      .single();
-
-    if (jobError || !job) {
-      throw new Error(`Failed to queue email job: ${jobError?.message}`);
-    }
-
-    // Asynchronously trigger the worker to process the queue without blocking this request
+    // Trigger newsletter-worker in background
     const workerUrl = `${supabaseUrl}/functions/v1/newsletter-worker`;
     fetch(workerUrl, {
       method: "POST",
@@ -96,13 +67,14 @@ serve(async (req: Request) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${supabaseServiceKey}`,
       },
-      body: JSON.stringify({ jobId: job.id }),
-    }).catch((err) => console.error("Failed to asynchronously trigger newsletter-worker:", err));
+      body: JSON.stringify({ newsletterId, clubId, templateId }),
+    }).catch((err) => console.error("Failed to trigger newsletter-worker:", err));
 
     return new Response(
       JSON.stringify({
-        message: "Newsletter sending initiated in background",
-        jobId: job.id,
+        message: "Newsletter dispatch initiated in background",
+        newsletterId,
+        clubId,
       }),
       {
         status: 202,
@@ -110,7 +82,7 @@ serve(async (req: Request) => {
       },
     );
   } catch (error: unknown) {
-    console.error("send-newsletter function error:", error);
+    console.error("send-newsletter error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

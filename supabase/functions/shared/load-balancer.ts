@@ -171,11 +171,7 @@ export function geoFromRequest(req: Request): GeoInfo {
   const cfIp = req.headers.get("cf-connecting-ip");
   const xff = req.headers.get("x-forwarded-for");
   const xRealIp = req.headers.get("x-real-ip");
-  const ip =
-    cfIp ||
-    (xff ? xff.split(",")[0].trim() : "") ||
-    xRealIp ||
-    "0.0.0.0";
+  const ip = cfIp || (xff ? xff.split(",")[0].trim() : "") || xRealIp || "0.0.0.0";
 
   const countryHeader = req.headers.get("cf-ipcountry") || req.headers.get("x-country");
   const country = countryHeader ? countryHeader.toUpperCase().trim() : null;
@@ -481,7 +477,7 @@ export function selectNode(req: Request, opts: SelectorOptions): LbSelection {
     failover = true;
   }
 
-  const node = chosenId !== null ? nodes.find((n) => n.id === chosenId) ?? null : null;
+  const node = chosenId !== null ? (nodes.find((n) => n.id === chosenId) ?? null) : null;
 
   // Re-mint the cookie when a sticky node failed over so the client stays
   // pinned to the replacement node on subsequent requests.
@@ -495,9 +491,7 @@ export function selectNode(req: Request, opts: SelectorOptions): LbSelection {
     country: geo.country,
     primaryNodeId,
     routingMs: performance.now() - started,
-    setCookie: needsCookie
-      ? buildAffinityCookie(node.id, geo.ip, cookieName, cookieTtlDays)
-      : null,
+    setCookie: needsCookie ? buildAffinityCookie(node.id, geo.ip, cookieName, cookieTtlDays) : null,
     nodeOrder: order,
   };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Play } from "lucide-react";
+import Play from "lucide-react/dist/esm/icons/play";
 import { cn } from "@/lib/utils";
 
 interface VideoThumbnailProps {

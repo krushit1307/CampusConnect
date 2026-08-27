@@ -1,5 +1,7 @@
 import * as React from "react";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import Check from "lucide-react/dist/esm/icons/check";
+import ChevronsUpDown from "lucide-react/dist/esm/icons/chevrons-up-down";
+import Search from "lucide-react/dist/esm/icons/search";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { cn } from "@/lib/utils";

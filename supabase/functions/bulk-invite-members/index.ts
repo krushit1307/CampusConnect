@@ -146,7 +146,7 @@ serve(async (req: Request) => {
     console.warn(`[RateLimit] Outbound communication blocked for identifier: ${identifier}`);
     return new Response(
       JSON.stringify({ error: "Too Many Requests. Maximum 5 requests per 15 minutes." }),
-      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
   // --------------------------------------------

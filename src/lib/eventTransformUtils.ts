@@ -13,6 +13,7 @@ export type EventRsvp = {
   status: string;
   checked_in?: boolean;
   profiles: Profile[] | Profile | null;
+  accommodations_requested?: string | null;
 };
 
 export type EventWaitlist = {
@@ -28,6 +29,7 @@ export type PersonCard = {
   name: string;
   avatarUrl: string | null;
   rsvpId?: string;
+  hasAccommodation?: boolean;
 };
 
 export type KanbanColumns = {
@@ -57,6 +59,8 @@ function toPersonCard(
     userId: entry.user_id,
     name: buildPersonName(profile),
     avatarUrl: profile?.avatar_url || null,
+    hasAccommodation:
+      "accommodations_requested" in entry && !!(entry as EventRsvp).accommodations_requested,
     ...("rsvpId" in entry ? { rsvpId: entry.id } : {}),
   };
 }

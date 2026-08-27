@@ -7,7 +7,12 @@ import { CollaborativeEditor } from "@/components/CollaborativeEditor";
 import { pickColor } from "@/hooks/useCollaborativeEditor";
 import type { CollaborationUser } from "@/hooks/useCollaborativeEditor";
 import { toast } from "sonner";
-import { Plus, FileText, ArrowLeft, Trash2, Clock, Users } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Users from "lucide-react/dist/esm/icons/users";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { User } from "@supabase/supabase-js";
@@ -60,13 +65,17 @@ export default function CollaborativeNotesRoute() {
     if (!club || !currentUser) return;
     supabase
       .from("club_members")
-      .select("role")
+      .select("role_id, club_roles (permissions_level)")
       .eq("club_id", club.id)
       .eq("user_id", currentUser.id)
       .eq("status", "approved")
       .single()
       .then(({ data }) => {
-        setIsAdmin(data?.role === "admin" || data?.role === "owner");
+        const level = Array.isArray(data?.club_roles)
+          ? data?.club_roles[0]?.permissions_level
+          : (data?.club_roles as unknown as { permissions_level: number } | null)
+              ?.permissions_level;
+        setIsAdmin((level ?? 0) >= 100);
       });
   }, [club, currentUser]);
 

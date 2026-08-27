@@ -1,26 +1,31 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useQuery, queryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import {
-  Sparkles,
-  Check,
-  X,
-  ArrowRight,
-  User as UserIcon,
-  GraduationCap,
-  FileText,
-  Link2,
-  Calendar,
-  MessageCircle,
-  Users,
-} from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import UserIcon from "lucide-react/dist/esm/icons/user";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Users from "lucide-react/dist/esm/icons/users";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import { toast } from "sonner";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
+import SuggestedEventsCarousel from "@/components/SuggestedEventsCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+import { RelativeTime } from "@/components/ui/RelativeTime";
+
 interface Club {
   id: string;
   name: string;
@@ -67,10 +72,6 @@ interface ActivityClubMemberRow {
   clubs: { name: string } | { name: string }[] | null;
 }
 
-/**
- * Formats a date string as a short relative time string (e.g. "2 hours ago",
- * "in 3 days"). Used by the Dashboard's Recent Activity widget (#258).
- */
 function formatRelativeActivityTime(dateString: string): string {
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return "";
@@ -89,26 +90,10 @@ function formatRelativeActivityTime(dateString: string): string {
   return rtf.format(diffDays, "day");
 }
 
-// How long to wait before showing the progress bar at all. Queries that
-// resolve faster than this never trigger it — the widgets' own skeletons
-// (WidgetListSkeleton / TrendingCarouselSkeleton) cover that case instead.
 const PROGRESS_REVEAL_DELAY_MS = 250;
-// Simulated progress never crosses this ceiling on its own — the analytics
-// queries (backed by club_analytics_mat_view and friends) don't report real
-// byte-level progress, so we ease toward "almost done" and only jump to 100%
-// once the data has actually arrived.
 const PROGRESS_SOFT_CEILING = 90;
 const PROGRESS_TICK_MS = 200;
 
-/**
- * Page-load progress indicator for the dashboard's analytics-backed widgets
- * (trending clubs, your clubs, upcoming/saved events, recent activity — all
- * of which read from materialized/aggregated views that can be slow on a
- * cold cache). Shows a neubrutalist percentage bar once loading has taken
- * long enough to be noticeable, and snaps to 100% + fades out once real data
- * has arrived. If the underlying queries resolve immediately, this never
- * renders at all — the widgets' individual skeletons handle that case.
- */
 function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
   const [visible, setVisible] = useState(false);
   const [percent, setPercent] = useState(0);
@@ -133,7 +118,6 @@ function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
           setPercent((p) => {
             if (p >= PROGRESS_SOFT_CEILING) return p;
             const remaining = PROGRESS_SOFT_CEILING - p;
-            // Ease-out: bigger steps early, smaller as we approach the ceiling.
             const increment = Math.max(0.75, remaining * 0.12);
             return Math.min(PROGRESS_SOFT_CEILING, p + increment);
           });
@@ -187,6 +171,11 @@ export default function DashboardOverview() {
   const welcomeDismissed = useDashboardStore((state) => state.welcomeDismissed);
   const setWelcomeDismissed = useDashboardStore((state) => state.setWelcomeDismissed);
   const dismissed = welcomeDismissed;
+
+  // NEW: State for Appeals Workflow
+  const [appealReason, setAppealReason] = useState("");
+  const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
+  const [appealSubmitted, setAppealSubmitted] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -263,6 +252,9 @@ export default function DashboardOverview() {
   const isFullyCompleted = completedCount === steps.length;
   const showBanner = !dismissed && !isProfileLoading && !isFullyCompleted;
 
+  // NEW: Shadowban check
+  const isShadowbanned = profile?.is_shadowbanned === true;
+
   const { data: userClubs = [], isLoading: isClubsLoading } = useQuery({
     queryKey: ["userClubs", user?.id],
     queryFn: async () => {
@@ -287,6 +279,23 @@ export default function DashboardOverview() {
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true })
         .limit(3);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
+    queryKey: ["recommendedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recommend_events_for_user", {
+        p_user_id: user!.id,
+        p_limit: 10,
+      });
       if (error) throw error;
       return data || [];
     },
@@ -384,23 +393,92 @@ export default function DashboardOverview() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
-  // Combined loading state for every analytics-backed widget below (trending
-  // clubs, your clubs, upcoming/saved events, recent activity). Profile isn't
-  // included since it's a single-row lookup, not one of the slow views.
   const isAnalyticsLoading =
     isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
+
+  // NEW: Submit Appeal Logic
+  const submitAppeal = async () => {
+    if (!appealReason.trim() || !user) return;
+    setIsSubmittingAppeal(true);
+
+    const { error } = await supabase.from("admin_appeals_queue").insert({
+      user_id: user.id,
+      reason: appealReason.trim(),
+      status: "pending",
+    });
+
+    setIsSubmittingAppeal(false);
+
+    if (error) {
+      toast.error("Failed to submit appeal. Please try again.");
+    } else {
+      toast.success("Appeal submitted successfully.");
+      setAppealSubmitted(true);
+    }
+  };
 
   if (!user) return null;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
-      {showBanner && (
+      {/* NEW: Shadowban Banner */}
+      {isShadowbanned && (
+        <div className="lg:col-span-3 neu-border bg-[#fca5a5] p-6 md:p-8 relative neu-shadow mb-2 overflow-hidden text-black shadow-[4px_4px_0_0_#000]">
+          <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-black text-white px-3 py-1 font-mono text-xs font-bold uppercase mb-4 shadow-[2px_2px_0_0_#fff]">
+                <AlertTriangle className="h-4 w-4" /> Account Restricted
+              </div>
+              <h2 className="text-3xl font-display font-black tracking-tight mb-2 uppercase">
+                Your account is restricted due to community guideline violations.
+              </h2>
+              <p className="font-mono text-sm leading-relaxed max-w-2xl font-bold text-black/80">
+                Our automated NLP moderation system flagged a recent message. While restricted, your
+                public posts and RSVPs will be hidden from other users.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 bg-white neu-border p-5 shadow-[4px_4px_0_0_#000]">
+            {appealSubmitted ? (
+              <div className="text-center font-mono font-bold py-6 text-green-700 uppercase flex flex-col items-center">
+                <Check className="h-10 w-10 mb-3 border-2 border-green-700 rounded-full p-1" />
+                Your appeal is currently under review by the Student Union Admins.
+              </div>
+            ) : (
+              <>
+                <p className="font-mono text-xs font-bold uppercase mb-2">Appeal Decision</p>
+                <textarea
+                  value={appealReason}
+                  onChange={(e) => setAppealReason(e.target.value)}
+                  maxLength={500}
+                  placeholder="Explain the context of your message (e.g., 'I meant the event is killer as in awesome!')..."
+                  className="w-full neu-border border-2 border-black p-3 font-mono text-sm outline-none focus:bg-yellow-100 transition-colors h-24 resize-none shadow-[2px_2px_0_0_#000]"
+                />
+                <div className="flex justify-between items-center mt-3">
+                  <span className="font-mono text-[10px] font-bold text-gray-500 uppercase">
+                    {appealReason.length} / 500 characters
+                  </span>
+                  <button
+                    onClick={submitAppeal}
+                    disabled={isSubmittingAppeal || appealReason.length === 0}
+                    className="neu-border bg-black text-white px-6 py-2.5 font-mono text-xs font-bold uppercase hover:-translate-y-0.5 transition-transform disabled:opacity-50 disabled:hover:translate-y-0 shadow-[2px_2px_0_0_#000]"
+                  >
+                    {isSubmittingAppeal ? "Submitting..." : "Submit Appeal"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showBanner && !isShadowbanned && (
         <div
           className={`transition-all duration-700 ease-out transform ${
             animateIn ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-4 scale-95"
           } lg:col-span-3 neu-border bg-lavender p-6 md:p-8 relative neu-shadow mb-2 overflow-hidden`}
         >
-          {/* Absolute decorative pattern or circles in background */}
           <div className="absolute -top-12 -right-12 w-40 h-40 bg-peach rounded-full border-4 border-black opacity-30 pointer-events-none" />
           <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-lime rounded-full border-4 border-black opacity-30 pointer-events-none" />
 
@@ -410,7 +488,7 @@ export default function DashboardOverview() {
               setTimeout(() => {
                 setWelcomeDismissed(true);
                 localStorage.setItem("cc_welcome_dismissed", "true");
-              }, 500); // Wait for transition out
+              }, 500);
             }}
             className="absolute top-4 right-4 neu-border bg-white hover:bg-peach p-2 transition-colors cursor-pointer group"
             aria-label="Dismiss banner"
@@ -433,7 +511,6 @@ export default function DashboardOverview() {
               </p>
             </div>
 
-            {/* Progress Gauge */}
             <div className="shrink-0 flex flex-col items-center justify-center bg-white neu-border neu-shadow-sm p-4 w-full md:w-48 text-center">
               <span className="font-mono text-xs uppercase font-bold text-gray-600">
                 Setup Progress
@@ -444,7 +521,6 @@ export default function DashboardOverview() {
               <span className="font-mono text-sm text-gray-500 dark:text-gray-300">
                 {completedCount} of {steps.length} completed
               </span>
-              {/* Small progress bar */}
               <div className="w-full bg-cream border-2 border-black h-3 mt-3 overflow-hidden rounded-none relative">
                 <div
                   className="bg-lime h-full border-r-2 border-black transition-all duration-500 ease-out"
@@ -454,7 +530,6 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Checklist steps */}
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 relative z-10">
             {steps.map((step) => {
               const Icon =
@@ -515,6 +590,20 @@ export default function DashboardOverview() {
       )}
 
       <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
+
+      <div className="lg:col-span-3">
+        <SuggestedEventsCarousel />
+      </div>
+
+      <div className="lg:col-span-3">
+        <RecommendedCarousel
+          userId={user?.id || ""}
+          hasInterestVector={!!profile?.interest_vector}
+          events={recommendedEvents}
+          isLoading={isRecommendedLoading}
+          refetch={refetchRecommended}
+        />
+      </div>
 
       <div className="lg:col-span-3">
         {isTrendingLoading ? (
@@ -652,12 +741,6 @@ export default function DashboardOverview() {
         </Widget>
       </ErrorBoundary>
 
-      <Widget title="Campus Engagement Map" className="lg:col-span-3">
-        <LazyHydrate height="260px">
-          <AttendanceHeatmap userId={user.id} />
-        </LazyHydrate>
-      </Widget>
-
       <ErrorBoundary fallback={<WidgetError title="Recent activity" />}>
         <Widget title="Recent activity" className="lg:col-span-3">
           {isActivityLoading ? (
@@ -679,9 +762,7 @@ export default function DashboardOverview() {
                     <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       {item.description}
-                      <span className="ml-2 text-black/50">
-                        {formatRelativeActivityTime(item.created_at)}
-                      </span>
+                      <RelativeTime date={item.created_at} className="ml-2 text-black/50" />
                     </span>
                   </li>
                 );
@@ -721,14 +802,5 @@ function Widget({
 }
 
 function WidgetError({ title }: { title: string }) {
-  return (
-    <div className="neu-border bg-red-50 p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between border-b-2 border-red-200 pb-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-      </div>
-      <p className="font-mono text-sm text-red-600">
-        This widget failed to load. Other sections remain unaffected.
-      </p>
-    </div>
-  );
+  return <WidgetErrorFallback title={title} />;
 }

@@ -1,10 +1,18 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import * as Slider from "@radix-ui/react-slider";
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
+import Play from "lucide-react/dist/esm/icons/play";
+import Pause from "lucide-react/dist/esm/icons/pause";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2";
+import VolumeX from "lucide-react/dist/esm/icons/volume-x";
+import Maximize from "lucide-react/dist/esm/icons/maximize";
+import Minimize from "lucide-react/dist/esm/icons/minimize";
+import Captions from "lucide-react/dist/esm/icons/captions";
+import { CaptionsOverlay } from "./audio/CaptionsOverlay";
 
 interface CustomVideoPlayerProps {
   src: string;
   poster?: string;
+  eventId?: string;
 }
 
 export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, poster }) => {
@@ -19,6 +27,7 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, poste
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
+  const [captionsEnabled, setCaptionsEnabled] = useState<boolean>(false);
 
   // Toggle Play / Pause
   const togglePlay = useCallback(() => {
@@ -141,6 +150,11 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, poste
         onEnded={() => setIsPlaying(false)}
       />
 
+      {/* Closed Captioning Overlay (Issue #3925) */}
+      {eventId && (
+        <CaptionsOverlay eventId={eventId} enabled={captionsEnabled} />
+      )}
+
       {/* Control Overlay Bar */}
       <div
         className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 flex flex-col gap-2 ${
@@ -223,6 +237,21 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ src, poste
             </div>
           </div>
 
+          {/* Closed Captioning Toggle (Issue #3925) */}
+          {eventId && (
+            <button
+              type="button"
+              onClick={() => setCaptionsEnabled((prev) => !prev)}
+              aria-label={captionsEnabled ? "Disable captions" : "Enable captions"}
+              aria-pressed={captionsEnabled}
+              className={`p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded ${
+                captionsEnabled ? "text-indigo-400" : "hover:text-indigo-400"
+              }`}
+            >
+              <Captions className="w-5 h-5" />
+            </button>
+          )}
+          
           {/* Fullscreen Button */}
           <button
             type="button"

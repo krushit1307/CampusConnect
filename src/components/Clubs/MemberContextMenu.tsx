@@ -8,9 +8,9 @@ interface MemberContextMenuProps {
     id: string;
     fullName: string;
     role: string;
-    handle?: string;
+    [key: string]: unknown;
   };
-  onToggleRole: (memberId: string, currentRole: string) => void;
+  onToggleRole?: (memberId: string, currentRole: string) => void;
   onKick: (memberId: string) => void;
 }
 
@@ -35,12 +35,14 @@ export function MemberContextMenu({
             View Profile
           </ContextMenu.Item>
 
-          <ContextMenu.Item
-            className="flex cursor-pointer items-center rounded-sm px-2 py-1.5 outline-none focus:bg-gray-100"
-            onSelect={() => onToggleRole(member.id, member.role)}
-          >
-            {member.role === "admin" ? "Demote to Member" : "Promote to Admin"}
-          </ContextMenu.Item>
+          {onToggleRole ? (
+            <ContextMenu.Item
+              className="flex cursor-pointer items-center rounded-sm px-2 py-1.5 outline-none focus:bg-gray-100"
+              onSelect={() => onToggleRole(member.id, member.role)}
+            >
+              {member.role === "admin" ? "Demote to Member" : "Promote to Admin"}
+            </ContextMenu.Item>
+          ) : null}
 
           <ContextMenu.Separator className="my-1 h-px bg-black/20" />
 

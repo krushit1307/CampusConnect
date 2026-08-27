@@ -1,7 +1,10 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import React from "react";
-import { Calendar, MapPin, ExternalLink, CalendarDays } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import ExternalLink from "lucide-react/dist/esm/icons/external-link";
+import CalendarDays from "lucide-react/dist/esm/icons/calendar-days";
 
 interface EventCardAttributes {
   eventId: string | null;

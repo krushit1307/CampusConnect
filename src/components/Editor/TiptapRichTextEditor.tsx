@@ -2,23 +2,22 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { ClubMentionNode } from "./extensions/ClubMentionExtension";
 import { EventCardNode } from "./extensions/EventCardExtension";
+import { UserMentionExtension } from "./extensions/UserMentionExtension";
 import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Bold,
-  Italic,
-  Code,
-  Heading1,
-  Heading2,
-  List,
-  ListOrdered,
-  Quote,
-  AtSign,
-  Calendar,
-  Search,
-  X,
-  Link2,
-} from "lucide-react";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Code from "lucide-react/dist/esm/icons/code";
+import Heading1 from "lucide-react/dist/esm/icons/heading-1";
+import Heading2 from "lucide-react/dist/esm/icons/heading-2";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import Quote from "lucide-react/dist/esm/icons/quote";
+import AtSign from "lucide-react/dist/esm/icons/at-sign";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Search from "lucide-react/dist/esm/icons/search";
+import X from "lucide-react/dist/esm/icons/x";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
 import { Button } from "@/components/ui/button";
 
 interface TiptapRichTextEditorProps {
@@ -67,10 +66,10 @@ export const TiptapRichTextEditor: React.FC<TiptapRichTextEditorProps> = ({
   const [loadingEvents, setLoadingEvents] = useState(false);
 
   const editor = useEditor({
-    extensions: [StarterKit, ClubMentionNode, EventCardNode],
+    extensions: [StarterKit, ClubMentionNode, EventCardNode, UserMentionExtension],
     content,
     editable: !readOnly,
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor }: any) => {
       onChange(editor.getHTML());
     },
     editorProps: {
@@ -78,7 +77,7 @@ export const TiptapRichTextEditor: React.FC<TiptapRichTextEditorProps> = ({
         class:
           "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[160px] p-3 text-foreground",
       },
-      handlePaste: (_view, event) => {
+      handlePaste: (_view: any, event: any) => {
         const text = event.clipboardData?.getData("text/plain");
         if (!text) return false;
 

@@ -1,4 +1,8 @@
-import { Bookmark, X, CalendarDays, MessageSquare, Users } from "lucide-react";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
+import X from "lucide-react/dist/esm/icons/x";
+import CalendarDays from "lucide-react/dist/esm/icons/calendar-days";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import Users from "lucide-react/dist/esm/icons/users";
 import { Link } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";

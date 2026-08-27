@@ -1,5 +1,3 @@
-import { Readable, pipeline } from "node:stream";
-import { promisify } from "node:util";
 import { CSVStreamParser } from "../lib/streams/csvParserStream";
 import { UserImportStreamProcessor } from "../lib/streams/userImportStreamProcessor";
 import {
@@ -9,61 +7,53 @@ import {
 } from "../lib/validations/bulkImportValidation";
 import { UserImportRepository } from "../lib/db/userImportRepository";
 
-const streamPipeline = promisify(pipeline);
-
 export class BulkImportService {
-  private dbRepository: UserImportRepository;
+  constructor(private readonly dbRepository = new UserImportRepository()) {}
 
-  constructor(dbRepository?: UserImportRepository) {
-    this.dbRepository = dbRepository || new UserImportRepository();
-  }
-
-  /**
-   * Processes an incoming readable stream (e.g. HTTP request multipart upload or file stream)
-   * utilizing memory-efficient Node.js Streams without buffering the full file into memory.
-   */
+  /** Process a browser-native Web ReadableStream without bundling Node stream shims. */
   public async processUserImportStream(
-    inputStream: Readable,
+    inputStream: ReadableStream<Uint8Array | string>,
     options: BulkImportOptions = {},
   ): Promise<BulkImportSummary> {
-    const csvParser = new CSVStreamParser();
-    const streamProcessor = new UserImportStreamProcessor(options, this.dbRepository);
+    const parser = new CSVStreamParser();
+    const processor = new UserImportStreamProcessor(options, this.dbRepository);
+    const reader = inputStream.getReader();
 
-    await streamPipeline(inputStream, csvParser, streamProcessor);
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const record of parser.write(value)) await processor.process(record);
+      }
 
-    return streamProcessor.getImportSummary();
+      for (const record of parser.finish()) await processor.process(record);
+      await processor.finish();
+      return processor.getImportSummary();
+    } finally {
+      reader.releaseLock();
+    }
   }
 
-  /**
-   * Helper to turn a Buffer or string into a Node.js Readable stream and process in 500-row chunks
-   */
+  /** Process strings, Buffers, and Uint8Arrays in bounded chunks. */
   public async processUserImportBuffer(
-    bufferOrString: Buffer | string,
+    content: string | Uint8Array,
     options: BulkImportOptions = {},
   ): Promise<BulkImportSummary> {
-    const chunkSize = 64 * 1024; // 64KB chunks to simulate streaming
-    const content =
-      typeof bufferOrString === "string" ? Buffer.from(bufferOrString, "utf8") : bufferOrString;
+    const parser = new CSVStreamParser();
+    const processor = new UserImportStreamProcessor(options, this.dbRepository);
+    const chunkSize = 64 * 1024;
 
-    let offset = 0;
-    const readableStream = new Readable({
-      read() {
-        if (offset >= content.length) {
-          this.push(null);
-        } else {
-          const chunk = content.subarray(offset, offset + chunkSize);
-          offset += chunkSize;
-          this.push(chunk);
-        }
-      },
-    });
+    for (let offset = 0; offset < content.length; offset += chunkSize) {
+      for (const record of parser.write(content.slice(offset, offset + chunkSize))) {
+        await processor.process(record);
+      }
+    }
 
-    return this.processUserImportStream(readableStream, options);
+    for (const record of parser.finish()) await processor.process(record);
+    await processor.finish();
+    return processor.getImportSummary();
   }
 
-  /**
-   * Generates a downloadable CSV string containing failed rows and their specific validation errors
-   */
   public generateFailedRowsCsv(failedRows: FailedRowReport[]): string {
     const headers = ["Row Number", "Email", "Error Message", "Raw Email", "Raw Name", "Raw Role"];
     const rows = failedRows.map((item) => [
@@ -75,6 +65,6 @@ export class BulkImportService {
       `"${(item.rawRow.role || "").replace(/"/g, '""')}"`,
     ]);
 
-    return [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    return [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
   }
 }

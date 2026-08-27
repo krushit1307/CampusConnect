@@ -13,6 +13,15 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Rate Limiting: 5 requests per minute per IP
+  const rateLimitResponse = await limitRate(req, "request-password-reset", {
+    limit: 5,
+    windowMs: 60000,
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     const { email, redirectTo } = await req.json();
 
@@ -45,7 +54,9 @@ serve(async (req: Request) => {
     // If a request was sent in the last 15 minutes, silently return 200 OK
     // without triggering any token generation or email dispatch.
     if (recentRequests && recentRequests.length > 0) {
-      console.log(`[request-password-reset] Cooldown active for ${email}. Silently returning 200 OK.`);
+      console.log(
+        `[request-password-reset] Cooldown active for ${email}. Silently returning 200 OK.`,
+      );
       return new Response(
         JSON.stringify({ message: "If this email exists, a reset link has been sent." }),
         {

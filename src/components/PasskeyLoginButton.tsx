@@ -11,7 +11,8 @@
  */
 
 import { useState, useEffect } from "react";
-import { Fingerprint, Loader2 } from "lucide-react";
+import Fingerprint from "lucide-react/dist/esm/icons/fingerprint-pattern";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { isWebAuthnSupported } from "@/lib/webauthn";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
 

@@ -26,7 +26,9 @@ describe("buildOgImageUrl", () => {
   });
 
   it("appends transform params with ? when URL has no query string", () => {
-    const url = buildOgImageUrl("https://cdn.supabase.co/storage/v1/object/public/banners/hero.jpg");
+    const url = buildOgImageUrl(
+      "https://cdn.supabase.co/storage/v1/object/public/banners/hero.jpg",
+    );
     expect(url).toContain(`width=${OG_IMAGE_WIDTH}`);
     expect(url).toContain(`height=${OG_IMAGE_HEIGHT}`);
     expect(url).toContain("resize=cover");

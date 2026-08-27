@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { AnimationPlayer } from "./AnimationPlayer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./dialog";
 import { Button } from "./button";
-import { CheckCircle2 } from "lucide-react";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
 
 interface SuccessConfettiProps {
   open: boolean;

@@ -1,4 +1,6 @@
-import { MessageCircle, PenLine, Sparkles } from "lucide-react";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import PenLine from "lucide-react/dist/esm/icons/pen-line";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 
 export interface DiscussionEmptyStateProps {
   /** Optional active search query */

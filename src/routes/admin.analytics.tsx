@@ -1,7 +1,9 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { Navigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
-import { BarChart3, LayoutPanelLeft, X } from "lucide-react";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
+import LayoutPanelLeft from "lucide-react/dist/esm/icons/layout-panel-left";
+import X from "lucide-react/dist/esm/icons/x";
 import { toast } from "sonner";
 import type { DateRange } from "react-day-picker";
 import differenceInDays from "date-fns/differenceInDays";
@@ -22,6 +24,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
+import { EventTrafficHeatmap } from "@/components/admin/EventTrafficHeatmap";
 
 interface ProfileRole {
   role: string | null;
@@ -302,6 +305,192 @@ function DauChartSection({ dateRange }: { dateRange: DateRange | undefined }) {
   );
 }
 
+function EventCollisionMatrix() {
+  const [supabase] = useState(() => createClient());
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string>("all");
+  const [hoveredCell, setHoveredCell] = useState<{
+    day: string;
+    hour: number;
+    count: number;
+    attendees: number;
+  } | null>(null);
+
+  const { data: semesters = [] } = useQuery({
+    queryKey: ["admin_semesters"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("semesters")
+        .select("id, name")
+        .order("start_date", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: matrixData = [], isLoading } = useQuery({
+    queryKey: ["event_collision_matrix", selectedSemesterId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_event_collision_matrix", {
+        p_semester_id: selectedSemesterId === "all" ? null : selectedSemesterId,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  const formatHourLabel = (h: number) => {
+    if (h === 0) return "12 AM";
+    if (h < 12) return `${h} AM`;
+    if (h === 12) return "12 PM";
+    return `${h - 12} PM`;
+  };
+
+  const lookup = useMemo(() => {
+    const map: Record<string, { count: number; attendees: number }> = {};
+    matrixData.forEach((row: any) => {
+      map[`${row.day_of_week}-${row.hour_of_day}`] = {
+        count: Number(row.concurrent_events),
+        attendees: Number(row.total_attendees),
+      };
+    });
+    return map;
+  }, [matrixData]);
+
+  const getCellBgColor = (count: number) => {
+    if (count === 0) return "bg-white";
+    if (count < 5) return "bg-red-100";
+    if (count < 10) return "bg-red-300";
+    if (count < 15) return "bg-red-500";
+    if (count < 20) return "bg-red-700";
+    return "bg-red-900";
+  };
+
+  return (
+    <div className="neu-border bg-white p-6 shadow-[4px_4px_0_0_#000] space-y-6 text-black">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b-2 border-black pb-4">
+        <div>
+          <h2 className="font-display text-2xl font-black uppercase">
+            Automated Event Collision Matrix
+          </h2>
+          <p className="font-mono text-xs text-black/60">
+            Identify hot spots and optimize club scheduling across campus.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="semester-select" className="font-mono text-xs font-bold uppercase">
+            Semester:
+          </label>
+          <select
+            id="semester-select"
+            value={selectedSemesterId}
+            onChange={(e) => setSelectedSemesterId(e.target.value)}
+            className="neu-border bg-white p-2 font-mono text-xs"
+          >
+            <option value="all">All Semesters (Historical)</option>
+            {semesters.map((sem: any) => (
+              <option key={sem.id} value={sem.id}>
+                {sem.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Tooltip display bar */}
+      <div className="h-12 border-2 border-black bg-yellow-50 p-3 font-mono text-xs flex items-center justify-between shadow-[2px_2px_0_0_#000]">
+        {hoveredCell ? (
+          <div>
+            <span className="font-bold text-red-600">
+              {hoveredCell.day}s at {formatHourLabel(hoveredCell.hour)}:
+            </span>{" "}
+            <span>
+              {hoveredCell.count} concurrent events, {hoveredCell.attendees} total attendees.
+            </span>
+          </div>
+        ) : (
+          <span className="text-black/50 italic">
+            Hover over any grid cell to view temporal event collisions.
+          </span>
+        )}
+
+        <div className="flex items-center gap-1 text-[10px] uppercase font-bold">
+          <span>Less</span>
+          <span className="w-3 h-3 bg-white border border-black" />
+          <span className="w-3 h-3 bg-red-100 border border-black" />
+          <span className="w-3 h-3 bg-red-300 border border-black" />
+          <span className="w-3 h-3 bg-red-500 border border-black" />
+          <span className="w-3 h-3 bg-red-700 border border-black" />
+          <span className="w-3 h-3 bg-red-900 border border-black" />
+          <span>More</span>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center border-2 border-black">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-black border-t-transparent" />
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div className="min-w-[1000px] border-2 border-black p-4 bg-gray-50">
+            {/* Grid Hours Header */}
+            <div className="grid grid-cols-[100px_repeat(24,1fr)] gap-1 mb-2">
+              <div />
+              {Array.from({ length: 24 }).map((_, h) => (
+                <div
+                  key={h}
+                  className="font-mono text-[9px] font-bold text-center uppercase tracking-tighter truncate"
+                  title={formatHourLabel(h)}
+                >
+                  {formatHourLabel(h)}
+                </div>
+              ))}
+            </div>
+
+            {/* Grid Days Rows */}
+            <div className="space-y-1">
+              {DAYS.map((dayName, dayIndex) => {
+                const dayOfWeek = dayIndex + 1; // 1-indexed (isodow)
+                return (
+                  <div
+                    key={dayName}
+                    className="grid grid-cols-[100px_repeat(24,1fr)] gap-1 items-center"
+                  >
+                    <div className="font-mono text-xs font-bold uppercase">{dayName}</div>
+                    {Array.from({ length: 24 }).map((_, hour) => {
+                      const key = `${dayOfWeek}-${hour}`;
+                      const cell = lookup[key] || { count: 0, attendees: 0 };
+                      return (
+                        <div
+                          key={hour}
+                          onMouseEnter={() =>
+                            setHoveredCell({
+                              day: dayName,
+                              hour,
+                              count: cell.count,
+                              attendees: cell.attendees,
+                            })
+                          }
+                          onMouseLeave={() => setHoveredCell(null)}
+                          className={`h-8 border border-black/35 cursor-pointer transition-transform hover:scale-110 hover:border-black hover:z-10 ${getCellBgColor(
+                            cell.count,
+                          )}`}
+                          title={`${dayName}s at ${formatHourLabel(hour)}: ${cell.count} events`}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AnalyticsAdmin() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
@@ -493,14 +682,13 @@ export default function AnalyticsAdmin() {
               </div>
             </div>
           ) : (
-            /**
-             * Suspense boundary — the page shell, header, and sidebar are already
-             * painted. Only the heavy DAU chart section streams in after its data
-             * resolves. <ChartSkeleton> acts as the streaming placeholder.
-             */
-            <Suspense fallback={<ChartSkeleton height="450px" />}>
-              <DauChartSection dateRange={dateRange} />
-            </Suspense>
+            <div className="space-y-8">
+              <Suspense fallback={<ChartSkeleton height="450px" />}>
+                <DauChartSection dateRange={dateRange} />
+              </Suspense>
+              <EventTrafficHeatmap dateRange={dateRange} enabled={role === "system_admin"} />
+              <EventCollisionMatrix />
+            </div>
           )}
         </div>
       </section>

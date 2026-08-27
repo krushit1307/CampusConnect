@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useBreadcrumbs, BreadcrumbItem } from "./BreadcrumbsContext";
-import { ChevronRight } from "lucide-react";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 
 const STATIC_SEGMENTS = new Set([
   "clubs",

@@ -26,13 +26,7 @@ CREATE POLICY "Club admins can insert articles."
   ON public.articles FOR INSERT
   WITH CHECK (
     public.is_club_member(club_id, auth.uid()) AND (
-      EXISTS (
-        SELECT 1 FROM public.club_members
-        WHERE club_id = articles.club_id
-          AND user_id = auth.uid()
-          AND role = 'admin'
-          AND status = 'approved'
-      ) OR EXISTS (
+      public.is_club_admin(articles.club_id, auth.uid()) OR EXISTS (
         SELECT 1 FROM public.clubs
         WHERE id = articles.club_id
           AND created_by = auth.uid()
@@ -45,13 +39,7 @@ CREATE POLICY "Authors or club admins can update articles."
   ON public.articles FOR UPDATE
   USING (
     auth.uid() = author_id OR
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = articles.club_id
-        AND user_id = auth.uid()
-        AND role = 'admin'
-        AND status = 'approved'
-    ) OR EXISTS (
+    public.is_club_admin(articles.club_id, auth.uid()) OR EXISTS (
       SELECT 1 FROM public.clubs
       WHERE id = articles.club_id
         AND created_by = auth.uid()
@@ -63,13 +51,7 @@ CREATE POLICY "Authors or club admins can delete articles."
   ON public.articles FOR DELETE
   USING (
     auth.uid() = author_id OR
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = articles.club_id
-        AND user_id = auth.uid()
-        AND role = 'admin'
-        AND status = 'approved'
-    ) OR EXISTS (
+    public.is_club_admin(articles.club_id, auth.uid()) OR EXISTS (
       SELECT 1 FROM public.clubs
       WHERE id = articles.club_id
         AND created_by = auth.uid()

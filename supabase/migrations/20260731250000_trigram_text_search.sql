@@ -9,6 +9,7 @@ CREATE INDEX IF NOT EXISTS clubs_name_trgm_idx ON public.clubs USING gin (name g
 CREATE INDEX IF NOT EXISTS clubs_description_trgm_idx ON public.clubs USING gin (description gin_trgm_ops);
 
 -- 3. Create the RPC search function
+DROP FUNCTION IF EXISTS public.search_clubs(text);
 CREATE OR REPLACE FUNCTION public.search_clubs(search_term TEXT)
 RETURNS SETOF public.clubs
 LANGUAGE plpgsql

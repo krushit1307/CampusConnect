@@ -95,6 +95,26 @@ function collectFragments(document: DocumentNode): Map<string, FragmentDefinitio
 
 const MAX_STORE_ENTRIES = 5000;
 
+// In-memory sliding window rate limiter store
+const mutationStore = new Map<string, number[]>();
+
+// Periodically clean up abandoned entries to prevent memory leaks
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+const MAX_IDLE_TIME_MS = 15 * 60 * 1000;
+
+const cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [identifier, timestamps] of mutationStore.entries()) {
+    if (timestamps.length === 0 || now - timestamps[timestamps.length - 1] > MAX_IDLE_TIME_MS) {
+      mutationStore.delete(identifier);
+    }
+  }
+}, CLEANUP_INTERVAL_MS);
+
+if (typeof cleanupInterval.unref === "function") {
+  cleanupInterval.unref();
+}
+
 class SlidingWindowCounter {
   private store = new Map<string, number[]>();
 
@@ -272,10 +292,25 @@ export function createGraphQLSecurityPlugin(options: SecurityPluginOptions = {})
           def.kind === Kind.OPERATION_DEFINITION && def.operation === "mutation",
       );
 
-      if (!isMutation) return;
+if (!isMutation) return;
 
-      const ip = context?.request instanceof Request ? getClientIp(context.request) : "127.0.0.1";
-      const { allowed, retryAfterMs } = mutationWindow.check(ip);
+const user = context?.user as
+  | { is_impersonated?: boolean }
+  | undefined;
+
+if (user?.is_impersonated === true) {
+  throw new GraphQLError(
+    "Forbidden: Mutations are disabled during impersonation.",
+    {
+      extensions: {
+        code: "IMPERSONATION_READ_ONLY",
+        http: { status: 403 },
+      },
+    },
+  );
+}
+
+const ip = context?.request instanceof Request ? getClientIp(context.request) : "127.0.0.1";      const { allowed, retryAfterMs } = mutationWindow.check(ip);
 
       if (!allowed) {
         throw new GraphQLError(

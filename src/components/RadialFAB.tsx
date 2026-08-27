@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Calendar, FileText, MessageCircle, Plus } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Plus from "lucide-react/dist/esm/icons/plus";
 import { useNavigate } from "react-router-dom";
 import { getRadialOffset } from "./radialFabUtils";
 

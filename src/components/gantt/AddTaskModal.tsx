@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { EventTask } from "@/types/eventTasks";
-import { X } from "lucide-react";
+import X from "lucide-react/dist/esm/icons/x";
 
 interface AddTaskModalProps {
   isOpen: boolean;

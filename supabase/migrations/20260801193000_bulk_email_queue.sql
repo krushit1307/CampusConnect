@@ -32,13 +32,7 @@ CREATE POLICY "Admins can select bulk_email_jobs for their club"
     FOR SELECT
     TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.club_members cm
-            WHERE cm.club_id = bulk_email_jobs.club_id
-              AND cm.user_id = auth.uid()
-              AND cm.status = 'approved'
-              AND cm.role IN ('admin', 'organizer')
-        )
+        public.is_club_admin(bulk_email_jobs.club_id, auth.uid())
     );
 
 -- Create secure RPC to fetch emails for approved club members
@@ -52,7 +46,7 @@ BEGIN
   RETURN QUERY
   SELECT
     u.email::TEXT,
-    p.full_name::TEXT
+    (p.first_name || ' ' || p.last_name)::TEXT
   FROM auth.users u
   JOIN public.profiles p ON u.id = p.id
   JOIN public.club_members cm ON cm.user_id = u.id

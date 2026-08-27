@@ -29,6 +29,7 @@ export const pollFormSchema = z.object({
     )
     .min(POLL_MIN_OPTIONS, `At least ${POLL_MIN_OPTIONS} options are required.`)
     .max(POLL_MAX_OPTIONS, `At most ${POLL_MAX_OPTIONS} options are allowed.`),
+  is_anonymous: z.boolean().default(false),
 });
 
 export type PollFormValues = z.infer<typeof pollFormSchema>;
@@ -39,6 +40,7 @@ export interface Poll {
   created_by: string;
   question: string;
   is_active: boolean;
+  is_anonymous: boolean;
   created_at: string;
 }
 

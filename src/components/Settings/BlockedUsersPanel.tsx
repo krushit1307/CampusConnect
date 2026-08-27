@@ -1,5 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { ShieldAlert, UserX, Unlock, Search, Loader2, CheckCircle2 } from "lucide-react";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import UserX from "lucide-react/dist/esm/icons/user-x";
+import Unlock from "lucide-react/dist/esm/icons/unlock";
+import Search from "lucide-react/dist/esm/icons/search";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
 import { toast } from "sonner";
 import {
   getBlockedUsersList,

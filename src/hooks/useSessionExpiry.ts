@@ -29,7 +29,7 @@ export function useSessionExpiry() {
     setShowModal(false);
     await supabase.auth.signOut();
     // Redirect to login page
-    window.location.href = "/auth";
+    window.location.assign("/auth");
   }, [supabase, clearTimers]);
 
   const scheduleTimers = useCallback(
@@ -116,7 +116,7 @@ export function useSessionExpiry() {
       } else if (event.data === "logout") {
         clearTimers();
         setShowModal(false);
-        window.location.href = "/auth";
+        window.location.assign("/auth");
       }
     };
 
@@ -131,7 +131,18 @@ export function useSessionExpiry() {
     setIsRefreshing(false);
 
     if (error || !data.session) {
-      // If refresh fails, logout immediately
+      if (
+        error &&
+        (error.message.includes("FetchError") ||
+          error.message.includes("Failed to fetch") ||
+          error.message.includes("NetworkError") ||
+          error.message.includes("network"))
+      ) {
+        console.warn("Network error during session refresh, keeping current session:", error);
+        return;
+      }
+
+      // If refresh fails due to auth expiry, logout immediately
       if (typeof BroadcastChannel !== "undefined") {
         const channel = new BroadcastChannel("session_sync");
         channel.postMessage("logout");

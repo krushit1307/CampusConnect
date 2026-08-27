@@ -11,7 +11,7 @@ export function isValidBlurhash(hash?: string | null): boolean {
   if (!hash || typeof hash !== "string") return false;
   const trimmed = hash.trim();
   if (trimmed.length < 6 || trimmed.length > 100) return false;
-  // Base83 character set check
-  const base83Regex = /^[0-9a-zA-Z#$%*+,-.:;=?@[]^_{|}~]+$/;
+  // Base83 character set check — [ and ] are literal inside a char class, no escaping needed
+  const base83Regex = /^[0-9a-zA-Z#$%*+,\-.:;=?@[\]^_{|}~]+$/;
   return base83Regex.test(trimmed);
 }

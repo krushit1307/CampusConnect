@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.lost_found_items (
 -- Auto-update timestamp
 CREATE OR REPLACE TRIGGER lost_found_items_updated_at
   BEFORE UPDATE ON public.lost_found_items
-  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS lost_found_items_user_id_idx  ON public.lost_found_items (user_id);

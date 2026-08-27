@@ -13,7 +13,7 @@ import {
   type SignUpFormValues,
 } from "@/lib/schemas";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Sparkle } from "@/components/site/Sparkle";
@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrengthMeter, getPasswordStrength } from "@/components/ui/password-strength";
-import { ArrowLeft } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useExperimentStore } from "@/store/useExperimentStore";
@@ -30,24 +30,11 @@ import { sendVerificationEmail } from "@/lib/email/service";
 import { getFriendlyAuthError } from "@/utils/authErrors";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { Turnstile } from "@marsidev/react-turnstile";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { AuthSocialProviderGrid } from "@/components/auth/AuthSocialProviderGrid";
 import { PasskeyAuthModal } from "@/components/auth/PasskeyAuthModal";
-import { MfaVerificationModal } from "@/components/auth/MfaVerificationModal";
-import {
-  signInSchema,
-  type SignInFormValues,
-  signUpSchema,
-  type SignUpFormValues,
-} from "@/lib/schemas";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+import { requiresMfaChallenge } from "@/lib/mfa";
+import { useReferral } from "@/hooks/useReferral";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -55,11 +42,15 @@ export default function AuthPage() {
   const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
-  const [isMfaVerifyOpen, setIsMfaVerifyOpen] = useState(false);
-  const [mfaFactorId, setMfaFactorId] = useState("");
   const navigate = useNavigate();
   const supabase = createClient();
   const { registerPasskey } = useWebAuthn();
+  const { getStoredReferralCode, clearStoredReferralCode } = useReferral();
+
+  const turnstileRef = useRef<TurnstileInstance>(null);
+  const [submitData, setSubmitData] = useState<{ mode: "signin" | "signup"; values: any } | null>(
+    null,
+  );
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -93,15 +84,45 @@ export default function AuthPage() {
     setCaptchaToken("");
     signInForm.reset();
     signUpForm.reset();
+    turnstileRef.current?.reset();
   }
 
-  async function onSignIn(values: SignInFormValues) {
+  function onSignInSubmit(values: SignInFormValues) {
+    setLoading(true);
+    setError(null);
+    setSubmitData({ mode: "signin", values });
+    turnstileRef.current?.execute();
+  }
+
+  function onSignUpSubmit(values: SignUpFormValues) {
+    setLoading(true);
+    setError(null);
+    setSubmitData({ mode: "signup", values });
+    turnstileRef.current?.execute();
+  }
+
+  async function handleTurnstileSuccess(token: string) {
+    setCaptchaToken(token);
+    if (!submitData) return;
+
+    if (submitData.mode === "signin") {
+      await performSignIn(submitData.values, token);
+    } else {
+      await performSignUp(submitData.values, token);
+    }
+
+    // Reset Turnstile for subsequent attempts if any
+    turnstileRef.current?.reset();
+    setSubmitData(null);
+  }
+
+  async function performSignIn(values: SignInFormValues, token: string) {
     setLoading(true);
     setError(null);
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("login-proxy", {
-        body: { email: values.email, password: values.password },
+        body: { email: values.email, password: values.password, captchaToken: token },
       });
 
       if (invokeError) {
@@ -122,20 +143,13 @@ export default function AuthPage() {
 
       if (setSessionError) throw setSessionError;
 
-      // Check if MFA TOTP is enabled/enforced for the user
-      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      const { data: factorsData } = await supabase.auth.mfa.listFactors();
-      const verifiedTotpFactor = factorsData?.totp?.find((f) => f.status === "verified");
-
-      if (
-        (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") ||
-        verifiedTotpFactor
-      ) {
-        if (verifiedTotpFactor) {
-          setMfaFactorId(verifiedTotpFactor.id);
-          setIsMfaVerifyOpen(true);
-          return;
-        }
+      // Club executives / system admins with a verified TOTP factor must
+      // complete the MFA challenge before entering the app (#2739).
+      if (await requiresMfaChallenge(supabase)) {
+        navigate(`/mfa-challenge?redirectTo=${encodeURIComponent("/dashboard")}`, {
+          replace: true,
+        });
+        return;
       }
 
       navigate("/dashboard", { replace: true });
@@ -148,34 +162,37 @@ export default function AuthPage() {
       setLoading(false);
     }
   }
-  async function onSignUp(values: SignUpFormValues) {
+
+  async function performSignUp(values: SignUpFormValues, token: string) {
     setLoading(true);
     setError(null);
 
     try {
-      if (!captchaToken) {
+      if (!token) {
         toast.error("Please complete CAPTCHA verification.");
         setLoading(false);
         return;
       }
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-        options: {
-          data: {
-            captcha_token: captchaToken,
-            first_name: values.firstName,
-            last_name: values.lastName,
-            full_name: `${values.firstName} ${values.lastName}`.trim(),
-            newsletter_opt_in: values.newsletterOptIn,
+      const { data: signUpData, error: signUpError } = await supabase.functions.invoke(
+        "register-proxy",
+        {
+          body: {
+            email: values.email,
+            password: values.password,
+            captchaToken: token,
+            firstName: values.firstName,
+            lastName: values.lastName,
+            newsletterOptIn: values.newsletterOptIn,
           },
         },
-      });
+      );
 
       if (signUpError) throw signUpError;
 
       toast.success("Account created! A verification link has been sent to your email.");
       setCaptchaToken("");
+      clearStoredReferralCode();
+
       if (signUpData?.session) {
         try {
           const enrolled = await registerPasskey("Passkey");
@@ -268,7 +285,7 @@ export default function AuthPage() {
             {mode === "signin" ? (
               <Form {...signInForm}>
                 <form
-                  onSubmit={signInForm.handleSubmit(onSignIn)}
+                  onSubmit={signInForm.handleSubmit(onSignInSubmit)}
                   className="space-y-4 text-black"
                   noValidate
                 >
@@ -320,7 +337,7 @@ export default function AuthPage() {
                       to="/forgot-password"
                       className="font-mono text-xs font-bold text-blue-700 underline underline-offset-2 cursor-pointer"
                     >
-                      Forgot password?
+                      Reset Password
                     </Link>
                   </p>
 
@@ -337,7 +354,7 @@ export default function AuthPage() {
             ) : (
               <Form {...signUpForm}>
                 <form
-                  onSubmit={signUpForm.handleSubmit(onSignUp)}
+                  onSubmit={signUpForm.handleSubmit(onSignUpSubmit)}
                   className="space-y-4 text-black"
                   noValidate
                 >
@@ -421,6 +438,7 @@ export default function AuthPage() {
                             placeholder="********"
                             autoComplete="new-password"
                             className="px-1 py-2 font-mono text-sm"
+                            required
                             {...field}
                           />
                         </FormControl>
@@ -477,29 +495,9 @@ export default function AuthPage() {
                       </FormItem>
                     )}
                   />
-                  <Turnstile
-                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                    onSuccess={(token: string) => setCaptchaToken(token)}
-                    onExpire={() => setCaptchaToken("")}
-                    onError={() => setCaptchaToken("")}
-                  />
-                  <Turnstile
-                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                    onSuccess={(token: string) => setCaptchaToken(token)}
-                    onExpire={() => setCaptchaToken("")}
-                    onError={() => setCaptchaToken("")}
-                  />
-
-                  {captchaToken && <p className="text-green-600 text-sm">CAPTCHA verified</p>}
                   <Button
                     type="submit"
-
-                    disabled={
-  loading ||
-  !captchaToken ||
-  passwordResult.score < 3
-}
-
+                    disabled={loading || passwordResult.score < 3}
                     variant="primary"
                     className="w-full bg-black text-cream hover:bg-black/90 cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
                   >
@@ -508,6 +506,23 @@ export default function AuthPage() {
                 </form>
               </Form>
             )}
+
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+              options={{ size: "invisible", execution: "execute" } as any}
+              onSuccess={handleTurnstileSuccess}
+              onExpire={() => {
+                setCaptchaToken("");
+                turnstileRef.current?.reset();
+              }}
+              onError={() => {
+                setCaptchaToken("");
+                turnstileRef.current?.reset();
+                setLoading(false);
+                setError("CAPTCHA failed");
+              }}
+            />
 
             <div className="my-6 flex items-center gap-3">
               <div className="h-[2px] flex-1 bg-black" />
@@ -552,19 +567,6 @@ export default function AuthPage() {
             </p>
           </div>
         </div>
-
-        <MfaVerificationModal
-          isOpen={isMfaVerifyOpen}
-          factorId={mfaFactorId}
-          onSuccess={() => {
-            setIsMfaVerifyOpen(false);
-            navigate("/dashboard", { replace: true });
-          }}
-          onCancel={() => {
-            setIsMfaVerifyOpen(false);
-            void supabase.auth.signOut();
-          }}
-        />
       </div>
     </div>
   );

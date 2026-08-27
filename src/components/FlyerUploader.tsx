@@ -1,5 +1,6 @@
 import React from "react";
-import { UploadCloud, Loader2 } from "lucide-react";
+import UploadCloud from "lucide-react/dist/esm/icons/upload-cloud";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { useOCR } from "@/hooks/useOCR";
 import { toast } from "sonner";
 import type { ParsedFlyer } from "@/lib/parser";

@@ -1,20 +1,36 @@
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarPlus } from "lucide-react";
+import CalendarPlus from "lucide-react/dist/esm/icons/calendar-plus";
+import Ticket from "lucide-react/dist/esm/icons/ticket";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useMemo, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
+import { useTicketDownload } from "@/hooks/useTicketDownload";
+import { TicketTransferDialog } from "@/components/tickets/TicketTransferDialog";
 
 export default function DashboardRsvps() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const {
+    downloadTicket,
+    isGenerating: isTicketGenerating,
+    generatingEventId,
+  } = useTicketDownload();
+  // Event whose ticket is currently being transferred, if any.
+  const [transferringEvent, setTransferringEvent] = useState<{
+    id: string;
+    title: string;
+    startsAt: string;
+  } | null>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -61,7 +77,8 @@ export default function DashboardRsvps() {
             ),
             event_rsvps (
               id,
-              user_id
+              user_id,
+              no_media_consent
             ),
             saved_events (
               id,
@@ -81,6 +98,8 @@ export default function DashboardRsvps() {
   const toggleRsvp = useMutation({
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Must be logged in");
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -89,9 +108,11 @@ export default function DashboardRsvps() {
         body: { eventId, hasRsvpd },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
       return data;
     },
     onSuccess: () => {
@@ -180,6 +201,23 @@ export default function DashboardRsvps() {
         >
           Past ({pastRsvps.length})
         </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => setViewMode("list")}
+          className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all ${
+            viewMode === "list" ? "bg-black text-white" : "bg-white text-black"
+          }`}
+        >
+          List
+        </button>
+        <button
+          onClick={() => setViewMode("calendar")}
+          className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all ${
+            viewMode === "calendar" ? "bg-black text-white" : "bg-white text-black"
+          }`}
+        >
+          Calendar
+        </button>
       </div>
 
       <AnimatePresence mode="sync">
@@ -231,6 +269,18 @@ export default function DashboardRsvps() {
               Browse events →
             </Link>
           </motion.section>
+        ) : viewMode === "calendar" ? (
+          <motion.div
+            key="rsvps-calendar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <ScheduleVisualizer
+              events={displayedEvents}
+              onCancelRsvp={(id) => toggleRsvp.mutate({ eventId: id, hasRsvpd: true })}
+            />
+          </motion.div>
         ) : (
           <motion.div
             key={`rsvps-loaded-grid-${activeTab}`}
@@ -242,7 +292,7 @@ export default function DashboardRsvps() {
             className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
             {displayedEvents.map((e, index) => (
-              <motion.div key={e.id} layout>
+              <motion.div key={e.id} layout className="flex flex-col gap-2">
                 <EventCard
                   event={e}
                   index={index}
@@ -254,11 +304,50 @@ export default function DashboardRsvps() {
                   }}
                   isBookmarkPending={false}
                 />
+                {/* Transfer Ticket — price capped and rate limited by the resale guard */}
+                {activeTab === "upcoming" && user && (
+                  <button
+                    onClick={() =>
+                      setTransferringEvent({
+                        id: e.id,
+                        title: e.title,
+                        startsAt: e.event_date ?? new Date().toISOString(),
+                      })
+                    }
+                    className="neu-border flex w-full items-center justify-center gap-2 bg-white px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-95"
+                  >
+                    <Ticket size={14} /> Transfer Ticket
+                  </button>
+                )}
+                {/* Download Ticket — shown for all upcoming RSVP'd events */}
+                {activeTab === "upcoming" && (
+                  <button
+                    onClick={() => downloadTicket(e)}
+                    disabled={isTicketGenerating && generatingEventId === e.id}
+                    className="neu-border flex w-full items-center justify-center gap-2 bg-lime px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                  >
+                    <Ticket size={14} />
+                    {isTicketGenerating && generatingEventId === e.id
+                      ? "Generating…"
+                      : "🎟 Download Ticket"}
+                  </button>
+                )}
               </motion.div>
             ))}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {transferringEvent && user && (
+        <TicketTransferDialog
+          eventId={transferringEvent.id}
+          eventTitle={transferringEvent.title}
+          eventStartsAt={transferringEvent.startsAt}
+          ticketId={transferringEvent.id}
+          sellerId={user.id}
+          onClose={() => setTransferringEvent(null)}
+        />
+      )}
     </div>
   );
 }

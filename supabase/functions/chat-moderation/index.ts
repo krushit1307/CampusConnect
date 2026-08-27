@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 declare const Deno: any;
 
@@ -14,6 +15,10 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  // Rate limit: 20 requests/minute (content moderation)
+  const limited = await rateLimiter(req, "chat-moderation", 20, 60);
+  if (limited) return limited;
 
   try {
     const payload = await req.json();
@@ -32,6 +37,27 @@ serve(async (req: Request) => {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // 0. Check for off-platform scalping / payment terms (Venmo, Cashapp, Zelle, PayPal)
+    const lowerContent = content.toLowerCase();
+    const scalpingKeywords = ["venmo", "cashapp", "cash app", "zelle", "paypal"];
+    const isScalpingAlert = scalpingKeywords.some((kw) => lowerContent.includes(kw));
+
+    if (isScalpingAlert) {
+      console.log(`Flagging message ${id} due to off-platform scalping keyword detection.`);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      await supabase
+        .from("chat_messages")
+        .update({
+          is_flagged: true,
+          flagged_reason:
+            "Scalping Alert: Potential off-platform monetary trade detected (Venmo/Cashapp).",
+        })
+        .eq("id", id);
     }
 
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");

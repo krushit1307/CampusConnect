@@ -19,7 +19,11 @@ export function OfflineBanner() {
   if (!isOffline) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-black text-cream text-center py-2 font-mono text-xs font-bold uppercase">
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed top-0 left-0 right-0 z-50 bg-black text-cream text-center py-2 font-mono text-xs font-bold uppercase"
+    >
       No Connection — Showing cached content
     </div>
   );

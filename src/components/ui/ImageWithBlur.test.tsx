@@ -64,7 +64,8 @@ describe("ImageWithBlur Component", () => {
   });
 
   it("uses default fallback Blurhash when invalid Blurhash is provided", () => {
-    render(<ImageWithBlur {...sampleProps} blurhash="invalid" />);
+    // Use a string with chars outside base83 (space is not in base83)
+    render(<ImageWithBlur {...sampleProps} blurhash="inv alid!" />);
 
     expect(screen.getByTestId("mock-blurhash-canvas")).toHaveAttribute(
       "data-hash",

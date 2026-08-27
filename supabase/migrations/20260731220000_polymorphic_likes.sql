@@ -68,7 +68,7 @@ CREATE TRIGGER trg_populate_likes_club_id
   EXECUTE FUNCTION public.fn_populate_likes_club_id();
 
 -- 6. Distribute the likes table across worker shards (Citus)
-SELECT create_distributed_table('public.likes', 'club_id');
+-- SELECT create_distributed_table('public.likes', 'club_id');
 
 -- 7. Migrate existing post_likes data
 DO $$
@@ -212,50 +212,68 @@ BEGIN
     UPDATE public.event_attendance_logs SET recorded_by = primary_id WHERE recorded_by = secondary_id;
     UPDATE public.handle_history SET profile_id = primary_id WHERE profile_id = secondary_id;
 
-    -- Updates with ON CONFLICT DO NOTHING (Tables with UNIQUE constraints)
-    
     -- 1. club_members (UNIQUE: club_id, user_id)
-    UPDATE public.club_members SET user_id = primary_id WHERE user_id = secondary_id
-    ON CONFLICT (club_id, user_id) DO NOTHING;
+    DELETE FROM public.club_members sec WHERE sec.user_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.club_members pri WHERE pri.club_id = sec.club_id AND pri.user_id = primary_id
+    );
+    UPDATE public.club_members SET user_id = primary_id WHERE user_id = secondary_id;
 
     -- 2. event_rsvps (UNIQUE: event_id, user_id)
-    UPDATE public.event_rsvps SET user_id = primary_id WHERE user_id = secondary_id
-    ON CONFLICT (event_id, user_id) DO NOTHING;
+    DELETE FROM public.event_rsvps sec WHERE sec.user_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.event_rsvps pri WHERE pri.event_id = sec.event_id AND pri.user_id = primary_id
+    );
+    UPDATE public.event_rsvps SET user_id = primary_id WHERE user_id = secondary_id;
 
     -- 3. saved_events (UNIQUE: event_id, user_id)
-    UPDATE public.saved_events SET user_id = primary_id WHERE user_id = secondary_id
-    ON CONFLICT (event_id, user_id) DO NOTHING;
+    DELETE FROM public.saved_events sec WHERE sec.user_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.saved_events pri WHERE pri.event_id = sec.event_id AND pri.user_id = primary_id
+    );
+    UPDATE public.saved_events SET user_id = primary_id WHERE user_id = secondary_id;
 
     -- 4. post_reactions (UNIQUE: post_id, user_id, emoji)
-    UPDATE public.post_reactions SET user_id = primary_id WHERE user_id = secondary_id
-    ON CONFLICT (post_id, user_id, emoji) DO NOTHING;
+    DELETE FROM public.post_reactions sec WHERE sec.user_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.post_reactions pri WHERE pri.post_id = sec.post_id AND pri.user_id = primary_id AND pri.emoji = sec.emoji
+    );
+    UPDATE public.post_reactions SET user_id = primary_id WHERE user_id = secondary_id;
 
     -- 5. profile_achievements (UNIQUE: profile_id, achievement_id)
-    UPDATE public.profile_achievements SET profile_id = primary_id WHERE profile_id = secondary_id
-    ON CONFLICT (profile_id, achievement_id) DO NOTHING;
+    DELETE FROM public.profile_achievements sec WHERE sec.profile_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.profile_achievements pri WHERE pri.achievement_id = sec.achievement_id AND pri.profile_id = primary_id
+    );
+    UPDATE public.profile_achievements SET profile_id = primary_id WHERE profile_id = secondary_id;
 
     -- 6. event_waitlist (UNIQUE: event_id, user_id)
-    UPDATE public.event_waitlist SET user_id = primary_id WHERE user_id = secondary_id
-    ON CONFLICT (event_id, user_id) DO NOTHING;
+    DELETE FROM public.event_waitlist sec WHERE sec.user_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.event_waitlist pri WHERE pri.event_id = sec.event_id AND pri.user_id = primary_id
+    );
+    UPDATE public.event_waitlist SET user_id = primary_id WHERE user_id = secondary_id;
 
     -- 7. event_feedbacks (UNIQUE: event_id, user_id)
-    UPDATE public.event_feedbacks SET user_id = primary_id WHERE user_id = secondary_id
-    ON CONFLICT (event_id, user_id) DO NOTHING;
+    DELETE FROM public.event_feedbacks sec WHERE sec.user_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.event_feedbacks pri WHERE pri.event_id = sec.event_id AND pri.user_id = primary_id
+    );
+    UPDATE public.event_feedbacks SET user_id = primary_id WHERE user_id = secondary_id;
 
     -- 8. daily_active_users (UNIQUE: user_id, activity_date)
-    UPDATE public.daily_active_users SET user_id = primary_id WHERE user_id = secondary_id
-    ON CONFLICT (user_id, activity_date) DO NOTHING;
+    DELETE FROM public.daily_active_users sec WHERE sec.user_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.daily_active_users pri WHERE pri.activity_date = sec.activity_date AND pri.user_id = primary_id
+    );
+    UPDATE public.daily_active_users SET user_id = primary_id WHERE user_id = secondary_id;
 
     -- 9. likes (UNIQUE: user_id, entity_type, entity_id, club_id)
-    UPDATE public.likes SET user_id = primary_id WHERE user_id = secondary_id
-    ON CONFLICT (user_id, entity_type, entity_id, club_id) DO NOTHING;
+    DELETE FROM public.likes sec WHERE sec.user_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.likes pri WHERE pri.entity_type = sec.entity_type AND pri.entity_id = sec.entity_id AND pri.club_id = sec.club_id AND pri.user_id = primary_id
+    );
+    UPDATE public.likes SET user_id = primary_id WHERE user_id = secondary_id;
 
     -- 10. reports (UNIQUE: reporter_id, target_type, target_id)
-    UPDATE public.reports SET reporter_id = primary_id WHERE reporter_id = secondary_id
-    ON CONFLICT (reporter_id, target_type, target_id) DO NOTHING;
+    DELETE FROM public.reports sec WHERE sec.reporter_id = secondary_id AND EXISTS (
+      SELECT 1 FROM public.reports pri WHERE pri.target_type = sec.target_type AND pri.target_id = sec.target_id AND pri.reporter_id = primary_id
+    );
+    UPDATE public.reports SET reporter_id = primary_id WHERE reporter_id = secondary_id;
 
-    -- Delete the secondary profile
-    DELETE FROM public.profiles WHERE id = secondary_id;
+    -- Soft-delete the secondary profile
+    UPDATE public.profiles SET deleted_at = NOW() WHERE id = secondary_id;
 
 END;
 $$;

@@ -32,7 +32,8 @@ export function useNoteVersions(noteId: string | null) {
     try {
       const { data, error } = await supabase
         .from("club_meeting_note_versions")
-        .select(`
+        .select(
+          `
           id,
           note_id,
           version_number,
@@ -43,7 +44,8 @@ export function useNoteVersions(noteId: string | null) {
           created_by,
           created_at,
           profiles (full_name, avatar_url)
-        `)
+        `,
+        )
         .eq("note_id", noteId)
         .order("version_number", { ascending: false });
 
@@ -84,7 +86,8 @@ export function useNoteVersions(noteId: string | null) {
             summary: summary || `Snapshot v${nextVersionNum}`,
             created_by: userId,
           })
-          .select(`
+          .select(
+            `
             id,
             note_id,
             version_number,
@@ -95,7 +98,8 @@ export function useNoteVersions(noteId: string | null) {
             created_by,
             created_at,
             profiles (full_name, avatar_url)
-          `)
+          `,
+          )
           .single();
 
         if (error) throw error;

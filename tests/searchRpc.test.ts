@@ -24,7 +24,10 @@ describe("searchService", () => {
     >);
 
     const result = await searchService.searchEvents({ query: "Test" });
-    expect(mockRpc).toHaveBeenCalledWith("search_events_advanced", { query_string: "Test" });
-    expect(result).toEqual([{ id: "1", title: "Test Event" }]);
+expect(mockRpc).toHaveBeenCalledWith("search_events", {
+  query_text: "Test",
+  category_filter: null,
+  date_filter: null,
+});    expect(result).toEqual([{ id: "1", title: "Test Event" }]);
   });
 });

@@ -2,10 +2,19 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- 1. Create custom types
-CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin');
+CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin', 'Premium');
 CREATE TYPE member_role AS ENUM ('member', 'admin');
 CREATE TYPE join_status AS ENUM ('pending', 'approved');
 CREATE TYPE club_visibility AS ENUM ('public', 'private');
+
+-- 1.5 Create utility functions
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- 2. Create tables
 CREATE TABLE profiles (
@@ -133,7 +142,8 @@ CREATE TABLE events (
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  short_id TEXT UNIQUE
+  short_id TEXT UNIQUE,
+  generates_certificate BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 ALTER TABLE events
@@ -160,6 +170,10 @@ CHECK (
     (longitude >= -180 AND longitude <= 180)
 );
 
+-- Issue #3899: Automated Health & Safety Compliance Checks
+ALTER TABLE events ADD COLUMN category TEXT;
+ALTER TABLE events ADD COLUMN tags TEXT[] DEFAULT '{}';
+ALTER TABLE events ADD COLUMN compliance_permit_url TEXT;
 CREATE TABLE event_co_hosts (
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
@@ -183,6 +197,8 @@ CREATE TABLE event_waitlist (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(event_id, user_id)
 );
+
+
 
 CREATE TABLE posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -248,8 +264,13 @@ CREATE TABLE certificates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  attendee_name TEXT,
+  event_title TEXT,
+  event_date TIMESTAMPTZ,
   certificate_url TEXT NOT NULL,
-  issued_at TIMESTAMPTZ DEFAULT NOW()
+  issued_at TIMESTAMPTZ DEFAULT NOW(),
+  email_sent_at TIMESTAMPTZ,
+  CONSTRAINT unique_event_user_certificate UNIQUE (event_id, user_id)
 );
 
 CREATE TABLE saved_events (
@@ -338,6 +359,18 @@ CREATE INDEX idx_poll_votes_poll_id_user_id ON poll_votes(poll_id, user_id);
 CREATE INDEX idx_direct_messages_sender_id ON direct_messages(sender_id);
 CREATE INDEX idx_direct_messages_receiver_id ON direct_messages(receiver_id);
 CREATE INDEX idx_direct_messages_created_at ON direct_messages(created_at);
+
+-------------------------------------------------------------------------------------------------------------
+-- Speeds up filtering/joining posts by the club they belong to
+CREATE INDEX IF NOT EXISTS idx_posts_club_id ON posts(club_id);
+-- Speeds up joining posts to the author's profile data
+CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
+-- Drastically speeds up ordering the feed chronologically 
+-- The partial index (WHERE deleted_at IS NULL) saves space and speeds up queries that ignore deleted posts
+CREATE INDEX IF NOT EXISTS idx_posts_active_created_at ON posts(created_at DESC) WHERE deleted_at IS NULL;
+-- Speeds up fetching or counting comments for a specific post
+CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
+-------------------------------------------------------------------------------------------------------------
 
 -- Helper function: check if user is system admin
 CREATE OR REPLACE FUNCTION public.is_system_admin()
@@ -753,10 +786,13 @@ AS $$
 DECLARE
     next_waitlist_record RECORD;
 BEGIN
-    SELECT id, event_id, user_id INTO next_waitlist_record
-    FROM public.event_waitlist
-    WHERE event_id = OLD.event_id
-    ORDER BY created_at ASC
+    SELECT w.id, w.event_id, w.user_id INTO next_waitlist_record
+    FROM public.event_waitlist w
+    JOIN public.profiles p ON p.id = w.user_id
+    WHERE w.event_id = OLD.event_id
+    ORDER BY
+        CASE WHEN p.role = 'Premium' THEN 1 ELSE 2 END ASC,
+        w.created_at ASC
     LIMIT 1
     FOR UPDATE SKIP LOCKED;
 
@@ -908,13 +944,7 @@ FOR EACH ROW
 WHEN (OLD.entity_type = 'post')
 EXECUTE FUNCTION public.update_post_like_count();
 
-CREATE OR REPLACE FUNCTION public.update_updated_at_column()
-RETURNS trigger AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+
 
 CREATE TRIGGER set_updated_at_profiles
 BEFORE UPDATE ON profiles

@@ -1,20 +1,18 @@
 import { useState } from "react";
 import { useClubJobs, useJobApplications } from "@/hooks/useClubJobs";
-import {
-  Briefcase,
-  Plus,
-  X,
-  Users,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Eye,
-  EyeOff,
-  Trash2,
-  Loader2,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+import Briefcase from "lucide-react/dist/esm/icons/briefcase";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import X from "lucide-react/dist/esm/icons/x";
+import Users from "lucide-react/dist/esm/icons/users";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import EyeOff from "lucide-react/dist/esm/icons/eye-off";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import { toast } from "sonner";
 
 interface ClubRecruitmentManageProps {

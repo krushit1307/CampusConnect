@@ -1,6 +1,7 @@
 import { formatDate } from "@/lib/utils";
 import { BookmarkButton } from "@/components/events/BookmarkButton";
-import { Check, Share2 } from "lucide-react";
+import Check from "lucide-react/dist/esm/icons/check";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
 import { useEventCardContext } from "./EventCardContext";
 
 export function EventCardHeader() {

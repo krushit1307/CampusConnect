@@ -13,20 +13,37 @@ CREATE OR REPLACE FUNCTION public.handle_new_club_admin()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_admin_role_id UUID;
 BEGIN
-    INSERT INTO public.club_members (
-        club_id,
-        user_id,
-        role,
-        status
-    )
-    VALUES (
-        NEW.id,
-        NEW.created_by,
-        'admin',
-        'approved'
-    )
-    ON CONFLICT (club_id, user_id) DO NOTHING;
+    -- 1. Create the default roles for the new club
+    INSERT INTO public.club_roles (club_id, title, permissions_level)
+    VALUES 
+        (NEW.id, 'Admin', 100),
+        (NEW.id, 'Member', 10)
+    ON CONFLICT (club_id, title) DO NOTHING;
+
+    -- 2. Fetch the admin role ID
+    SELECT id INTO v_admin_role_id
+    FROM public.club_roles
+    WHERE club_id = NEW.id AND title = 'Admin';
+
+    -- 3. If created_by is NOT NULL, insert them as the approved admin member
+    IF NEW.created_by IS NOT NULL THEN
+        INSERT INTO public.club_members (
+            club_id,
+            user_id,
+            role_id,
+            status
+        )
+        VALUES (
+            NEW.id,
+            NEW.created_by,
+            v_admin_role_id,
+            'approved'
+        )
+        ON CONFLICT (club_id, user_id) DO NOTHING;
+    END IF;
 
     RETURN NEW;
 END;

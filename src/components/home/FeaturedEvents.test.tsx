@@ -14,8 +14,8 @@ vi.unmock("react");
 // environment in jsdom — keeps the test focused on layout/classes.
 // We strip framer-only props (layoutId, etc.) so React doesn't warn about
 // unknown DOM attributes during the render assertions.
-vi.mock("framer-motion", () => ({
-  motion: {
+vi.mock("framer-motion", () => {
+  const elements = {
     img: ({
       children,
       layoutId,
@@ -30,17 +30,23 @@ vi.mock("framer-motion", () => ({
     }: React.HTMLAttributes<HTMLDivElement> & { layoutId?: string }) => (
       <div {...props}>{children}</div>
     ),
-  },
-  useMotionValue: (init: number) => ({
-    get: () => init,
-    set: vi.fn(),
-    onChange: vi.fn(),
-  }),
-  useSpring: (v: unknown) => v,
-  useTransform: (v: unknown, input: number[], output: (string | number)[]) => ({
-    get: () => output[0] ?? 0,
-  }),
-}));
+  };
+
+  return {
+    LazyMotion: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    m: elements,
+    motion: elements,
+    useMotionValue: (init: number) => ({
+      get: () => init,
+      set: vi.fn(),
+      onChange: vi.fn(),
+    }),
+    useSpring: (value: unknown) => value,
+    useTransform: (_value: unknown, _input: number[], output: (string | number)[]) => ({
+      get: () => output[0] ?? 0,
+    }),
+  };
+});
 
 // framer-motion's `motion` typing is opaque to React's JSX without an
 // import; alias the typing here so the mock above compiles cleanly.

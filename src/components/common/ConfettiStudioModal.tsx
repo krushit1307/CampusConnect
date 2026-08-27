@@ -1,5 +1,12 @@
 import React from "react";
-import { Sparkles, Zap, Shield, EyeOff, Award, Flame, X, Info } from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import EyeOff from "lucide-react/dist/esm/icons/eye-off";
+import Award from "lucide-react/dist/esm/icons/award";
+import Flame from "lucide-react/dist/esm/icons/flame";
+import X from "lucide-react/dist/esm/icons/x";
+import Info from "lucide-react/dist/esm/icons/info";
 import { useConfetti } from "../../hooks/useConfetti";
 import { BRAND_CONFETTI_COLORS } from "../../lib/confettiEngine";
 

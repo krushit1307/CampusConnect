@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { useClubBudget } from "@/hooks/useClubBudget";
-import {
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  PiggyBank,
-  Plus,
-  Receipt,
-  Clock,
-  CheckCircle,
-  XCircle,
-} from "lucide-react";
+import { FinancialBurnRateWidget } from "@/components/Clubs/FinancialBurnRateWidget";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import TrendingDown from "lucide-react/dist/esm/icons/trending-down";
+import PiggyBank from "lucide-react/dist/esm/icons/piggy-bank";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Receipt from "lucide-react/dist/esm/icons/receipt";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
 import { toast } from "sonner";
+import { AssetRegisterPanel } from "@/components/Clubs/AssetRegisterPanel";
+import { VendorEscrowViewer } from "@/components/vendors/VendorEscrowViewer";
 
 interface ClubBudgetDashboardProps {
   clubId: string;
@@ -182,7 +183,7 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
             <PiggyBank className="h-5 w-5 text-green-700" />
           </div>
           <p className="font-display font-black text-3xl mt-2 text-black dark:text-white">
-            ${(summary?.total_budget ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            ${(summary?.total_budget ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className="mt-2 font-mono text-[11px] font-bold text-gray-700 dark:text-gray-300 border-t border-black/20 pt-1">
             Annual allocation
@@ -197,7 +198,7 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
             <TrendingUp className="h-5 w-5 text-blue-700" />
           </div>
           <p className="font-display font-black text-3xl mt-2 text-black dark:text-white">
-            +${(summary?.total_income ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            +${(summary?.total_income ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className="mt-2 font-mono text-[11px] font-bold text-gray-700 dark:text-gray-300 border-t border-black/20 pt-1">
             Sponsorships &amp; revenue
@@ -212,7 +213,7 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
             <TrendingDown className="h-5 w-5 text-red-700" />
           </div>
           <p className="font-display font-black text-3xl mt-2 text-black dark:text-white">
-            -${(summary?.total_expenses ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            -${(summary?.total_expenses ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className="mt-2 font-mono text-[11px] font-bold text-gray-700 dark:text-gray-300 border-t border-black/20 pt-1">
             {summary?.transaction_count ?? 0} transactions
@@ -230,6 +231,7 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
             $
             {(summary?.remaining_balance ?? 0).toLocaleString("en-US", {
               minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
             })}
           </p>
           <p className="mt-2 font-mono text-[11px] font-bold text-gray-700 dark:text-gray-300 border-t border-black/20 pt-1">
@@ -237,6 +239,8 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
           </p>
         </div>
       </div>
+
+      <FinancialBurnRateWidget clubId={clubId} />
 
       <div className="border-2 border-black bg-white p-5 shadow-[4px_4px_0_0_#000] dark:bg-zinc-900 dark:border-white space-y-4">
         <div className="flex items-center justify-between border-b-2 border-black pb-3 dark:border-white">
@@ -303,7 +307,7 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
                       }`}
                     >
                       {txn.type === "income" ? "+" : "-"}$
-                      {txn.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      {txn.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="p-2">
                       {txn.status === "approved" && (
@@ -329,6 +333,12 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
           </div>
         )}
       </div>
+
+      {/* Vendor bid escrow: ledger → Stripe vault → vendor release. */}
+      <VendorEscrowViewer clubId={clubId} />
+
+      {/* Capital kit: book values, replacement timeline and the funding gap. */}
+      <AssetRegisterPanel clubId={clubId} />
     </div>
   );
 }

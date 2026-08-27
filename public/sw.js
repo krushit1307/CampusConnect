@@ -1,56 +1,80 @@
+const NOTIFICATION_ROUTE_PARAM = "notification_route";
+const PUSH_DEEP_LINK_MESSAGE = "CAMPUSCONNECT_PUSH_DEEP_LINK";
+
+function normalizeTargetRoute(value) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return null;
+  try {
+    const target = new URL(value, self.location.origin);
+    return target.origin === self.location.origin && !target.pathname.includes("\\")
+      ? `${target.pathname}${target.search}${target.hash}`
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function createLaunchUrl(targetRoute) {
+  const url = new URL("/", self.location.origin);
+  url.searchParams.set(NOTIFICATION_ROUTE_PARAM, targetRoute);
+  return url.toString();
+}
+
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
+  let payload;
   try {
-    const data = event.data.json();
-    const title = data.title || "CampusConnect Announcement";
-
-    const options = {
-      body: data.message,
-      icon: "/favicon.png",
-      badge: "/favicon.png",
-      data: {
-        url: data.url || "/",
-      },
-    };
-
-    event.waitUntil(self.registration.showNotification(title, options));
-  } catch (error) {
-    console.error("Error processing push event:", error);
-    // Fallback if data is not JSON
-    event.waitUntil(
-      self.registration.showNotification("CampusConnect Announcement", {
-        body: event.data.text(),
-        icon: "/favicon.png",
-        badge: "/favicon.png",
-        data: { url: "/" },
-      }),
-    );
+    payload = event.data.json();
+  } catch {
+    payload = { title: "CampusConnect", body: event.data.text() };
   }
-});
 
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-
-  const urlToOpen = event.notification.data?.url || "/";
-
-  // This looks to see if the current is already open and focuses if it is
-  event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      // Check if there is already a window/tab open with the target URL
-      for (let i = 0; i < windowClients.length; i++) {
-        const client = windowClients[i];
-        // If so, just focus it.
-        if (client.url.includes(urlToOpen) && "focus" in client) {
-          return client.focus();
-        }
-      }
-      // If not, then open the target URL in a new window/tab.
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
-    }),
+  const targetRoute = normalizeTargetRoute(
+    payload.target_route || payload.data?.target_route || payload.data?.url || payload.url,
   );
+
+  let title = payload.title || "CampusConnect";
+  let body = payload.body || payload.message || "You have a new notification.";
+
+  // Dynamic Push Notification Payload Formatter (Fallback for OS background notifications)
+  if (payload.type && payload.payload) {
+    const data = payload.payload;
+    switch (payload.type) {
+      case "EVENT_INVITE":
+        title = "Event Invite";
+        body = `${data.actor || "Someone"} invited you to ${data.target || "an event"}`;
+        break;
+      case "EVENT_CANCELLED":
+        title = "Event Cancelled";
+        body = `${data.target || "An event"} has been cancelled.`;
+        break;
+      case "EVENT_REMINDER":
+        title = "Event Reminder";
+        body = `Reminder: ${data.target || "An event"} is starting soon.`;
+        break;
+      case "NEW_POST":
+        title = "New Post";
+        body = `${data.actor || "Someone"} posted in ${data.target || "a club"}`;
+        break;
+      case "CLUB_INVITE":
+        title = "Club Invite";
+        body = `${data.actor || "Someone"} invited you to join ${data.target || "a club"}`;
+        break;
+      case "NEW_COMMENT":
+        title = "New Comment";
+        body = `${data.actor || "Someone"} commented on your post.`;
+        break;
+    }
+  }
+
+  const options = {
+    body: body,
+    icon: payload.icon || "/icon-192x192.png",
+    badge: payload.badge || "/icon-192x192.png",
+    data: { target_route: targetRoute },
+    tag: payload.tag || "campusconnect-notification",
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 /**
@@ -133,6 +157,10 @@ self.addEventListener("activate", (event) => {
 // FETCH EVENT: Intercept requests and apply caching strategies
 // =============================================================================
 self.addEventListener("fetch", (event) => {
+  // Bypass caching completely during local development to prevent conflicts with Vite's HMR
+  if (self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1") {
+    return;
+  }
   const { request } = event;
   const url = new URL(request.url);
 
@@ -208,57 +236,19 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(fetch(request));
 });
 
-// =============================================================================
-// PUSH EVENT: Handle incoming push payloads from the backend
-// =============================================================================
-self.addEventListener("push", (event) => {
-  if (!event.data) {
-    console.warn("Push event received but no data payload found.");
-    return;
-  }
-
-  let data;
-  try {
-    data = event.data.json();
-  } catch (e) {
-    console.error("Failed to parse push data as JSON:", e);
-    data = { title: "CampusConnect", body: "You have a new notification." };
-  }
-
-  const title = data.title || "New Direct Message";
-  const options = {
-    body: data.body || "Click to view your messages.",
-    icon: data.icon || "/icon-192x192.png",
-    badge: data.badge || "/icon-192x192.png",
-    data: data.data || {}, // Custom data to pass to the click handler
-    vibrate: [200, 100, 200],
-    tag: data.tag || "campusconnect-dm", // Group notifications
-    requireInteraction: true,
-  };
-
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
-// =============================================================================
-// NOTIFICATION CLICK EVENT: Handle user interaction with notifications
-// =============================================================================
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-
-  const targetUrl = event.notification.data?.url || "/messages";
+  const targetRoute = normalizeTargetRoute(event.notification.data?.target_route) || "/";
 
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      // If a window is already open, focus it
-      for (const client of clientList) {
-        if (client.url.includes(targetUrl) && "focus" in client) {
-          return client.focus();
-        }
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windowClients) => {
+      const client = windowClients[0];
+      if (client) {
+        await client.focus();
+        client.postMessage({ type: PUSH_DEEP_LINK_MESSAGE, target_route: targetRoute });
+        return;
       }
-      // Otherwise, open a new window
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
-      }
+      return clients.openWindow(createLaunchUrl(targetRoute));
     }),
   );
 });

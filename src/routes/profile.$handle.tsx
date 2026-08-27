@@ -3,10 +3,29 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MapPin, Link2, Calendar, Award, Building, CalendarPlus, ArrowRight } from "lucide-react";
+import {
+  MapPin,
+  Link2,
+  Calendar,
+  Award,
+  Building,
+  CalendarPlus,
+  ArrowRight,
+  History as HistoryIcon,
+} from "lucide-react";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
+import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimeline";
+import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
+import { ProfileBadgeGallery } from "@/components/gamification/ProfileBadgeGallery";
+import { ProfileGamificationStats } from "@/components/gamification/ProfileGamificationStats";
+import { ProgressRing } from "@/components/profile/ProgressRing";
+import { useState, useEffect } from "react";
+import { SharedClubsSection } from "@/components/profile/SharedClubsSection";
+import { getSharedClubs } from "@/lib/sharedClubs";
+import { ReportDialog } from "@/components/ReportDialog";
+import { AlertTriangle } from "lucide-react";
 
 function getInitials(name: string) {
   return name
@@ -21,6 +40,14 @@ function getInitials(name: string) {
 export default function Profile() {
   const { handle } = useParams();
   const supabase = createClient();
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [isReporting, setIsReporting] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+  }, [supabase]);
 
   const {
     data: profile,
@@ -50,6 +77,19 @@ export default function Profile() {
     },
   });
 
+  const isViewingOtherProfile = Boolean(
+    currentUser?.id && profile?.id && currentUser.id !== profile.id,
+  );
+
+  const { data: sharedClubs = [], isLoading: isLoadingSharedClubs } = useQuery({
+    queryKey: ["sharedClubs", currentUser?.id, profile?.id],
+    queryFn: async () => {
+      if (!currentUser?.id || !profile?.id) return [];
+      return getSharedClubs(supabase, currentUser.id, profile.id);
+    },
+    enabled: isViewingOtherProfile,
+  });
+
   const { data: userClubs = [] } = useQuery({
     queryKey: ["profileClubs", profile?.id],
     queryFn: async () => {
@@ -68,10 +108,16 @@ export default function Profile() {
     queryKey: ["profileEvents", profile?.id],
     queryFn: async () => {
       if (!profile) return [];
-      const { data } = await supabase
+      let query = supabase
         .from("event_rsvps")
         .select("events (id, title, event_date, clubs (slug, name))")
         .eq("user_id", profile.id);
+
+      if (!user || user.id !== profile.id) {
+        query = query.eq("is_anonymous", false);
+      }
+
+      const { data } = await query;
 
       const events = (data || [])
         .map((r) => (Array.isArray(r.events) ? r.events[0] : r.events))
@@ -99,27 +145,114 @@ export default function Profile() {
     enabled: !!profile?.id,
   });
 
+  const { data: timelineItems = [] } = useQuery({
+    queryKey: ["profileTimeline", profile?.id],
+    queryFn: async () => {
+      if (!profile) return [];
+      const [membersRes, rsvpsRes, postsRes] = await Promise.all([
+        supabase
+          .from("club_members")
+          .select("id, joined_at, clubs (name, slug)")
+          .eq("user_id", profile.id)
+          .eq("status", "approved"),
+        (() => {
+          let query = supabase
+            .from("event_rsvps")
+            .select("id, rsvp_at, events (id, title, event_date)")
+            .eq("user_id", profile.id);
+          if (!user || user.id !== profile.id) {
+            query = query.eq("is_anonymous", false);
+          }
+          return query;
+        })(),
+        supabase
+          .from("posts")
+          .select("id, content, created_at, clubs (name, slug)")
+          .eq("author_id", profile.id)
+          .is("deleted_at", null),
+      ]);
+
+      const items: TimelineItem[] = [];
+
+      (membersRes.data || []).forEach((m: any) => {
+        const club = Array.isArray(m.clubs) ? m.clubs[0] : m.clubs;
+        if (club && m.joined_at) {
+          items.push({
+            id: `club-${m.id}`,
+            type: "club_join",
+            date: m.joined_at,
+            title: `Joined ${club.name}`,
+            description: `Became an approved member of ${club.name}.`,
+            link: `/clubs/${club.slug}`,
+          });
+        }
+      });
+
+      (rsvpsRes.data || []).forEach((r: any) => {
+        const event = Array.isArray(r.events) ? r.events[0] : r.events;
+        if (event && r.rsvp_at) {
+          items.push({
+            id: `rsvp-${r.id}`,
+            type: "rsvp",
+            date: r.rsvp_at,
+            title: `RSVP'd to ${event.title}`,
+            description: `Registered to attend the event on ${
+              event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBA"
+            }.`,
+            link: `/events/${event.id}`,
+          });
+        }
+      });
+
+      (postsRes.data || []).forEach((p: any) => {
+        const club = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs;
+        if (p.created_at) {
+          items.push({
+            id: `post-${p.id}`,
+            type: "post",
+            date: p.created_at,
+            title: club ? `Posted in ${club.name}` : "Created a new post",
+            description: p.content.length > 120 ? p.content.substring(0, 120) + "..." : p.content,
+            link: club ? `/clubs/${club.slug}` : "#",
+          });
+        }
+      });
+
+      return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    },
+    enabled: !!profile?.id,
+  });
+
   if (isLoading) return <UserProfileSkeleton />;
   if (isError || !profile) return <NotFoundPage />;
+
+  const profileData = {
+    hasAvatar: !!profile.avatar_url,
+    hasBio: !!profile.bio,
+    hasMajor: !!profile.college,
+    hasInterests: !!profile.skills?.length,
+  };
 
   return (
     <SiteShell>
       <section className="border-b-2 border-black bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl flex flex-col md:flex-row items-center md:items-start gap-8">
-          <div className="relative h-32 w-32 shrink-0">
-            <Avatar className="h-32 w-32 border-4 border-black rounded-full">
-              <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
-              <AvatarFallback className="bg-lime text-3xl font-display font-bold">
-                {getInitials(profile.full_name || "Unknown User")}
-              </AvatarFallback>
-            </Avatar>
-            <span className="absolute bottom-1 right-1 rounded-full border-2 border-white bg-white p-1">
-              <span
-                className={getPresenceBadgeClass(presenceMap[profile.id]?.status ?? "offline")}
-                aria-hidden="true"
-              />
-            </span>
-          </div>
+          <ProgressRing size={140} strokeWidth={6} className="shrink-0" profileData={profileData}>
+            <div className="relative h-full w-full">
+              <Avatar className="h-full w-full border-4 border-black rounded-full">
+                <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+                <AvatarFallback className="bg-lime text-3xl font-display font-bold">
+                  {getInitials(profile.full_name || "Unknown User")}
+                </AvatarFallback>
+              </Avatar>
+              <span className="absolute bottom-1 right-1 rounded-full border-2 border-white bg-white p-1">
+                <span
+                  className={getPresenceBadgeClass(presenceMap[profile.id]?.status ?? "offline")}
+                  aria-hidden="true"
+                />
+              </span>
+            </div>
+          </ProgressRing>
 
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
@@ -167,6 +300,18 @@ export default function Profile() {
                 ))}
               </div>
             )}
+
+            {currentUser && currentUser.id !== profile.id && (
+              <div className="pt-4 flex justify-center md:justify-start">
+                <button
+                  onClick={() => setIsReporting(true)}
+                  className="flex items-center gap-1.5 text-red-500 hover:text-red-700 font-mono text-xs font-bold uppercase transition-colors"
+                >
+                  <AlertTriangle size={14} />
+                  Report User
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -208,6 +353,15 @@ export default function Profile() {
               </div>
             )}
           </div>
+
+          {/* Shared Clubs / Mutual Connections Section */}
+          {isViewingOtherProfile && (
+            <SharedClubsSection
+              clubs={sharedClubs}
+              isLoading={isLoadingSharedClubs}
+              targetUserName={profile.full_name || profile.handle}
+            />
+          )}
 
           {/* Upcoming Events Section */}
           <div className="space-y-6">
@@ -321,8 +475,34 @@ export default function Profile() {
               </div>
             )}
           </div>
+
+          {/* Attendance Heatmap Section */}
+          <div className="space-y-6">
+            <AttendanceHeatmap userId={profile.id} />
+          </div>
+
+          {/* Custom Interactive Badges Section */}
+          <ProfileGamificationStats userId={profile.id} isOwnProfile={!isViewingOtherProfile} />
+          <ProfileBadgeGallery userId={profile.id} />
+          {/* Activity History Section */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-xl font-bold font-display">
+              <HistoryIcon size={24} className="text-lime" />
+              <h2>Activity History</h2>
+            </div>
+            <HistoryTimeline items={timelineItems} />
+          </div>
         </div>
       </section>
+
+      {isReporting && profile && (
+        <ReportDialog
+          targetType="profile"
+          targetId={profile.id}
+          isOpen={isReporting}
+          onClose={() => setIsReporting(false)}
+        />
+      )}
     </SiteShell>
   );
 }

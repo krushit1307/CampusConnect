@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Bug, Loader2 } from "lucide-react";
+import Bug from "lucide-react/dist/esm/icons/bug";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import type { User } from "@supabase/supabase-js";
 import {
   Dialog,

@@ -16,6 +16,7 @@ export interface ClubWizardFormState {
   logo_url: string;
   social_links: Record<string, string>;
   admin_invites: AdminInvite[];
+  tags?: string[];
 }
 
 const defaultWizardValues: ClubWizardFormState = {
@@ -28,6 +29,7 @@ const defaultWizardValues: ClubWizardFormState = {
   logo_url: "",
   social_links: {},
   admin_invites: [],
+  tags: [],
 };
 
 export interface ClubWizardStore {

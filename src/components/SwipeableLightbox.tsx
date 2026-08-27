@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { LazyMotion, m, AnimatePresence, PanInfo } from "framer-motion";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import X from "lucide-react/dist/esm/icons/x";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import { loadDomMax } from "@/lib/motionFeatures";
 
 interface SwipeableLightboxProps {
@@ -25,6 +27,13 @@ export function SwipeableLightbox({ images, initialIndex = 0, onClose }: Swipeab
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     const { offset, velocity } = info;
+
+    // Check vertical drag-to-dismiss gesture (#1751)
+    if (offset.y > 100 || velocity.y > 500) {
+      onClose();
+      return;
+    }
+
     const swipe = Math.abs(offset.x) * velocity.x;
     if (swipe < -swipeConfidenceThreshold || offset.x < -swipeDistanceThreshold) {
       paginate(1);

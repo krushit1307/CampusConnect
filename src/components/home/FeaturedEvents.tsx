@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { LazyMotion, m } from "framer-motion";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 import { formatDate } from "@/lib/utils";
 import { Parallax3DCard } from "@/components/ui/Parallax3DCard";
 import { sortFeaturedEvents, type FeaturedEvent } from "./featuredGrid";

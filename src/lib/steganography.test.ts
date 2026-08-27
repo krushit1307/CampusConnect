@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";import {
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
   bitsToString,
   createImageDataContainer,
   embedLSBData,
@@ -81,7 +82,9 @@ describe("steganography Ed25519 / HMAC signature module", () => {
   beforeEach(() => {
     // Only fake the clock/timer APIs — leave Node internals alone so async
     // Web Crypto calls (crypto.subtle.digest) keep working normally.
-    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    vi.useFakeTimers({
+      toFake: ["Date", "setTimeout", "clearTimeout", "setInterval", "clearInterval"],
+    });
     vi.setSystemTime(new Date("2024-01-01T12:00:00Z"));
   });
 
@@ -89,7 +92,8 @@ describe("steganography Ed25519 / HMAC signature module", () => {
     vi.useRealTimers();
   });
 
-  it("generates and verifies valid ticket signatures", async () => {    const rsvpId = "RSVP-ABC-123";
+  it("generates and verifies valid ticket signatures", async () => {
+    const rsvpId = "RSVP-ABC-123";
     const timestamp = Date.now();
 
     const signedPayload = await signTicketPayload(rsvpId, timestamp);
@@ -115,7 +119,7 @@ describe("steganography Ed25519 / HMAC signature module", () => {
     expect(result.reason).toContain("signature verification failed");
   });
 
-it("stays valid up to 23h59m and expires the instant it crosses the 24h boundary", async () => {
+  it("stays valid up to 23h59m and expires the instant it crosses the 24h boundary", async () => {
     const rsvpId = "RSVP-EXPIRED";
     const maxAgeMs = 24 * 60 * 60 * 1000;
 

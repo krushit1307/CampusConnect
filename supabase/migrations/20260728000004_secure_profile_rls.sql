@@ -17,7 +17,7 @@ WITH CHECK (
   AND (
     -- Allow updates only if role is NOT being changed
     -- or if the user is a system admin
-    (OLD.role IS NOT DISTINCT FROM NEW.role)
+    ((SELECT p.role FROM public.profiles p WHERE p.id = auth.uid()) IS NOT DISTINCT FROM role)
     OR public.is_system_admin()
   )
 );

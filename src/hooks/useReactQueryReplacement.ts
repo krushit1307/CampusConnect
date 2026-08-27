@@ -6,15 +6,28 @@ import {
   QueryClient,
   QueryClientProvider,
 } from "@tanstack/react-query";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { get, set, del } from "idb-keyval";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes cache
-      gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours garbage collection for offline fallback
       refetchOnWindowFocus: true,
-      retry: 1,
+      retry: 2,
     },
+  },
+});
+
+export const persister = createAsyncStoragePersister({
+  storage: {
+    getItem: async (key) => {
+      const val = await get(key);
+      return val === undefined ? null : val;
+    },
+    setItem: set,
+    removeItem: del,
   },
 });
 

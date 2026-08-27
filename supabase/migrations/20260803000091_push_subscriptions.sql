@@ -1,0 +1,13 @@
+-- Migration: 20260803000000_push_subscriptions.sql
+-- Description: Create push_subscriptions table
+--
+-- SUPERSEDED: this was the third of three independently-committed
+-- migrations all named "push_subscriptions", each defining a
+-- conflicting shape of the same table (this one used a bare
+-- CREATE TABLE with no IF NOT EXISTS, so it would additionally fail
+-- outright with "relation already exists" once the table had already
+-- been created by an earlier migration in the chain).
+--
+-- 20260726000005 is now the single canonical definition. This file is
+-- kept as a no-op, rather than deleted, to preserve migration history.
+SELECT 1;

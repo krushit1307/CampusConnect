@@ -17,7 +17,7 @@ SET
   can_remove_members = TRUE,
   can_post_news = TRUE,
   can_manage_permissions = TRUE
-WHERE role = 'admin' AND status = 'approved';
+WHERE public.is_club_admin(club_id, user_id) AND status = 'approved';
 
 -- Add comment to document the permission system
 COMMENT ON COLUMN club_members.can_edit_events IS 'Permission to create, edit, and delete club events';

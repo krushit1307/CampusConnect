@@ -2,7 +2,8 @@ import { useActivePoll } from "@/hooks/useActivePoll";
 import { PollResultsChart } from "@/components/polls/PollResultsChart";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { BarChart3, Check } from "lucide-react";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
+import Check from "lucide-react/dist/esm/icons/check";
 
 interface ActivePollProps {
   eventId: string;

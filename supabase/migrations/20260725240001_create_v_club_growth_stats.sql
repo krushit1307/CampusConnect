@@ -3,13 +3,13 @@ CREATE OR REPLACE VIEW v_club_growth_stats AS
 WITH monthly_member_counts AS (
     SELECT
         club_id,
-        DATE_TRUNC('month', created_at) AS month,
-        COUNT(id) AS new_members
+        DATE_TRUNC('month', joined_at) AS month,
+        COUNT(user_id) AS new_members
     FROM
         club_members
     GROUP BY
         club_id,
-        DATE_TRUNC('month', created_at)
+        DATE_TRUNC('month', joined_at)
 ),
 growth_calculations AS (
     SELECT

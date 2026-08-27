@@ -1,18 +1,32 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";import { Navigate } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import {
-  ShieldAlert,
-  CheckCircle,
-  XCircle,
-  ChevronUp,
-  ChevronDown,
-  Loader2,
-  FileSpreadsheet,
-} from "lucide-react";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
+import FileSpreadsheet from "lucide-react/dist/esm/icons/file-spreadsheet";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import { type ColumnDef } from "@tanstack/react-table";
+import { AdminDataGrid } from "@/components/ui/AdminDataGrid";
 import { BulkUserImportModal } from "@/components/admin/BulkUserImportModal";
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface Profile {
   id: string;
@@ -22,19 +36,13 @@ interface Profile {
   is_banned: boolean;
 }
 
-interface GraphQLResponse {
-  profiles: Profile[];
-  totalProfiles: number;
-}
-
-interface MutationResponse {
-  suspendUsers: {
-    id: string;
-    is_banned: boolean;
-  }[];
-}
-
 import { fetchGraphQL, GraphQLPartialError } from "@/lib/graphql-client";
+import {
+  GetProfilesQuery,
+  GetProfilesQueryVariables,
+  SuspendUsersMutation,
+  SuspendUsersMutationVariables,
+} from "@/generated/graphql";
 
 async function graphqlRequest<T>(
   query: string,
@@ -54,12 +62,19 @@ export default function AdminUsersPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-const [limit] = useState(10000);  const [sortBy, setSortBy] = useState<string>("full_name");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [limit] = useState(10000);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Optimistic UI state
   const [optimisticSuspendedIds, setOptimisticSuspendedIds] = useState<Set<string>>(new Set());
+
+  // Row context-menu (right-click) quick actions
+  const { copyToClipboard } = useCopyToClipboard();
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [editRole, setEditRole] = useState("member");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [deletingProfile, setDeletingProfile] = useState<Profile | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Authenticate user
   useEffect(() => {
@@ -103,8 +118,8 @@ const [limit] = useState(10000);  const [sortBy, setSortBy] = useState<string>("
     setLoading(true);
     try {
       const query = `
-        query GetProfiles($limit: Int!, $offset: Int!, $sortBy: String!, $sortOrder: String!) {
-          profiles(limit: $limit, offset: $offset, sortBy: $sortBy, sortOrder: $sortOrder) {
+        query GetProfiles($limit: Int!, $offset: Int!) {
+          profiles(limit: $limit, offset: $offset) {
             id
             full_name
             handle
@@ -114,21 +129,19 @@ const [limit] = useState(10000);  const [sortBy, setSortBy] = useState<string>("
           totalProfiles
         }
       `;
-const variables = {
+      const variables = {
         limit,
         offset: 0,
-        sortBy,
-        sortOrder,
       };
-      const data = await graphqlRequest<GraphQLResponse>(query, variables);
+      const data = await graphqlRequest<GetProfilesQuery>(query, variables);
       setProfiles(data.profiles);
       setTotal(data.totalProfiles);
     } catch (err: unknown) {
       console.error(err);
       // Partial failure: render what we got, warn the user
       if (err instanceof GraphQLPartialError) {
-        const partial = err.data as GraphQLResponse;
-        if (partial?.profiles) setProfiles(partial.profiles);
+        const partial = err.data as GetProfilesQuery;
+        if (partial?.profiles) setProfiles(partial.profiles as Profile[]);
         if (partial?.totalProfiles != null) setTotal(partial.totalProfiles);
         toast.warning("Some user data failed to load. Showing partial results.");
       } else {
@@ -139,48 +152,105 @@ const variables = {
     } finally {
       setLoading(false);
     }
-}, [authChecked, role, limit, sortBy, sortOrder]);
+  }, [authChecked, role, limit]);
   useEffect(() => {
     void loadProfiles();
   }, [loadProfiles]);
 
-  // Checkbox interactions
-  const handleToggleSelectAll = () => {
-    const currentPageIds = profiles.map((p) => p.id);
-    const allSelected = currentPageIds.every((id) => selectedIds.has(id));
-
+  // Checkbox row toggle helper
+  const handleToggleSelectRow = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (allSelected) {
-        currentPageIds.forEach((id) => next.delete(id));
-      } else {
-        currentPageIds.forEach((id) => next.add(id));
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const handleToggleSelectRow = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  // Sorting interaction
-  const handleSort = (field: string) => {
-    if (sortBy === field) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(field);
-      setSortOrder("asc");
-    }
-};
+  // Column definitions for AdminDataGrid
+  const profileColumns = useMemo<ColumnDef<Profile, unknown>[]>(
+    () => [
+      {
+        id: "select",
+        header: () => (
+          <input
+            type="checkbox"
+            aria-label="Select all"
+            checked={profiles.length > 0 && profiles.every((p) => selectedIds.has(p.id))}
+            onChange={() => {
+              const allSelected = profiles.every((p) => selectedIds.has(p.id));
+              setSelectedIds(() => {
+                if (allSelected) return new Set<string>();
+                return new Set(profiles.map((p) => p.id));
+              });
+            }}
+            className="h-4 w-4 cursor-pointer accent-lime"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            aria-label={`Select ${row.original.full_name ?? row.original.id}`}
+            checked={selectedIds.has(row.original.id)}
+            onChange={() => handleToggleSelectRow(row.original.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 cursor-pointer accent-lime"
+          />
+        ),
+        size: 44,
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableResizing: false,
+      },
+      {
+        accessorKey: "full_name",
+        id: "full_name",
+        header: "Name",
+        cell: ({ getValue }) => <span>{String(getValue() ?? "N/A")}</span>,
+        size: 200,
+      },
+      {
+        accessorKey: "handle",
+        id: "handle",
+        header: "Handle",
+        cell: ({ getValue }) => (
+          <span className="text-gray-600">@{String(getValue() ?? "N/A")}</span>
+        ),
+        size: 160,
+      },
+      {
+        accessorKey: "role",
+        id: "role",
+        header: "Role",
+        cell: ({ getValue }) => (
+          <span className="bg-gray-200 px-2 py-0.5 border border-black text-[10px] uppercase font-bold">
+            {String(getValue() ?? "member")}
+          </span>
+        ),
+        size: 130,
+      },
+      {
+        id: "status",
+        accessorFn: (row) =>
+          row.is_banned || optimisticSuspendedIds.has(row.id) ? "suspended" : "active",
+        header: "Status",
+        cell: ({ getValue }) =>
+          getValue() === "suspended" ? (
+            <span className="bg-peach text-black border border-black px-2 py-0.5 inline-flex items-center gap-1 text-[10px] font-bold uppercase">
+              <XCircle className="h-3 w-3" />
+              Suspended
+            </span>
+          ) : (
+            <span className="bg-lime text-black border border-black px-2 py-0.5 inline-flex items-center gap-1 text-[10px] font-bold uppercase">
+              <CheckCircle className="h-3 w-3" />
+              Active
+            </span>
+          ),
+        size: 120,
+      },
+    ],
+    [profiles, selectedIds, optimisticSuspendedIds, handleToggleSelectRow],
+  );
   // Bulk Suspend action
   const handleBulkSuspend = async () => {
     if (selectedIds.size === 0) return;
@@ -203,7 +273,8 @@ const variables = {
           }
         }
       `;
-      await graphqlRequest<MutationResponse>(mutation, { ids: idsToSuspend });
+      const variables: SuspendUsersMutationVariables = { ids: idsToSuspend };
+      await graphqlRequest<SuspendUsersMutation>(mutation, variables);
       toast.success(`Successfully suspended ${idsToSuspend.length} users.`);
       void loadProfiles();
     } catch (err: unknown) {
@@ -216,6 +287,101 @@ const variables = {
         idsToSuspend.forEach((id) => next.delete(id));
         return next;
       });
+    }
+  };
+
+  // Copy ID quick action
+  const handleCopyId = useCallback(
+    async (profile: Profile) => {
+      const didCopy = await copyToClipboard(profile.id);
+      if (didCopy) {
+        toast.success("User ID copied to clipboard.");
+      } else {
+        toast.error("Could not copy user ID.");
+      }
+    },
+    [copyToClipboard],
+  );
+  const handleImpersonate = useCallback(
+    async (profile: Profile) => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          toast.error("Admin session not found.");
+          return;
+        }
+
+        const response = await fetch("/api/admin/impersonate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            target_user_id: profile.id,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to impersonate user.");
+        }
+
+        sessionStorage.setItem("impersonation_token", data.token);
+        sessionStorage.setItem("impersonated_user", JSON.stringify(data.user));
+
+        window.location.reload();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to impersonate user.");
+      }
+    },
+    [supabase],
+  );
+  // Edit quick action
+  const openEditDialog = useCallback((profile: Profile) => {
+    setEditingProfile(profile);
+    setEditRole(profile.role ?? "member");
+  }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editingProfile) return;
+    setIsSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: editRole })
+        .eq("id", editingProfile.id);
+      if (error) throw error;
+      toast.success(`Updated ${editingProfile.full_name ?? "user"}'s role to ${editRole}.`);
+      setEditingProfile(null);
+      void loadProfiles();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update user.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Delete quick action
+  const handleConfirmDelete = async () => {
+    if (!deletingProfile) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.from("profiles").delete().eq("id", deletingProfile.id);
+      if (error) throw error;
+      toast.success(`Deleted ${deletingProfile.full_name ?? "user"}.`);
+      setDeletingProfile(null);
+      void loadProfiles();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to delete user.";
+      toast.error(errorMessage);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -241,17 +407,6 @@ const variables = {
     );
   }
 
-const currentPageIds = profiles.map((p) => p.id);
-  const allCurrentSelected =
-    currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
-
-  const parentRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
-    count: profiles.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 35, // estimated row height in px
-    overscan: 5, // buffer rows above/below viewport
-  });
   return (
     <SiteShell>
       <div className="bg-cream min-h-screen px-4 py-12 md:px-8 font-mono text-black">
@@ -287,158 +442,54 @@ const currentPageIds = profiles.map((p) => p.id);
             </div>
           </div>
 
-          {/* Grid Container */}
+          {/* Admin Data Grid */}
           <div className="mt-8 bg-white neu-border p-6 rounded-none shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] border-black">
-            {loading && profiles.length === 0 ? (
-              <div className="flex h-64 flex-col items-center justify-center gap-4">
-                <Loader2 className="h-8 w-8 animate-spin text-lime" />
-                <span className="text-sm font-bold uppercase">Loading profiles...</span>
-              </div>
-            ) : (
-<div ref={parentRef} className="overflow-auto" style={{ height: "600px" }}>
-                <table className="w-full text-left border-collapse">                  <thead>
-                    <tr className="border-b-4 border-black font-bold uppercase text-sm">
-                      <th className="py-4 px-3 w-12 text-center">
-                        <input
-                          type="checkbox"
-                          checked={allCurrentSelected}
-                          onChange={handleToggleSelectAll}
-                          className="h-4 w-4 cursor-pointer neu-border accent-lime"
-                        />
-                      </th>
-                      <th
-                        onClick={() => handleSort("full_name")}
-                        className="py-4 px-4 cursor-pointer hover:bg-cream/40 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          Name
-                          {sortBy === "full_name" &&
-                            (sortOrder === "asc" ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            ))}
-                        </div>
-                      </th>
-                      <th
-                        onClick={() => handleSort("handle")}
-                        className="py-4 px-4 cursor-pointer hover:bg-cream/40 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          Handle
-                          {sortBy === "handle" &&
-                            (sortOrder === "asc" ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            ))}
-                        </div>
-                      </th>
-                      <th
-                        onClick={() => handleSort("role")}
-                        className="py-4 px-4 cursor-pointer hover:bg-cream/40 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          Role
-                          {sortBy === "role" &&
-                            (sortOrder === "asc" ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            ))}
-                        </div>
-                      </th>
-                      <th
-                        onClick={() => handleSort("is_banned")}
-                        className="py-4 px-4 cursor-pointer hover:bg-cream/40 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          Status
-                          {sortBy === "is_banned" &&
-                            (sortOrder === "asc" ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            ))}
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-<tbody
-                    style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}
+            <AdminDataGrid<Profile>
+              tableId="admin-users"
+              data={profiles}
+              columns={profileColumns}
+              isLoading={loading}
+              ariaLabel="User directory data grid"
+              pinnedColumns={["select", "actions"]}
+              exportFilename="campus-users-export"
+              renderRowContextMenu={(profile) => (
+                <>
+                  <ContextMenuItem
+                    className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
+                    onSelect={() => void handleImpersonate(profile)}
                   >
-                    {profiles.length === 0 ? (                      <tr>
-                        <td
-                          colSpan={5}
-                          className="py-12 text-center text-gray-500 font-bold uppercase"
-                        >
-                          No users found.
-                        </td>
-                      </tr>
-                    ) : (
-rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        const profile = profiles[virtualRow.index];
-                        const isSelected = selectedIds.has(profile.id);
-                        const isSuspended =
-                          profile.is_banned || optimisticSuspendedIds.has(profile.id);
-
-                        return (
-                          <tr
-                            key={profile.id}
-                            data-index={virtualRow.index}
-                            ref={rowVirtualizer.measureElement}
-                            style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              width: "100%",
-                              display: "table",
-                              transform: `translateY(${virtualRow.start}px)`,
-                            }}
-                            className={`border-b-2 border-black font-semibold text-sm hover:bg-cream/20 transition-colors ${
-                              isSelected ? "bg-lime/5" : ""
-                            }`}
-                          >                            <td className="py-4 px-3 text-center">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleToggleSelectRow(profile.id)}
-                                className="h-4 w-4 cursor-pointer neu-border accent-lime"
-                              />
-                            </td>
-                            <td className="py-4 px-4">{profile.full_name || "N/A"}</td>
-                            <td className="py-4 px-4">@{profile.handle || "N/A"}</td>
-                            <td className="py-4 px-4 uppercase text-xs">
-                              <span className="bg-gray-200 px-2 py-1 border border-black rounded-none">
-                                {profile.role || "member"}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-xs font-bold uppercase">
-                              {isSuspended ? (
-                                <span className="bg-peach text-black border border-black px-2 py-1 inline-flex items-center gap-1.5 rounded-none">
-                                  <XCircle className="h-3.5 w-3.5" />
-                                  Suspended
-                                </span>
-                              ) : (
-                                <span className="bg-lime text-black border border-black px-2 py-1 inline-flex items-center gap-1.5 rounded-none">
-                                  <CheckCircle className="h-3.5 w-3.5" />
-                                  Active
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-{/* Row count summary — pagination replaced by virtual scrolling */}
+                    <Eye className="h-3.5 w-3.5" />
+                    Impersonate
+                  </ContextMenuItem>{" "}
+                  <ContextMenuItem
+                    className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
+                    onSelect={() => openEditDialog(profile)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit Role
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
+                    onSelect={() => void handleCopyId(profile)}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy ID
+                  </ContextMenuItem>
+                  <ContextMenuSeparator className="bg-black/10" />
+                  <ContextMenuItem
+                    className="cursor-pointer gap-2 rounded-none text-red-600 focus:bg-red-100 focus:text-red-700"
+                    onSelect={() => setDeletingProfile(profile)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </ContextMenuItem>
+                </>
+              )}
+            />
             <div className="mt-6 flex items-center border-t-2 border-black pt-6 text-sm font-bold">
-              <div>Showing all {total} users</div>
-            </div>          </div>
+              <div>Total: {total} users</div>
+            </div>
+          </div>
         </div>
       </div>
       <BulkUserImportModal
@@ -446,6 +497,104 @@ rowVirtualizer.getVirtualItems().map((virtualRow) => {
         onClose={() => setIsImportModalOpen(false)}
         onSuccessRefresh={() => void loadProfiles()}
       />
+
+      {/* Edit Role dialog (context menu "Edit" action) */}
+      <AlertDialog
+        open={editingProfile !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingProfile(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-none border-2 border-black bg-white p-6 font-mono shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold uppercase">
+              Edit User Role
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-gray-700">
+              Change the role for{" "}
+              <span className="font-bold">
+                {editingProfile?.full_name ?? editingProfile?.handle ?? "this user"}
+              </span>
+              .
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="mt-4">
+            <label htmlFor="edit-role-select" className="text-xs font-bold uppercase text-gray-600">
+              Role
+            </label>
+            <select
+              id="edit-role-select"
+              value={editRole}
+              onChange={(e) => setEditRole(e.target.value)}
+              className="mt-1 w-full border-2 border-black bg-white px-3 py-2 text-sm font-bold uppercase"
+            >
+              <option value="member">Member</option>
+              <option value="club_admin">Club Admin</option>
+              <option value="system_admin">System Admin</option>
+            </select>
+          </div>
+          <AlertDialogFooter className="mt-6 flex gap-3 sm:justify-end">
+            <AlertDialogCancel
+              disabled={isSavingEdit}
+              className="rounded-none border-2 border-black bg-white font-bold uppercase shadow-[2px_2px_0_0_#000]"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSavingEdit}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleSaveEdit();
+              }}
+              className="rounded-none border-2 border-black bg-lime font-bold uppercase text-black shadow-[2px_2px_0_0_#000] hover:bg-lime"
+            >
+              {isSavingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete confirmation dialog (context menu "Delete" action) */}
+      <AlertDialog
+        open={deletingProfile !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingProfile(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-none border-2 border-black bg-white p-6 font-mono shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-xl font-bold uppercase text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete User
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-gray-700">
+              This will permanently delete{" "}
+              <span className="font-bold">
+                {deletingProfile?.full_name ?? deletingProfile?.handle ?? "this user"}
+              </span>
+              . This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 flex gap-3 sm:justify-end">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="rounded-none border-2 border-black bg-white font-bold uppercase shadow-[2px_2px_0_0_#000]"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmDelete();
+              }}
+              className="rounded-none border-2 border-black bg-red-600 font-bold uppercase text-white shadow-[2px_2px_0_0_#000] hover:bg-red-700"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SiteShell>
   );
 }

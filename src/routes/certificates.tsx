@@ -4,7 +4,14 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Award, ArrowRight, Copy, Download, Loader2, QrCode, X, BadgeCheck } from "lucide-react";
+import Award from "lucide-react/dist/esm/icons/award";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Download from "lucide-react/dist/esm/icons/download";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import X from "lucide-react/dist/esm/icons/x";
+import BadgeCheck from "lucide-react/dist/esm/icons/badge-check";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { formatStandardDate } from "@/utils/dateUtils";
@@ -12,6 +19,7 @@ import { downloadCertificatePdf } from "@/lib/certificateUtils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useConfetti } from "@/hooks/useConfetti";
+import { SeriesCertificateRevocationPanel } from "@/components/certificates/SeriesCertificateRevocationPanel";
 
 interface CertificateClub {
   name: string;
@@ -28,6 +36,11 @@ interface Certificate {
   verify_url?: string | null;
   verification_hash?: string | null;
   issued_at: string | null;
+  certificate_type?: "attendance" | "leadership";
+  role_title?: string | null;
+  tenure_start?: string | null;
+  tenure_end?: string | null;
+  event_title?: string | null;
   events: CertificateEvent | CertificateEvent[] | null;
 }
 
@@ -57,7 +70,7 @@ export default function Certificates() {
         .from("certificates")
         .select(
           `
-          id, certificate_url, verify_url, verification_hash, issued_at,
+          id, certificate_url, verify_url, verification_hash, issued_at, certificate_type, role_title, tenure_start, tenure_end, event_title,
           events (title, clubs (name))
         `,
         )
@@ -93,6 +106,8 @@ export default function Certificates() {
           animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
+
+      <SeriesCertificateRevocationPanel />
 
       <section className="bg-amber-300 px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
@@ -458,7 +473,12 @@ export default function Certificates() {
                           )}
                         </div>
                         <a
-                          href={selectedCert.verify_url || `/verify?cert=${selectedCert.id}`}
+                          href={
+                            selectedCert.verify_url ||
+                            (selectedCert.certificate_type === "leadership"
+                              ? `/verify-leadership?hash=${selectedCert.verification_hash || selectedCert.id}`
+                              : `/verify?cert=${selectedCert.id}`)
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 bg-black text-cream px-2 py-0.5 border border-black font-bold uppercase text-[9px] hover:bg-lime hover:text-black transition-colors"

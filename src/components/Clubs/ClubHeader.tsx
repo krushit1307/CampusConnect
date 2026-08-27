@@ -57,13 +57,20 @@ export function ClubHeader({
   const [stickyOffset, setStickyOffset] = useState(NAVBAR_HEIGHT_FALLBACK);
 
   useLayoutEffect(() => {
+    let rAfId: number | null = null;
     const measure = () => {
-      const navbar = document.querySelector("header.sticky");
-      if (navbar) setStickyOffset(navbar.getBoundingClientRect().height);
+      if (rAfId !== null) cancelAnimationFrame(rAfId);
+      rAfId = window.requestAnimationFrame(() => {
+        const navbar = document.querySelector("header.sticky");
+        if (navbar) setStickyOffset(navbar.getBoundingClientRect().height);
+      });
     };
     measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    window.addEventListener("resize", measure, { passive: true });
+    return () => {
+      if (rAfId !== null) cancelAnimationFrame(rAfId);
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
   return (
@@ -113,7 +120,7 @@ export function ClubHeader({
           >
             <div
               aria-hidden="true"
-              className={`neu-border flex shrink-0 items-center justify-center bg-lime font-display font-bold text-black transition-all duration-300 ease-out ${
+              className={`neu-border flex shrink-0 items-center justify-center bg-[var(--theme-primary)] text-[var(--theme-primary-foreground)] font-display font-bold transition-all duration-300 ease-out ${
                 isCompact ? "h-10 w-10 text-xs" : "h-20 w-20 text-xl md:h-32 md:w-32 md:text-4xl"
               }`}
             >

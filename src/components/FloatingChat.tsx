@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { LazyMotion, m, useMotionValue, animate, type PanInfo } from "framer-motion";
 import { loadDomMax } from "@/lib/motionFeatures";
-import { MessageCircle } from "lucide-react";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useOptionalModal } from "@/components/modal/ModalContext";

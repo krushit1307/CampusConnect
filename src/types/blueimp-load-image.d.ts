@@ -21,7 +21,7 @@ declare module "blueimp-load-image" {
   function loadImage(
     file: File | Blob | string,
     callback: (img: HTMLImageElement | HTMLCanvasElement, data?: MetaData) => void,
-    options: LoadImageOptions
+    options: LoadImageOptions,
   ): HTMLImageElement | FileReader | false;
 
   export default loadImage;

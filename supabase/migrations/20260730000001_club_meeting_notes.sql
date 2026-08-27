@@ -49,39 +49,21 @@ CREATE POLICY "club_members_read_notes" ON public.club_meeting_notes
 CREATE POLICY "club_admins_create_notes" ON public.club_meeting_notes
   FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_meeting_notes.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    )
+    public.is_club_admin(club_meeting_notes.club_id, auth.uid())
   );
 
 -- Only club admins/owners can update notes
 CREATE POLICY "club_admins_update_notes" ON public.club_meeting_notes
   FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_meeting_notes.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    )
+    public.is_club_admin(club_meeting_notes.club_id, auth.uid())
   );
 
 -- Only club admins/owners can delete notes
 CREATE POLICY "club_admins_delete_notes" ON public.club_meeting_notes
   FOR DELETE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_meeting_notes.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    )
+    public.is_club_admin(club_meeting_notes.club_id, auth.uid())
   );
 
 -- Enable Supabase Realtime for presence tracking on the notes table

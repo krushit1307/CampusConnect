@@ -1,22 +1,19 @@
 import { BugReportModal } from "@/components/Modals/BugReportModal";
-import { ExternalLink, Github, MessageCircle } from "lucide-react";
+import ExternalLink from "lucide-react/dist/esm/icons/external-link";
+import Github from "lucide-react/dist/esm/icons/github";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router-dom";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 
-const NAV_LINKS = [
-  { label: "Events", to: "/events" },
-  { label: "Clubs", to: "/clubs" },
-  { label: "Feed", to: "/feed" },
-  { label: "Directory", to: "/directory" },
-  { label: "Certificates", to: "/certificates" },
-  { label: "Dashboard", to: "/dashboard" },
-];
-
-const LEGAL_LINKS = [
-  { label: "Privacy Policy", to: "/privacy" },
-  { label: "Terms of Service", to: "/terms" },
+const NAV_LINK_KEYS = [
+  { key: "navbar.events", to: "/events" },
+  { key: "navbar.clubs", to: "/clubs" },
+  { key: "navbar.feed", to: "/feed" },
+  { key: "navbar.directory", to: "/directory" },
+  { key: "navbar.certificates", to: "/certificates" },
+  { key: "navbar.dashboard", to: "/dashboard" },
 ];
 
 const SOCIAL_LINKS = [
@@ -39,24 +36,8 @@ const SOCIAL_LINKS = [
 
 export function Footer() {
   const [bugReportOpen, setBugReportOpen] = useState(false);
-  const { i18n } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const changeLanguage = (lang: string) => {
-    i18n.changeLanguage(lang);
-
-    const parts = location.pathname.split("/");
-
-    // replace existing language segment
-    if (parts[1] === "en" || parts[1] === "es") {
-      parts[1] = lang;
-    } else {
-      parts.splice(1, 0, lang);
-    }
-
-    navigate(parts.join("/") || `/${lang}`);
-  };
+  const { t } = useTranslation();
+  const currentYear = new Date().getFullYear();
 
   return (
     <footer className="border-t-4 border-black bg-lime shadow-[0_-4px_0_0_var(--color-ink)]">
@@ -68,26 +49,26 @@ export function Footer() {
               <span className="font-display text-lg font-black text-lime">CampusConnect</span>
             </div>
             <p className="max-w-xs font-mono text-xs leading-relaxed text-black">
-              Every club. Every event. One brutally simple OS for student communities.
+              {t("footer.tagline")}
             </p>
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-black">
-              Open-source · MIT License
+              {t("footer.license")}
             </p>
           </div>
 
           {/* Nav Links */}
           <div className="flex flex-col gap-3">
             <p className="neu-border inline-block w-fit bg-black px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-lime shadow-[3px_3px_0_0_var(--color-ink)]">
-              Navigate
+              {t("footer.navigate")}
             </p>
             <ul className="space-y-2">
-              {NAV_LINKS.map((link) => (
+              {NAV_LINK_KEYS.map((link) => (
                 <li key={link.to}>
                   <Link
                     to={link.to}
                     className="font-mono text-xs font-bold uppercase tracking-wide text-black underline-offset-4 hover:underline"
                   >
-                    {link.label}
+                    {t(link.key)}
                   </Link>
                 </li>
               ))}
@@ -97,7 +78,7 @@ export function Footer() {
           {/* Social Links */}
           <div className="flex flex-col gap-3">
             <p className="neu-border inline-block w-fit bg-black px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-lime shadow-[3px_3px_0_0_var(--color-ink)]">
-              Community
+              {t("footer.community")}
             </p>
             <div className="flex flex-col gap-2">
               {SOCIAL_LINKS.map((s) => (
@@ -119,37 +100,36 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-8 border-t-2 border-black pt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-black">
-            © {new Date().getFullYear()} CampusConnect. Built by the community.
+            {t("footer.copyright", { year: currentYear })}
           </p>
+
           <div className="flex items-center gap-4">
-            {LEGAL_LINKS.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="font-mono text-[10px] font-bold uppercase tracking-widest text-black underline-offset-4 hover:underline"
-              >
-                {link.label}
-              </Link>
-            ))}
+            <Link
+              to="/privacy"
+              className="font-mono text-[10px] font-bold uppercase tracking-widest text-black underline-offset-4 hover:underline"
+            >
+              {t("footer.privacy")}
+            </Link>
+            <Link
+              to="/terms"
+              className="font-mono text-[10px] font-bold uppercase tracking-widest text-black underline-offset-4 hover:underline"
+            >
+              {t("footer.terms")}
+            </Link>
           </div>
+
           <div className="flex items-center gap-4">
             <BugReportModal open={bugReportOpen} onOpenChange={setBugReportOpen} />
             <p className="font-mono text-[10px] uppercase tracking-widest text-black">
-              ECSoC 2026 · v0.1
+              {t("footer.version")}
             </p>
           </div>
         </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="font-bold">Language:</span>
 
-        <button onClick={() => changeLanguage("en")} className="underline">
-          English
-        </button>
-
-        <button onClick={() => changeLanguage("es")} className="underline">
-          Español
-        </button>
+        {/* Language switcher — inside the footer layout, not outside it */}
+        <div className="mt-4 border-t-2 border-black pt-4">
+          <LanguageSwitcher />
+        </div>
       </div>
     </footer>
   );

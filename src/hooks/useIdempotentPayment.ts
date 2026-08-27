@@ -4,9 +4,12 @@ import { supabase } from "@/lib/supabaseClient"; // Adjust path to your actual s
 import { toast } from "sonner";
 
 interface PaymentPayload {
-  eventId: string;
+  eventId?: string; // Made optional so we can use this for standalone merch purchases
   quantity: number;
   amount: number;
+  includeCharityDonation?: boolean;
+  merchVariantId?: string;
+  merchQuantity?: number;
   // Add other relevant payment fields
 }
 

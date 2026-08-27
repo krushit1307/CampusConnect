@@ -1,4 +1,4 @@
-import { Bookmark } from "lucide-react";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
 import type { BookmarkType } from "@/lib/bookmarks";
 
 interface BookmarkButtonProps {

@@ -1,14 +1,21 @@
 import { GraphQLError } from "graphql";
-import { createPubSub } from "@graphql-yoga/subscription";
+import { pubsub, RedisPubSub } from "../pubsub";
 import { createClient } from "../../src/lib/supabase/client";
-
+import { query as pgQuery } from "../db";
 const supabase = createClient();
 
-// ── PubSub for GraphQL Subscriptions ──
-// Keyed by channel name → topic (userId) for per-user delivery.
-export const pubsub = createPubSub<{
-  NOTIFICATION_RECEIVED: [userId: string, payload: NotificationRecord];
-}>();
+// Redis-backed PubSub (with in-memory fallback) used across all subscriptions.
+export { pubsub, RedisPubSub };
+
+// ── Message Record Interface ──
+export interface ChatMessageRecord {
+  id: string;
+  event_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  is_shadowbanned?: boolean;
+}
 
 // ── Notification Record Interface ──
 export interface NotificationRecord {
@@ -141,11 +148,21 @@ export interface ClubRecord {
 export const clubsCache = new LRUCache<string, ClubRecord[]>(5);
 export const CLUBS_CACHE_KEY = "all_clubs";
 
+// Cache for directory search / profiles query
+export const profilesCache = new LRUCache<string, ProfileRecord[]>(50);
+
 if (typeof supabase.channel === "function") {
   supabase
     .channel("clubs-cache-invalidation")
     .on("postgres_changes", { event: "*", schema: "public", table: "clubs" }, () => {
       clubsCache.delete(CLUBS_CACHE_KEY);
+    })
+    .subscribe();
+
+  supabase
+    .channel("profiles-cache-invalidation")
+    .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+      profilesCache.clear();
     })
     .subscribe();
 }
@@ -231,35 +248,29 @@ export function decodeCursor(cursor: string): { createdAt: string; id: string } 
 // Batch fetch profiles by ID array
 export const createProfileLoader = () =>
   new SimpleDataLoader<string, ProfileRecord>(async (userIds) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .in("id", userIds as string[]);
+    // A feed page can reference hundreds of distinct authors at once.
+    // Passing the whole array as ONE bound parameter (ANY($1)) avoids
+    // building/parsing a giant "IN ($1, $2, ..., $500)" SQL string.
+    const { rows } = await pgQuery<ProfileRecord>("SELECT * FROM profiles WHERE id = ANY($1)", [
+      userIds,
+    ]);
 
-    if (error) throw error;
-
-    const profileMap = new Map<string, ProfileRecord>(
-      (data || []).map((p: ProfileRecord) => [p.id, p]),
-    );
+    const profileMap = new Map<string, ProfileRecord>(rows.map((p) => [p.id, p]));
 
     return userIds.map((id) => profileMap.get(id) || null);
   });
-
 // Batch fetch clubs by ID array
 export const createClubLoader = () =>
   new SimpleDataLoader<string, ClubRecord>(async (clubIds) => {
-    const { data, error } = await supabase
-      .from("clubs")
-      .select("*")
-      .in("id", clubIds as string[]);
+    // Same array-binding optimization as createProfileLoader above.
+    const { rows } = await pgQuery<ClubRecord>("SELECT * FROM clubs WHERE id = ANY($1)", [
+      clubIds,
+    ]);
 
-    if (error) throw error;
-
-    const clubMap = new Map<string, ClubRecord>((data || []).map((c: ClubRecord) => [c.id, c]));
+    const clubMap = new Map<string, ClubRecord>(rows.map((c) => [c.id, c]));
 
     return clubIds.map((id) => clubMap.get(id) || null);
   });
-
 // Batch fetch comments for a set of post IDs
 export const createCommentsByPostLoader = () =>
   new SimpleDataLoader<string, CommentRecord[]>(async (postIds) => {
@@ -409,6 +420,20 @@ export const typeDefs = /* GraphQL */ `
     referenceId: ID
   }
 
+  """
+  A message in an event's live chat, delivered in real-time via the
+  messageAdded subscription.
+  """
+  type Message {
+    id: ID!
+    eventId: ID!
+    userId: ID!
+    author: Profile
+    content: String!
+    createdAt: String!
+    isShadowbanned: Boolean
+  }
+
   type Query {
     posts(first: Int, after: String): PostConnection!
     post(id: ID!): Post
@@ -418,6 +443,11 @@ export const typeDefs = /* GraphQL */ `
     events(first: Int, after: String): EventConnection!
     event(id: ID!): Event
     allUsers: [Profile!]! @auth(requires: ADMIN)
+    """
+    Recent messages in an event's live chat. Used to backfill history after a
+    dropped WebSocket connection.
+    """
+    messages(eventId: ID!, limit: Int, before: String): [Message!]!
   }
 
   """
@@ -440,6 +470,12 @@ export const typeDefs = /* GraphQL */ `
     Prevents race conditions and overbooking.
     """
     rsvpToEvent(eventId: ID!, userId: ID, action: String): RsvpPayload!
+    """
+    Send a message to an event's live chat. Persists the message and
+    publishes it to the event's Redis channel so every connected client
+    receives it via the messageAdded subscription.
+    """
+    addMessage(eventId: ID!, content: String!): Message!
   }
 
   """
@@ -449,6 +485,11 @@ export const typeDefs = /* GraphQL */ `
   """
   type Subscription {
     notificationReceived(userId: ID!): Notification!
+    """
+    Subscribe to new messages in an event's live chat. Yields a Message for
+    every addMessage mutation published to the event's Redis channel.
+    """
+    messageAdded(eventId: ID!): Message!
   }
 `;
 
@@ -561,6 +602,12 @@ export const resolvers = {
         sortOrder?: string;
       },
     ) => {
+      const cacheKey = `profiles:${limit}:${offset}:${sortBy}:${sortOrder}`;
+      const cached = profilesCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       let query = supabase.from("profiles").select("*");
 
       const allowedColumns = ["id", "full_name", "handle", "role", "is_banned"];
@@ -573,7 +620,10 @@ export const resolvers = {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+
+      const result = data || [];
+      profilesCache.set(cacheKey, result);
+      return result;
     },
     totalProfiles: async () => {
       const { count, error } = await supabase
@@ -635,6 +685,31 @@ export const resolvers = {
       if (error) throw error;
       return data;
     },
+    messages: async (
+      _: unknown,
+      { eventId, limit = 50, before }: { eventId: string; limit?: number; before?: string },
+      context: GraphQLContext,
+    ) => {
+      const cappedLimit = Math.max(1, Math.min(limit, 100));
+      let query = supabase
+        .from("event_chat_messages")
+        .select("*")
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: false })
+        .limit(cappedLimit);
+
+      if (before) {
+        query = query.lt("created_at", before);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Return in chronological order (oldest → newest) for the chat UI.
+      return ((data ?? []) as ChatMessageRecord[])
+        .reverse()
+        .map((row) => mapMessageToGraphQL(row, context));
+    },
     allUsers: async () => {
       const { data, error } = await supabase.from("profiles").select("*");
       if (error) throw error;
@@ -673,6 +748,49 @@ export const resolvers = {
         status: data?.status ?? null,
         version: data?.version ?? null,
       };
+    },
+    addMessage: async (
+      _: unknown,
+      { eventId, content }: { eventId: string; content: string },
+      context: GraphQLContext,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError("You must be signed in to send a message", {
+          extensions: { code: "UNAUTHENTICATED" },
+        });
+      }
+
+      const text = content.trim();
+      if (!text) {
+        throw new GraphQLError("Message content cannot be empty");
+      }
+      if (text.length > 500) {
+        throw new GraphQLError("Message cannot exceed 500 characters");
+      }
+
+      const { data, error } = await supabase.rpc("send_event_chat_message", {
+        p_event_id: eventId,
+        p_user_id: context.user.id,
+        p_content: text,
+      });
+
+      if (error) throw new Error(error.message);
+
+      const result = data as {
+        success: boolean;
+        message?: string;
+        data?: ChatMessageRecord;
+      } | null;
+      if (!result?.success || !result.data) {
+        throw new GraphQLError(result?.message ?? "Could not send message");
+      }
+
+      const message = await mapMessageToGraphQL(result.data, context);
+
+      // Fan the message out to every client subscribed to this event's chat.
+      await pubsub.publish("MESSAGE_ADDED", eventId, message);
+
+      return message;
     },
   },
 
@@ -740,6 +858,23 @@ export const resolvers = {
         referenceId: payload.reference_id ?? null,
       }),
     },
+    messageAdded: {
+      subscribe: async function* (_: unknown, { eventId }: { eventId: string }, context: GraphQLContext) {
+        const iterator = pubsub.subscribe<MessageRecord>("MESSAGE_ADDED", eventId);
+        for await (const message of iterator) {
+          if (message.isShadowbanned) {
+            const isAuthor = context.user?.id === message.userId;
+            const isAdmin = context.user && ["admin", "moderator", "club_admin", "system_admin"].includes(context.user.role);
+            if (isAuthor || isAdmin) {
+              yield message;
+            }
+          } else {
+            yield message;
+          }
+        }
+      },
+      resolve: (payload: MessageRecord) => payload,
+    },
   },
 
   /**
@@ -767,4 +902,43 @@ function mapNotificationType(type: string): "MENTION" | "EVENT_UPDATE" | "GENERI
   if (type === "mention") return "MENTION";
   if (type === "event_update") return "EVENT_UPDATE";
   return "GENERIC";
+}
+
+// ── Message type mapper ──
+
+/** The GraphQL `Message` shape published/subscribed over Redis. */
+export interface MessageRecord {
+  id: string;
+  eventId: string;
+  userId: string;
+  author: ProfileRecord | null;
+  content: string;
+  createdAt: string;
+  isShadowbanned?: boolean;
+}
+
+/**
+ * Maps a `event_chat_messages` row (snake_case) to the GraphQL Message shape
+ * (camelCase), enriching it with the sender's profile via the batch loader.
+ */
+async function mapMessageToGraphQL(
+  record: ChatMessageRecord,
+  context: GraphQLContext,
+): Promise<MessageRecord> {
+  let author: ProfileRecord | null = null;
+  try {
+    author = await context.profileLoader.load(record.user_id);
+  } catch {
+    author = null;
+  }
+
+  return {
+    id: record.id,
+    eventId: record.event_id,
+    userId: record.user_id,
+    author,
+    content: record.content,
+    createdAt: record.created_at,
+    isShadowbanned: record.is_shadowbanned ?? false,
+  };
 }

@@ -35,18 +35,15 @@ describe("User Signup Schema - Property-Based Tests", () => {
 
   it("REJECTS names with invalid characters (numbers, symbols)", () => {
     fc.assert(
-      fc.property(
-        fc.stringMatching(/[0-9@#$%^&*()_+=[\]{}|;:<>,.?/~`]/),
-        (invalidName: string) => {
-          const result = userSignupSchema.safeParse({
-            name: invalidName,
-            email: "test@example.com",
-            password: "ValidPass123!",
-            age: 20,
-          });
-          expect(result.success).toBe(false);
-        },
-      ),
+      fc.property(fc.stringMatching(/[0-9@#$%^&*()_+=[\]{}|;:<>,.?/~`]/), (invalidName: string) => {
+        const result = userSignupSchema.safeParse({
+          name: invalidName,
+          email: "test@example.com",
+          password: "ValidPass123!",
+          age: 20,
+        });
+        expect(result.success).toBe(false);
+      }),
       { numRuns: 500 },
     );
   });

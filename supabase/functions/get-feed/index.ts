@@ -14,6 +14,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../shared/headers.ts";
 import { getFeedCacheKey, getCachedPage, setCachedPage } from "../_shared/feedCache.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
@@ -51,10 +52,14 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Rate limit: 60 requests/minute (read-only, safe)
+  const limited = await rateLimiter(req, "get-feed", 60, 60);
+  if (limited) return limited;
+
   try {
     const url = new URL(req.url);
     const after = url.searchParams.get("after") || null;
-    const first = Number(url.searchParams.get("first")) || 10;
+    const first = Number(url.searchParams.get("first")) || 12;
 
     const cacheKey = getFeedCacheKey(after);
     const cached = await getCachedPage<{ pageInfo?: { endCursor?: string | null } }>(cacheKey);

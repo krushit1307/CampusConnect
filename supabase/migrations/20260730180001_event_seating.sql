@@ -207,35 +207,26 @@ CREATE POLICY "event_seats_select" ON public.event_seats
 CREATE POLICY "event_seats_insert" ON public.event_seats
   FOR INSERT WITH CHECK (
     EXISTS (
-      SELECT 1 FROM public.club_members cm
-      JOIN public.events e ON e.club_id = cm.club_id
+      SELECT 1 FROM public.events e
       WHERE e.id = event_seats.event_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
+        AND public.is_club_admin(e.club_id, auth.uid())
     )
   );
 
 CREATE POLICY "event_seats_update" ON public.event_seats
   FOR UPDATE USING (
     EXISTS (
-      SELECT 1 FROM public.club_members cm
-      JOIN public.events e ON e.club_id = cm.club_id
+      SELECT 1 FROM public.events e
       WHERE e.id = event_seats.event_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
+        AND public.is_club_admin(e.club_id, auth.uid())
     )
   );
 
 CREATE POLICY "event_seats_delete" ON public.event_seats
   FOR DELETE USING (
     EXISTS (
-      SELECT 1 FROM public.club_members cm
-      JOIN public.events e ON e.club_id = cm.club_id
+      SELECT 1 FROM public.events e
       WHERE e.id = event_seats.event_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
+        AND public.is_club_admin(e.club_id, auth.uid())
     )
   );

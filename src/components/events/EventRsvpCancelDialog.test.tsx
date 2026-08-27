@@ -52,4 +52,27 @@ describe("EventRsvpCancelDialog", () => {
     expect(screen.getByRole("button", { name: /keep rsvp/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /cancelling/i })).toBeDisabled();
   });
+
+  it("blocks cancellation and shows refund period expired warning when past deadline", () => {
+    const eventDateInPast = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(); // 12 hours from now
+
+    render(
+      <EventRsvpCancelDialog
+        open
+        onOpenChange={vi.fn()}
+        onConfirm={vi.fn()}
+        eventTitle="Campus Hackathon"
+        isPaid
+        eventDate={eventDateInPast}
+        refundPolicyHours={24}
+      />,
+    );
+
+    expect(screen.getByText("Cancellation Blocked")).toBeInTheDocument();
+    expect(screen.getByText("Refund Period Expired")).toBeInTheDocument();
+    expect(screen.getByText(/starts in less than/)).toBeInTheDocument();
+    expect(screen.getByText(/24/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /yes, cancel rsvp/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /go back/i })).toBeInTheDocument();
+  });
 });

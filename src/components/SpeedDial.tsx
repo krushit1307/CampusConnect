@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Calendar, FileText, MessageCircle } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
 
 interface Action {
   label: string;

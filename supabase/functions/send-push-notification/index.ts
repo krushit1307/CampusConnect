@@ -40,12 +40,80 @@ serve(async (req: Request) => {
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
     const body = await req.json().catch(() => ({}));
-    const { user_id, title, message, url, sender_name } = body;
+    const { user_id, title, message, url, sender_name, type, payload: customPayload } = body;
 
     let targetSubscriptions: any[] = [];
 
     // Determine context: Broadcast vs Direct Message
     if (user_id) {
+      const priority = body.priority || "normal";
+      const isEmergency =
+        priority === "emergency" || priority === "urgent" || type === "emergency_broadcast";
+
+      // Check DND Quiet Hours preferences if not an emergency
+      if (!isEmergency) {
+        const { data: prefs } = await supabase
+          .from("user_preferences")
+          .select("dnd_start_time, dnd_end_time, quiet_hours_start, quiet_hours_end, timezone")
+          .eq("user_id", user_id)
+          .maybeSingle();
+
+        const dndStart = prefs?.dnd_start_time || prefs?.quiet_hours_start;
+        const dndEnd = prefs?.dnd_end_time || prefs?.quiet_hours_end;
+        const userTz = prefs?.timezone || "UTC";
+
+        if (dndStart && dndEnd) {
+          const now = new Date();
+          const startParts = dndStart.split(":");
+          const endParts = dndEnd.split(":");
+          const startMin = parseInt(startParts[0], 10) * 60 + parseInt(startParts[1] || "0", 10);
+          const endMin = parseInt(endParts[0], 10) * 60 + parseInt(endParts[1] || "0", 10);
+
+          let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+          try {
+            const fmt = new Intl.DateTimeFormat("en-US", {
+              timeZone: userTz,
+              hour: "numeric",
+              minute: "numeric",
+              hour12: false,
+            });
+            const parts = fmt.formatToParts(now);
+            let h = 0,
+              m = 0;
+            for (const p of parts) {
+              if (p.type === "hour") h = parseInt(p.value, 10) % 24;
+              if (p.type === "minute") m = parseInt(p.value, 10);
+            }
+            currentMin = h * 60 + m;
+          } catch {
+            // Keep UTC fallback
+          }
+
+          const inDND =
+            startMin <= endMin
+              ? currentMin >= startMin && currentMin < endMin
+              : currentMin >= startMin || currentMin < endMin;
+
+          if (inDND) {
+            // Queue in delayed_notifications table for execution at dnd_end_time
+            await supabase.from("delayed_notifications").insert({
+              user_id,
+              type: "push",
+              payload: body,
+            });
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                delayed: true,
+                message: `User is in Quiet Hours DND (${dndStart} - ${dndEnd}). Notification queued for batch delivery.`,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+        }
+      }
+
       // Direct message push
       const { data: subscriptions, error: fetchError } = await supabase
         .from("push_subscriptions")
@@ -108,9 +176,11 @@ serve(async (req: Request) => {
       });
     }
 
-    const payload = JSON.stringify({
+    const pushPayload = JSON.stringify({
       title: title || (sender_name ? `New message from ${sender_name}` : "CampusConnect"),
       body: message,
+      type: type,
+      payload: customPayload,
       icon: "/favicon.png",
       data: { url: url || "/messages" },
       tag: user_id ? "campusconnect-dm" : "campusconnect-broadcast",
@@ -123,7 +193,7 @@ serve(async (req: Request) => {
       };
 
       try {
-        await webpush.sendNotification(pushSubscription as any, payload);
+        await webpush.sendNotification(pushSubscription as any, pushPayload);
         return { success: true, endpoint: sub.endpoint };
       } catch (err: any) {
         if (err.statusCode === 410 || err.statusCode === 404) {

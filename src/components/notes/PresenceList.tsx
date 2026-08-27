@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import * as Y from "yjs";
 import { useSyncExternalStore } from "react";

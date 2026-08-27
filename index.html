@@ -4,37 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- 
-      OPTIMIZATION: Resource Hints for Critical External Domains
-      Force the browser to establish DNS, TCP, and TLS connections to critical 
-      external APIs the millisecond the HTML arrives, cutting out the ~300ms 
-      handshake delay during the initial page load.
+    <!--
+      Performance: keep third-party analytics/tracking off the critical path.
+      The deferred loader waits for window.load and browser idle time before
+      fetching GTM, Facebook Pixel, and Hotjar.
     -->
-    <!-- Supabase API: Preconnect with CORS support -->
-    <!-- The crossOrigin attribute is CRITICAL here. If the domain serves API 
-         requests that require CORS, we must include it. Otherwise, the browser 
-         opens a standard connection, throws it away when it realizes it needs 
-         a CORS connection, and opens a brand new one, defeating the purpose. -->
     <link rel="preconnect" href="https://api.supabase.co" crossorigin="anonymous" />
-    <!-- Fallback for older browsers that don't support preconnect -->
     <link rel="dns-prefetch" href="https://api.supabase.co" />
-
-    <!-- AWS S3 Image Storage: Preconnect for fast image loading -->
     <link rel="preconnect" href="https://s3.amazonaws.com" crossorigin="anonymous" />
     <link rel="dns-prefetch" href="https://s3.amazonaws.com" />
-
-    <!-- Unsplash (used for mock/placeholder images in the app) -->
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin="anonymous" />
     <link rel="dns-prefetch" href="https://images.unsplash.com" />
-
-    <!-- Google Fonts (If used for typography fallback) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
 
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://static.hotjar.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: https://images.unsplash.com https://s3.amazonaws.com https://www.facebook.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://vars.hotjar.com wss://*.hotjar.com; frame-src 'self' https://js.stripe.com https://vars.hotjar.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
     />
 
     <link
@@ -51,50 +38,15 @@
       type="font/woff2"
       crossorigin="anonymous"
     />
+
     <title>CampusConnect</title>
+
+    <!-- Critical, tiny initialization only. Heavy third-party downloads are deferred. -->
+    <script src="/partytown-init.js"></script>
     <script src="/theme-init.js"></script>
-    <!-- Google Tag Manager -->
-    <script type="text/partytown">
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','GTM-W72XJ5B');
-    </script>
-    <!-- End Google Tag Manager -->
-
-    <!-- Facebook Pixel Code -->
-    <script type="text/partytown">
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '1234567890');
-      fbq('track', 'PageView');
-    </script>
-    <!-- End Facebook Pixel Code -->
-
-    <!-- Hotjar Tracking Code -->
-    <script type="text/partytown">
-      (function(h,o,t,j,a,r){
-          h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
-          h._hjSettings={hjid:1234567,hjsv:6};
-          a=o.getElementsByTagName('head')[0];
-          r=o.createElement('script');r.async=1;
-          r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
-          a.appendChild(r);
-      })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
-    </script>
-    <!-- End Hotjar Tracking Code -->
-    <!-- Register custom service worker early in head for faster interception -->
+    <script src="/defer-third-party.js"></script>
 
     <style>
-      /* This is intentionally kept outside the React bundle so it is visible
-         while the application's JavaScript is downloading. */
       #app-loading {
         display: grid;
         min-height: 100vh;
@@ -144,7 +96,6 @@
       }
     </style>
   </head>
-
   <body>
     <div id="root">
       <div id="app-loading" role="status" aria-label="Loading CampusConnect">
@@ -156,7 +107,6 @@
           xmlns="http://www.w3.org/2000/svg"
         >
           <title>CampusConnect</title>
-          <!-- Each dash length is the exact length of its line or path. -->
           <path
             class="app-loading__stroke"
             style="--loader-path-length: 222.279px"
@@ -200,8 +150,8 @@
         </svg>
       </div>
     </div>
+
     <script type="module" src="/src/main.tsx"></script>
-    <!-- Redundant SW registration at end of body as fallback/standard practice -->
     <script src="/sw-register.js"></script>
   </body>
 </html>

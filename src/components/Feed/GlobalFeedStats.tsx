@@ -1,4 +1,6 @@
-import { Users, Building2, CalendarCheck } from "lucide-react";
+import Users from "lucide-react/dist/esm/icons/users";
+import Building2 from "lucide-react/dist/esm/icons/building-2";
+import CalendarCheck from "lucide-react/dist/esm/icons/calendar-check";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { getSystemCounts, type SystemCount } from "@/services/systemCounters";
 import AnimatedCounter from "@/components/ui/AnimatedCounter";

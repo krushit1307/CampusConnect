@@ -67,6 +67,7 @@ export const eventFormSchema = z
     endDate: z.date({
       required_error: "End date is required",
     }),
+    tags: z.array(z.string()).default([]), // <-- NEW ADDITION: Enables tags in the form state
     tickets: z
       .array(ticketTierSchema)
       .min(1, "You must create at least one ticket tier")

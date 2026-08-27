@@ -1,12 +1,14 @@
 import React from "react";
 import { SwipeToDismiss } from "@/components/ui/SwipeToDismiss";
+import { useTranslation } from "react-i18next";
 
 interface NotificationItemProps {
   notification: {
     id: string;
     type: string;
     title: string;
-    message: string;
+    message?: string | null;
+    payload?: Record<string, any> | null;
     timestamp: string;
     isRead: boolean;
     link?: string;
@@ -26,6 +28,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   onMarkAsRead,
   onDelete,
 }) => {
+  const { t } = useTranslation();
+
   const handleItemClick = () => {
     onMarkAsRead(notification.id);
     if (notification.link) {
@@ -39,6 +43,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       handleItemClick();
     }
   };
+
+  const displayMessage = notification.payload
+    ? t(`notifications.${notification.type}`, notification.payload)
+    : notification.message;
 
   const card = (
     <div
@@ -59,7 +67,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         <span className="text-[10px] text-gray-400">{notification.timestamp}</span>
       </div>
       <h4 className="text-sm text-gray-800 line-clamp-1">{notification.title}</h4>
-      <p className="text-xs text-gray-500 line-clamp-2">{notification.message}</p>
+      <p className="text-xs text-gray-500 line-clamp-2">{displayMessage as React.ReactNode}</p>
       {!notification.isRead && <span className="w-2 h-2 bg-blue-600 rounded-full mt-1 self-end" />}
     </div>
   );

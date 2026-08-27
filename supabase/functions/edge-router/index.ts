@@ -87,7 +87,11 @@ serve(async (req: Request) => {
       if (body?.action === "recover") health.setOpen(target.id, false);
       return json({ id: target.id, ...health.status(target.id) }, 200, {});
     } catch {
-      return json({ error: "Invalid JSON body. Expected { id, action: 'fail' | 'recover' }" }, 400, {});
+      return json(
+        { error: "Invalid JSON body. Expected { id, action: 'fail' | 'recover' }" },
+        400,
+        {},
+      );
     }
   }
 
@@ -114,7 +118,8 @@ serve(async (req: Request) => {
   if (selection.node === null) {
     return json(
       {
-        error: "No replica nodes configured. Set LB_NODES (e.g. 'us-east=wss://host:2,eu-west=wss://host').",
+        error:
+          "No replica nodes configured. Set LB_NODES (e.g. 'us-east=wss://host:2,eu-west=wss://host').",
       },
       503,
       headers,

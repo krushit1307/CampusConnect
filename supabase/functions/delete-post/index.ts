@@ -19,6 +19,7 @@ import { z } from "https://esm.sh/zod@3.24.2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { parseJsonBody, corsHeaders } from "../_shared/validation.ts";
 import { redis } from "../_shared/redis.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const UNDO_WINDOW_SECONDS = 10;
 
@@ -57,6 +58,10 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  // Rate limit: 20 requests/minute (content operations)
+  const limited = await rateLimiter(req, "delete-post", 20, 60);
+  if (limited) return limited;
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -100,8 +105,11 @@ serve(async (req: Request) => {
   // request has already finished.
   EdgeRuntime.waitUntil(finalizeDeleteAfterDelay(supabase, postId, deletionToken));
 
-  return new Response(JSON.stringify({ postId, deletionToken, undoWindowSeconds: UNDO_WINDOW_SECONDS }), {
-    status: 202,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({ postId, deletionToken, undoWindowSeconds: UNDO_WINDOW_SECONDS }),
+    {
+      status: 202,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
 });

@@ -4,23 +4,21 @@ import { registerRoute } from "workbox-routing";
 import { NetworkOnly, StaleWhileRevalidate } from "workbox-strategies";
 import { BackgroundSyncPlugin } from "workbox-background-sync";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
+import { ExpirationPlugin } from "workbox-expiration";
 
 declare let self: ServiceWorkerGlobalScope;
 
 precacheAndRoute(self.__WB_MANIFEST || []);
 
 // ── Workbox Background Sync Plugin for RSVP Mutations ──
-const rsvpBgSyncPlugin = new BackgroundSyncPlugin("rsvp-mutations-queue", {
-  maxRetentionTime: 24 * 60, // Retry for up to 24 hours (in minutes)
+const rsvpSyncPlugin = new BackgroundSyncPlugin("rsvp-mutations-queue", {
+  maxRetentionTime: 24 * 60,
   onSync: async (options) => {
     try {
       await options.queue.replayRequests();
       console.log("[SW] RSVP Workbox Background Sync completed replaying queued requests.");
-
-      // Broadcast success message to open tabs
       const clients = await self.clients.matchAll();
       for (const client of clients) {
-        client.postMessage({ type: "OFFLINE_RSVP_SYNC_SUCCESS" });
         client.postMessage({ type: "OFFLINE_EVENTS_SYNC" });
       }
     } catch (err) {
@@ -37,18 +35,7 @@ const rsvpBgSyncPlugin = new BackgroundSyncPlugin("rsvp-mutations-queue", {
   },
 });
 
-// Intercept RSVP mutation endpoint (/toggle-rsvp or /event_rsvps)
-registerRoute(
-  ({ url, request }) => {
-    const isRsvpEndpoint =
-      url.pathname.includes("/toggle-rsvp") || url.pathname.includes("/event_rsvps");
-    const isMutationMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
-    return isRsvpEndpoint && isMutationMethod;
-  },
-  new NetworkOnly({
-    plugins: [rsvpBgSyncPlugin],
-  }),
-);
+
 
 // ── Workbox Background Sync Plugin for Supabase Mutations ──
 // Intercepts failed POST/PUT/PATCH/DELETE requests (e.g. to /rest/v1/events)
@@ -93,7 +80,16 @@ registerRoute(
 // Listen for custom background sync event tag 'sync-offline-events'
 self.addEventListener("sync" as never, (event: unknown) => {
   const syncEvent = event as { tag: string; waitUntil: (p: Promise<unknown>) => void };
-  if (syncEvent.tag === "sync-offline-events" || syncEvent.tag === "supabase-mutations-queue") {
+  if (syncEvent.tag === "sync-offline-rsvps") {
+    console.log("[SW] Received background sync event tag:", syncEvent.tag);
+    syncEvent.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: "OFFLINE_RSVP_SYNC" });
+        }
+      })
+    );
+  } else if (syncEvent.tag === "sync-offline-events" || syncEvent.tag === "supabase-mutations-queue") {
     console.log("[SW] Received background sync event tag:", syncEvent.tag);
     syncEvent.waitUntil(
       self.clients.matchAll().then((clients) => {
@@ -121,10 +117,25 @@ registerRoute(
   }),
 );
 
-// All other Supabase API calls (GET requests) — always go to network, never cache.
+// All other Supabase API calls (GET requests) — cache with StaleWhileRevalidate and expire old cache entries via LRU.
 registerRoute(
-  ({ url }) => url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/"),
-  new NetworkOnly(),
+  ({ url, request }) =>
+    request.method === "GET" &&
+    (url.hostname.includes("supabase.co") ||
+      url.pathname.includes("/rest/v1/") ||
+      url.pathname.includes("/functions/v1/")),
+  new StaleWhileRevalidate({
+    cacheName: "supabase-api-cache",
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+      new ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 24 * 60 * 60, // 24 hours
+      }),
+    ],
+  }),
 );
 
 // Offline fallback for full-page navigations (e.g. a hard refresh while offline).

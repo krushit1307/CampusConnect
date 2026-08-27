@@ -8,7 +8,7 @@ import { SupabaseProvider } from "@supabase-labs/y-supabase";
 import { createClient } from "@/lib/supabase/client";
 import { fetchNoteSnapshot, saveNoteSnapshot } from "@/services/collaborativeNotes";
 import { PresenceList } from "./PresenceList";
-import { Loader2 } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import "./CollaborativeEditor.css"; // We'll need some minimal CSS for cursors
 
 interface CollaborativeEditorProps {

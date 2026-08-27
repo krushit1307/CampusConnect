@@ -113,10 +113,9 @@ export function buildOpenGraphTags(input: EventMetaInput): OpenGraphTagValues {
   // available — it generates a rich branded card regardless of whether the
   // event has a banner. Fall back to the Supabase Storage transform URL when
   // no ID is present (e.g. server-side renders without Supabase context).
-  const ogImage =
-    input.eventId
-      ? buildOgImageEdgeUrl(input.eventId) || buildOgImageUrl(rawBannerUrl)
-      : buildOgImageUrl(rawBannerUrl);
+  const ogImage = input.eventId
+    ? buildOgImageEdgeUrl(input.eventId) || buildOgImageUrl(rawBannerUrl)
+    : buildOgImageUrl(rawBannerUrl);
 
   return {
     ogTitle: `${input.title} | CampusConnect`,

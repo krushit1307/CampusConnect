@@ -6,20 +6,18 @@ import getDay from "date-fns/getDay";
 import parse from "date-fns/parse";
 import startOfWeek from "date-fns/startOfWeek";
 import enUS from "date-fns/locale/en-US";
-import {
-  Calendar as CalendarIcon,
-  Clock,
-  MapPin,
-  Move,
-  RotateCcw,
-  CheckCircle2,
-  AlertCircle,
-  Filter,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Info,
-} from "lucide-react";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Move from "lucide-react/dist/esm/icons/move";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Filter from "lucide-react/dist/esm/icons/filter";
+import Search from "lucide-react/dist/esm/icons/search";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Info from "lucide-react/dist/esm/icons/info";
 import { toast } from "sonner";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";

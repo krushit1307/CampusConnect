@@ -18,7 +18,7 @@ CREATE POLICY "Admins can manage dead_letter_queue"
     USING (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+            WHERE profiles.id = auth.uid() AND profiles.role = 'system_admin'
         )
     );
 
