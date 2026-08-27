@@ -27,6 +27,8 @@ import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBro
 import { VendorRfpManager } from "@/components/vendors/VendorRfpManager";
 import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
 import { MissingPhotoIncentiveWidget } from "@/components/events/MissingPhotoIncentiveWidget";
+import { MissingPhotoChaserTaskCard } from "@/components/events/MissingPhotoChaserTaskCard";
+import { dispatchPhotoChaserToTaskSystem } from "@/services/missingPhotoTaskRbacService";
 import { EventLayoutHeatmapAnalyzer } from "@/components/events/EventLayoutHeatmapAnalyzer";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
@@ -433,6 +435,21 @@ export default function EventDashboard() {
                 onPhotoUploaded={() => refetchEventData()}
               />
             </div>
+            {!eventData?.cover_image_url && (
+              <div className="mt-4">
+                <MissingPhotoChaserTaskCard
+                  task={dispatchPhotoChaserToTaskSystem(
+                    eventId!,
+                    eventData?.title || "Campus Event",
+                    ["media_lead", "marketing_chair", "event_organizer"]
+                  )}
+                  userRole="event_organizer"
+                  userId="org-1"
+                  onTaskClaimed={() => refetchEventData()}
+                />
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-3 items-center mt-4 sm:mt-0">
               {/* Public Showcase Toggle */}
               <label className="flex items-center gap-2 font-mono text-xs font-bold uppercase cursor-pointer select-none bg-blue-50 dark:bg-blue-950/20 border-2 border-black dark:border-white p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors">

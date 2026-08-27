@@ -106,6 +106,21 @@ export function dispatchPhotoChaserToTaskSystem(
 }
 
 /**
+ * Triggers the Automated Missing Photo Follow-Up Workflow.
+ * Evaluates event missing photo status and auto-dispatches Photo Chaser task to designated RBAC role.
+ */
+export function triggerAutomatedMissingPhotoFollowUp(
+  eventId: string,
+  eventTitle: string = "Campus Event",
+  availableClubRoles: UserRbacRole[] = [],
+  assignedUserId?: string
+): PhotoChaserRbacTask {
+  console.log(`[PhotoChaser] Triggering automated follow-up workflow for event: ${eventId} (${eventTitle})`);
+  return dispatchPhotoChaserToTaskSystem(eventId, eventTitle, availableClubRoles, assignedUserId);
+}
+
+
+/**
  * Claims a missing photo bounty with strict RBAC role authorization check.
  * Updates event cover image, marks task completed in Task Management, and deposits points into user profile.
  */
