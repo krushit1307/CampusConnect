@@ -4,6 +4,7 @@ ADD COLUMN IF NOT EXISTS organizer_response_text TEXT,
 ADD COLUMN IF NOT EXISTS organizer_responded_at TIMESTAMPTZ,
 ADD COLUMN IF NOT EXISTS organizer_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 
+
 -- 2. Stored RPC procedure to record organizer response and trigger reviewer notification payload
 CREATE OR REPLACE FUNCTION submit_organizer_review_rebuttal(
     p_review_id UUID,

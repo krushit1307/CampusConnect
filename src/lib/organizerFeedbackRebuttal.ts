@@ -63,6 +63,7 @@ export function getOrganizerRebuttalContainerProps(
 /**
  * Constructs automated notification payload dispatched to the original reviewer.
  */
+
 export function buildOrganizerResponseNotification(
   review: EventReview,
   responseText: string,
