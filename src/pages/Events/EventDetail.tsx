@@ -3,7 +3,7 @@ import { SafetyCheckPrompt } from "@/components/events/SafetyCheckPrompt";
 // =============================================================================
 // PATCH: src/pages/Events/EventDetail.tsx
 // Issue: #3678 — Real-Time "Micro-Volunteering" Task Board
-// Issue: #4301 — Interactive "Event Schedule" Custom Itinerary Builder
+// Issue: #4791 — Interactive "Event Schedule" Drag-and-Drop Itinerary Planner
 // Issue: #4265 — Real-Time "Event Photography" Collaborative Album
 // =============================================================================
 
@@ -27,14 +27,6 @@ import { DietaryForecastPanel } from "@/components/events/DietaryForecastPanel";
 import { User } from "@supabase/supabase-js";
 import { SponsorBountiesSection } from "@/components/events/SponsorBountiesSection";
 
-// NEW (Issue #4301): Itinerary Builder Imports
-import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import format from "date-fns/format";
-import parse from "date-fns/parse";
-import startOfWeek from "date-fns/startOfWeek";
-import getDay from "date-fns/getDay";
-import enUS from "date-fns/locale/en-US";
-import "react-big-calendar/lib/css/react-big-calendar.css";
 import { toast } from "sonner";
 import { hasTemporalConflict } from "@/utils/timeConflicts";
 import { generateItineraryPDF } from "@/utils/generateItineraryPDF";
@@ -43,17 +35,8 @@ import { generateItineraryPDF } from "@/utils/generateItineraryPDF";
 import { LiveAlbumUploader } from "@/components/events/LiveAlbumUploader";
 import { broadcastNewPhoto } from "@/components/events/ProjectorView";
 
-// Setup React Big Calendar Localizer
-const locales = {
-  "en-US": enUS,
-};
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
+// NEW (Issue #4791): Drag-and-Drop Calendar Import
+import { ItineraryCalendar } from "@/components/ItineraryCalendar";
 
 interface EventDetailRecord {
   id: string;
@@ -98,7 +81,7 @@ export default function EventDetail() {
     },
   });
 
-  // NEW (Issue #4301): Fetch sub-sessions for this event
+  // Fetch sub-sessions for this event
   const { data: subSessions = [] } = useQuery({
     queryKey: ["sub_sessions", eventId],
     enabled: Boolean(eventId),
@@ -112,7 +95,7 @@ export default function EventDetail() {
     },
   });
 
-  // NEW (Issue #4301): Fetch the user's current bookmarked itinerary
+  // Fetch the user's current bookmarked itinerary
   const { data: itinerary = [] } = useQuery({
     queryKey: ["user_itinerary", user?.id],
     enabled: Boolean(user?.id && eventId),
@@ -124,7 +107,6 @@ export default function EventDetail() {
 
       if (error) throw error;
 
-      // Map to flatten the structure for the conflict checker
       return data.map((d: any) => ({
         id: d.id,
         sub_session_id: d.sub_session_id,
@@ -134,7 +116,6 @@ export default function EventDetail() {
     },
   });
 
-  // NEW (Issue #4301): Mutation to insert a bookmark
   const bookmarkMutation = useMutation({
     mutationFn: async (subSessionId: string) => {
       const { error } = await supabase.from("user_itinerary").insert({
@@ -152,7 +133,6 @@ export default function EventDetail() {
     },
   });
 
-  // NEW (Issue #4301): Handle Bookmark click
   const handleBookmark = (session: any) => {
     if (!user) {
       toast.error("Please log in to build your itinerary.");
@@ -210,13 +190,6 @@ export default function EventDetail() {
   const venueLabel = event.venues?.name || event.location;
   const dualClock = event.dualClock || null;
 
-  // Map sub-sessions for React Big Calendar
-  const calendarEvents = subSessions.map((s: any) => ({
-    ...s,
-    start: new Date(s.start_time),
-    end: new Date(s.end_time),
-  }));
-
   return (
     <article className="relative min-h-full bg-white transition-colors duration-700">
       {event.banner_url && (
@@ -245,8 +218,6 @@ export default function EventDetail() {
         )}
         
         <div className="flex flex-wrap gap-x-8 gap-y-4 font-mono text-sm text-gray-700">
-          {/* ── NEW: dual-clock time display (Issue #3680) ── */}
-          {/* Note: Ensure EventDualClockTime is properly imported if it throws an error locally */}
           <div className="min-w-[260px]">
              {/* @ts-expect-error - EventDualClockTime might be dynamically registered */}
              {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
@@ -294,62 +265,28 @@ export default function EventDetail() {
           </div>
         )}
 
-        {/* ── NEW (Issue #4301): Interactive Timeline Builder ──────────────── */}
-        {subSessions.length > 0 && (
-          <div className="pt-8 mt-8 border-t-2 border-black">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-display text-2xl font-bold">
-                Event Schedule & Itinerary Builder
-              </h2>
-
-              {/* Only show Export if they have bookmarked at least one session */}
-              {itinerary.length > 0 && (
-                <button
-                  onClick={() =>
-                    generateItineraryPDF(itinerary, user?.email || "Attendee", event.title)
-                  }
-                  className="bg-black text-white text-sm font-bold px-4 py-2 rounded border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
-                >
-                  Export to PDF
-                </button>
-              )}
-            </div>
-            <div className="neu-border bg-white p-4 h-[600px]">
-              <Calendar
-                localizer={localizer}
-                events={calendarEvents}
-                defaultView="agenda"
-                views={["agenda", "day"]}
-                step={30}
-                components={{
-                  event: ({ event }: any) => {
-                    const isBookmarked = itinerary.some((i: any) => i.sub_session_id === event.id);
-                    return (
-                      <div className="flex flex-col justify-between h-full p-1">
-                        <div>
-                          <strong className="block truncate font-bold text-sm text-black">
-                            {event.title}
-                          </strong>
-                          <span className="text-xs text-gray-800">{event.room}</span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevents calendar modal from popping up
-                            handleBookmark(event);
-                          }}
-                          disabled={isBookmarked || bookmarkMutation.isPending}
-                          className="mt-2 text-xs font-bold bg-black text-white px-2 py-1 rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed w-max"
-                        >
-                          {isBookmarked ? "Bookmarked ✓" : "+ Bookmark"}
-                        </button>
-                      </div>
-                    );
-                  },
-                }}
-              />
-            </div>
+        {/* ── NEW (Issue #4791): Interactive Drag-and-Drop Timeline Builder ──────────────── */}
+        <div className="pt-8 mt-8 border-t-2 border-black">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-display text-2xl font-bold">
+              Event Schedule & Itinerary Builder
+            </h2>
+            {itinerary.length > 0 && (
+              <button
+                onClick={() =>
+                  generateItineraryPDF(itinerary, user?.email || "Attendee", event.title)
+                }
+                className="bg-black text-white text-sm font-bold px-4 py-2 rounded border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+              >
+                Export to PDF
+              </button>
+            )}
           </div>
-        )}
+          
+          {/* Injecting the new Drag and Drop Calendar component here */}
+          <ItineraryCalendar />
+          
+        </div>
 
         {user && event.id && (
           <div className="pt-6">
