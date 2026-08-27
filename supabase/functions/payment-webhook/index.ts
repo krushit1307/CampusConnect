@@ -665,9 +665,74 @@ Deno.serve(async (req) => {
           );
         }
       }
+
+      // 7. Dynamic "Club Revenue" Profit-Sharing
+      if (session.metadata?.event_id) {
+        try {
+          const eventId = session.metadata.event_id;
+          const { data: eventData } = await supabase
+            .from("events")
+            .select("revenue_splits")
+            .eq("id", eventId)
+            .single();
+
+          if (
+            eventData?.revenue_splits &&
+            Array.isArray(eventData.revenue_splits) &&
+            eventData.revenue_splits.length > 0
+          ) {
+            console.log(`[Webhook Ingestion] Processing revenue split for event ${eventId}`);
+
+            const grossCents = session.amount_total ?? 0;
+            const stripeFeeCents = Math.round(grossCents * 0.029 + 30);
+            const netProfitCents = grossCents - stripeFeeCents;
+
+            if (netProfitCents > 0) {
+              const transfers = eventData.revenue_splits.map((split: any) => ({
+                club_id: split.club_id,
+                amount_cents: Math.round(netProfitCents * (split.pct / 100)),
+                pct: split.pct,
+                stripe_account_id: split.stripe_account_id || "acct_mock",
+                transfer_id: session.payment_intent || session.id,
+              }));
+
+              const { data: splitResult, error: splitError } = await supabase.rpc(
+                "process_cohost_revenue_split",
+                {
+                  p_event_id: eventId,
+                  p_charge_id: session.payment_intent || session.id,
+                  p_total_amount_cents: netProfitCents,
+                  p_transfers: transfers,
+                },
+              );
+
+              if (splitError) {
+                console.error("[DB Error] Failed to process revenue split:", splitError);
+              } else {
+                console.log(
+                  `[Webhook Ingestion] Revenue split processed: ${JSON.stringify(transfers)}`,
+                );
+
+                // Insert into revenue_split_receipts
+                await supabase.from("revenue_split_receipts").insert({
+                  event_id: eventId,
+                  stripe_session_id: session.id,
+                  gross_revenue_cents: grossCents,
+                  stripe_fee_cents: stripeFeeCents,
+                  net_profit_cents: netProfitCents,
+                  split_details: transfers,
+                });
+              }
+            }
+          }
+        } catch (err: any) {
+          console.error(`[Webhook Ingestion] Failed to process revenue split:`, err.message);
+        }
+      }
     }
 
     // 6. Refunds / disputes on a donation charge must decrement current_amount_cents
+
     // so the progress bar stays mathematically accurate. We resolve the donation
     // row by payment_intent_id (present on both charge.refunded and
     // charge.dispute.created payloads) rather than trusting client-supplied state.
