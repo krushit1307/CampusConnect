@@ -10,7 +10,7 @@ import X from "lucide-react/dist/esm/icons/x";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import CreditCard from "lucide-react/dist/esm/icons/credit-card";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { Switch } from "@/components/ui/switch";
@@ -42,6 +42,7 @@ import {
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { AutoTaggingSettings } from "@/components/AutoTaggingSettings";
 import { VendorPortfolioEditor } from "@/components/vendors/VendorPortfolioEditor";
+import { LinkedInSkillSyncPanel } from "@/components/profile/LinkedInSkillSyncPanel";
 import { useTheme } from "@/components/theme-provider";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
@@ -1179,6 +1180,8 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+
+                {user && <LinkedInSkillSyncPanel userId={user.id} skills={skills} />}
 
                 <div className="space-y-2 border-t-2 border-black pt-5">
                   <p className="eyebrow font-bold text-black">Courses for study matching</p>
