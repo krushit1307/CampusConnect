@@ -18,6 +18,33 @@ describe("OptimizedImage Component", () => {
     expect(imgEl).toHaveAttribute("src");
     expect(imgEl.getAttribute("src")).toContain("/functions/v1/image");
     expect(imgEl.getAttribute("src")).toContain("file=event-banners%2Fbanner.png");
+    expect(imgEl).toHaveAttribute("srcset");
+    expect(imgEl.getAttribute("srcset")).toContain("300w");
+    expect(imgEl.getAttribute("srcset")).toContain("600w");
+    expect(imgEl.getAttribute("srcset")).toContain("1200w");
+    expect(imgEl).toHaveAttribute("sizes");
+  });
+
+  it("applies custom sizes and responsiveWidths when provided", () => {
+    const src = "https://example.supabase.co/storage/v1/object/public/event-banners/banner.png";
+    const customSizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw";
+    render(
+      <OptimizedImage
+        src={src}
+        alt="Custom Sized Banner"
+        width={1200}
+        height={600}
+        responsiveWidths={[384, 640, 1200]}
+        sizes={customSizes}
+      />,
+    );
+
+    const imgEl = screen.getByRole("img", { name: "Custom Sized Banner" });
+    expect(imgEl).toBeInTheDocument();
+    expect(imgEl.getAttribute("sizes")).toBe(customSizes);
+    expect(imgEl.getAttribute("srcset")).toContain("384w");
+    expect(imgEl.getAttribute("srcset")).toContain("640w");
+    expect(imgEl.getAttribute("srcset")).toContain("1200w");
   });
 
   it("renders non-Supabase images directly without rendering render URLs", () => {
