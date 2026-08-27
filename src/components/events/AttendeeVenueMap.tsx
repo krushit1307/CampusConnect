@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Accessibility,
   ZoomIn,
@@ -26,8 +27,16 @@ import {
   createAccessibilityRouteSegments,
   getAccessibilityNodes,
   getSpatialDescription,
+  mapFeatureToNodeType,
   type MapNodeType,
 } from "@/lib/accessibilityMap";
+import {
+  SENSORY_ALERT_MESSAGE,
+  buildQuietRoomPolyline,
+  estimateZonePoint,
+  isQuietSpaceNode,
+  nodeCenter,
+} from "@/lib/quietRoomLocator";
 
 export interface AttendeeMapNode {
   id: string;
@@ -59,11 +68,89 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
   const [isAccessibilityMode, setIsAccessibilityMode] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [sensoryAlert, setSensoryAlert] = useState(false);
+  const [quietPolyline, setQuietPolyline] = useState<string | null>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+
+  const [searchParams] = useSearchParams();
+  const routeToQuietRoom = searchParams.get("quietRoute") === "1";
 
   const { user } = useAuth();
   const supabase = createClient();
+
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase
+      .channel(`event-noise-${eventId}`)
+      .on("broadcast", { event: "sensory_alert" }, () => {
+        setSensoryAlert(true);
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [eventId, supabase]);
+
+  useEffect(() => {
+    if (!routeToQuietRoom && !sensoryAlert) {
+      setQuietPolyline(null);
+      return;
+    }
+
+    let cancelled = false;
+    const plotRoute = async () => {
+      try {
+        const quietNode = nodes.find(isQuietSpaceNode);
+        if (!quietNode) return;
+
+        let checkedInZoneId: string | null = null;
+        const zones: Array<{
+          id: string;
+          name: string;
+          x_ft: number;
+          y_ft: number;
+          width_ft: number;
+          height_ft: number;
+        }> = [];
+
+        if (eventId) {
+          const { data: zoneRows } = await supabase
+            .from("event_layout_zones")
+            .select("id, name, x_ft, y_ft, width_ft, height_ft")
+            .eq("event_id", eventId);
+          zones.push(...((zoneRows || []) as typeof zones));
+
+          if (user?.id && zones.length > 0) {
+            const { data: checkin } = await supabase
+              .from("event_zone_checkins")
+              .select("zone_id")
+              .eq("event_id", eventId)
+              .order("scanned_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            checkedInZoneId = checkin?.zone_id || null;
+          }
+        }
+
+        if (cancelled) return;
+        const from = estimateZonePoint(zones, checkedInZoneId);
+        const to = nodeCenter(quietNode);
+        setQuietPolyline(buildQuietRoomPolyline(from, to));
+        mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch {
+        const quietNode = nodes.find(isQuietSpaceNode);
+        if (!quietNode || cancelled) return;
+        setQuietPolyline(buildQuietRoomPolyline({ x: 50, y: 50 }, nodeCenter(quietNode)));
+      }
+    };
+
+    void plotRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeToQuietRoom, sensoryAlert, nodes, eventId, supabase, user?.id]);
 
   // Report dialog form states
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
@@ -217,6 +304,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
     elevator: "bg-blue-200 border-blue-800",
     ramp: "bg-blue-300 border-blue-900",
     restroom: "bg-cyan-200 border-cyan-800",
+    Quiet_Space: "bg-violet-200 border-violet-700",
   };
 
   // Zoom controls
@@ -293,7 +381,15 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
   }, []);
 
   return (
-    <div className="w-full flex flex-col gap-4">
+    <div ref={mapSectionRef} className="w-full flex flex-col gap-4">
+      {(sensoryAlert || routeToQuietRoom) && (
+        <a
+          href={`?quietRoute=1`}
+          className="border-2 border-violet-900 bg-violet-50 p-4 text-violet-950 shadow-[3px_3px_0_0_#6d28d9] font-mono text-xs font-bold"
+        >
+          {SENSORY_ALERT_MESSAGE}
+        </a>
+      )}
       {/* Accessibility Warning Banner */}
       {reports.length > 0 && (
         <div className="border-2 border-red-900 bg-red-50 p-4 text-black shadow-[3px_3px_0_0_#ef4444] font-mono text-xs flex flex-col gap-2">
@@ -491,6 +587,25 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
             </svg>
           )}
 
+          {quietPolyline && (
+            <svg
+              aria-label="Route to Quiet Room"
+              className="pointer-events-none absolute inset-0 z-[6] h-full w-full"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              <polyline
+                points={quietPolyline}
+                fill="none"
+                stroke="#6d28d9"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+          )}
+
           {/* Render nodes dynamically with relative percentages */}
           {nodes.map((node) => {
             const matchesQuery =
@@ -606,17 +721,24 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                 className="mt-3 grid gap-2 sm:grid-cols-2"
                 aria-label="Accessibility infrastructure"
               >
-                {accessibilityNodes.map((node) => (
-                  <li
-                    key={node.id}
-                    className="border-2 border-blue-900 bg-white p-2 font-mono text-xs"
-                  >
-                    <span className="font-black uppercase">
-                      {node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type]}
-                    </span>
-                    <span className="mt-1 block">{getSpatialDescription(node, entrance)}</span>
-                  </li>
-                ))}
+                {accessibilityNodes
+                  .filter((node) => {
+                    const brokenNodeTypes = brokenFeatures
+                      .map((feature: string) => mapFeatureToNodeType(feature))
+                      .filter(Boolean);
+                    return !brokenNodeTypes.includes(node.type);
+                  })
+                  .map((node) => (
+                    <li
+                      key={node.id}
+                      className="border-2 border-blue-900 bg-white p-2 font-mono text-xs"
+                    >
+                      <span className="font-black uppercase">
+                        {node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type]}
+                      </span>
+                      <span className="mt-1 block">{getSpatialDescription(node, entrance)}</span>
+                    </li>
+                  ))}
               </ul>
             </>
           )}

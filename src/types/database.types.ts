@@ -3509,7 +3509,8 @@ export type Database = {
             | "entrance"
             | "elevator"
             | "ramp"
-            | "restroom";
+            | "restroom"
+            | "Quiet_Space";
           x_coord: number;
           y_coord: number;
           width: number;
@@ -3532,7 +3533,8 @@ export type Database = {
             | "entrance"
             | "elevator"
             | "ramp"
-            | "restroom";
+            | "restroom"
+            | "Quiet_Space";
           x_coord: number;
           y_coord: number;
           width: number;
@@ -3555,7 +3557,8 @@ export type Database = {
             | "entrance"
             | "elevator"
             | "ramp"
-            | "restroom";
+            | "restroom"
+            | "Quiet_Space";
           x_coord?: number;
           y_coord?: number;
           width?: number;

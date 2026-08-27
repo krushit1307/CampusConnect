@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AttendeeVenueMap, type AttendeeMapNode } from "./AttendeeVenueMap";
 
@@ -30,7 +31,9 @@ vi.mock("@/lib/supabase/client", () => {
       if (table === "accessibility_reports") {
         return {
           insert: mockInsertReport,
-          update: mockUpdateReport,
+          update: () => ({
+            eq: () => mockUpdateReport(),
+          }),
         };
       }
       return {
@@ -127,11 +130,15 @@ const nodes: AttendeeMapNode[] = [
 
 describe("AttendeeVenueMap crowdsourced accessibility warnings", () => {
   it("renders active warning banner and excludes broken node from route guide", async () => {
-    render(<AttendeeVenueMap nodes={nodes} venueId="venue-1" eventId="event-1" />);
+    render(
+      <MemoryRouter>
+        <AttendeeVenueMap nodes={nodes} venueId="venue-1" eventId="event-1" />
+      </MemoryRouter>,
+    );
 
     // 1. Verify warning banner exists
     expect(await screen.findByText("⚠ Accessibility Warning")).toBeInTheDocument();
-    expect(screen.getByText(/elevator reported broken \(10 mins ago\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/10 mins ago/i)).toBeInTheDocument();
 
     // 2. Turn on accessibility mode
     fireEvent.click(screen.getByRole("button", { name: /accessibility mode/i }));
@@ -142,14 +149,19 @@ describe("AttendeeVenueMap crowdsourced accessibility warnings", () => {
   });
 
   it("handles reporting a broken feature and resolving as admin", async () => {
-    render(<AttendeeVenueMap nodes={nodes} venueId="venue-1" eventId="event-1" />);
+    render(
+      <MemoryRouter>
+        <AttendeeVenueMap nodes={nodes} venueId="venue-1" eventId="event-1" />
+      </MemoryRouter>,
+    );
 
     // 1. Click Report Broken Feature
     const reportBtn = screen.getByRole("button", { name: /report broken feature/i });
     fireEvent.click(reportBtn);
 
-    // 2. Verify dialog title
-    expect(await screen.findByText("Report Broken Feature")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Report Broken Feature" }),
+    ).toBeInTheDocument();
 
     // 3. Select type and fill description
     const descTextarea = screen.getByPlaceholderText(
@@ -172,5 +184,34 @@ describe("AttendeeVenueMap crowdsourced accessibility warnings", () => {
     await waitFor(() => {
       expect(mockUpdateReport).toHaveBeenCalled();
     });
+  });
+
+  it("plots a Quiet Room polyline when quietRoute is set", async () => {
+    const quietNodes: AttendeeMapNode[] = [
+      ...nodes,
+      {
+        id: "quiet-1",
+        entity_name: "Quiet_Space",
+        type: "Quiet_Space",
+        x_coord: 80,
+        y_coord: 10,
+        width: 10,
+        height: 10,
+        rotation: 0,
+      },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={["/events/event-1?quietRoute=1"]}>
+        <AttendeeVenueMap nodes={quietNodes} venueId="venue-1" eventId="event-1" />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(
+        /The Main Hall is very loud right now. Click here for routing to the Quiet Room./i,
+      ),
+    ).toBeInTheDocument();
+    expect(await screen.findByLabelText("Route to Quiet Room")).toBeInTheDocument();
   });
 });

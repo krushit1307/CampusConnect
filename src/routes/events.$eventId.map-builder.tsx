@@ -112,6 +112,7 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     elevator: "bg-blue-200",
     ramp: "bg-blue-300",
     restroom: "bg-cyan-200",
+    Quiet_Space: "bg-violet-100",
   };
 
   const borders: Record<MapNodeType, string> = {
@@ -124,6 +125,7 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     elevator: "border-blue-800",
     ramp: "border-blue-900",
     restroom: "border-cyan-800",
+    Quiet_Space: "border-violet-700",
   };
 
   // Custom mouse resize handler
@@ -637,6 +639,12 @@ export default function CampusMapBuilder() {
                       type="restroom"
                       label="Accessible Restroom"
                       defaultWidth={60}
+                      defaultHeight={60}
+                    />
+                    <PaletteItem
+                      type="Quiet_Space"
+                      label="Quiet Room"
+                      defaultWidth={80}
                       defaultHeight={60}
                     />
                   </div>
