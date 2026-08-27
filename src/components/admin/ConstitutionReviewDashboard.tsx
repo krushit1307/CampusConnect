@@ -6,7 +6,7 @@
 // =============================================================================
 
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabase/client";
 import type { ConstitutionDocument } from "../../hooks/useConstitutionLinter";
 import { ConstitutionDiffViewer } from "../clubs/ConstitutionDiffViewer";
 

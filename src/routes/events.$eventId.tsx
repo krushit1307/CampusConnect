@@ -26,7 +26,8 @@ import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
-import { LiveCapacityMeter } from "@/components/events/LiveCapacityMeter";import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
+import { LiveCapacityMeter } from "@/components/events/LiveCapacityMeter";
+import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
 import { FlashSaleBanner } from "@/components/events/FlashSaleBanner";
 import { FlashSaleControl } from "@/components/events/FlashSaleControl";
 import { FlashSaleTriggerRules } from "@/components/events/FlashSaleTriggerRules";
@@ -96,6 +97,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SeatingCanvas } from "@/components/events/SeatingCanvas";
 import { SponsorManager } from "@/components/events/SponsorManager";
 import { EventGuestList } from "@/components/events/EventGuestList";
+import { SongRequestSection } from "@/components/events/SongRequestSection";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
@@ -689,7 +691,7 @@ export default function EventDetailsPage() {
           profiles (full_name, email),
           event_metrics (views)
         `,
-      )
+        )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
         .single();
 
@@ -871,7 +873,7 @@ export default function EventDetailsPage() {
     queryFn: async () => {
       if (!user?.id || eventId.startsWith("mock-")) return null;
 
-      if (event && 'is_remote' in event && event.is_remote) {
+      if (event && "is_remote" in event && event.is_remote) {
         const { data, error } = await supabase
           .from("remote_event_rsvps")
           .select("*")
@@ -1127,7 +1129,7 @@ export default function EventDetailsPage() {
         return;
       }
 
-      if (event && 'is_remote' in event && event.is_remote) {
+      if (event && "is_remote" in event && event.is_remote) {
         const { data: sessionData } = await supabase.auth.getSession();
         const { error } = await supabase.functions.invoke("proxy-rsvp", {
           body: { eventId, hasRsvpd, action: "toggle" },
@@ -1699,7 +1701,9 @@ export default function EventDetailsPage() {
 
     // --- ISSUE #4249: BLOCK RSVP IF ASSET OVERDUE ---
     if (hasOverdueAssets) {
-      toast.error("Action Blocked: Please return your overdue photography equipment to RSVP for events.");
+      toast.error(
+        "Action Blocked: Please return your overdue photography equipment to RSVP for events.",
+      );
       return;
     }
     // ------------------------------------------------
@@ -1892,15 +1896,17 @@ export default function EventDetailsPage() {
               >
                 Hosted by: {event.host_institution}
               </p>
-            ) : club && (
-              <p
-                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
-              >
-                Organized by:{" "}
-                <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
-                  {club.name}
-                </Link>
-              </p>
+            ) : (
+              club && (
+                <p
+                  className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
+                >
+                  Organized by:{" "}
+                  <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
+                    {club.name}
+                  </Link>
+                </p>
+              )
             )}
 
             {/* Live Scoreboard */}
@@ -2001,16 +2007,17 @@ export default function EventDetailsPage() {
                 geofencingEnabled={Boolean((event as Record<string, unknown>).geofencing_enabled)}
                 latitude={
                   ((event as Record<string, unknown>).latitude as number | null) ??
-                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)?.latitude as
-                    number | null)
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
+                    ?.latitude as number | null)
                 }
                 longitude={
                   ((event as Record<string, unknown>).longitude as number | null) ??
-                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)?.longitude as
-                    number | null)
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
+                    ?.longitude as number | null)
                 }
                 radiusMeters={
-                  ((event as Record<string, unknown>).geofence_radius_meters as number | undefined) ??
+                  ((event as Record<string, unknown>).geofence_radius_meters as
+                    number | undefined) ??
                   (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
                     ?.geofence_radius_meters as number | undefined) ??
                   500
@@ -2051,7 +2058,9 @@ export default function EventDetailsPage() {
 
                       // --- ISSUE #4249: BLOCK WAITLIST IF ASSET OVERDUE ---
                       if (hasOverdueAssets) {
-                        toast.error("Action Blocked: Please return your overdue photography equipment to join waitlists.");
+                        toast.error(
+                          "Action Blocked: Please return your overdue photography equipment to join waitlists.",
+                        );
                         return;
                       }
                       // ----------------------------------------------------
@@ -2465,6 +2474,11 @@ export default function EventDetailsPage() {
             {/* Live Q&A */}
             <div className="mt-8">
               <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
+            </div>
+
+            {/* Collaborative Event Soundtrack */}
+            <div className="mt-8">
+              <SongRequestSection eventId={eventId} isOrganizer={isOrganizer} />
             </div>
 
             {/* Transportation / Carpool Matching (Issue #2877) */}
@@ -3362,10 +3376,12 @@ export default function EventDetailsPage() {
                   toast.error("Please log in to join waitlist");
                   return;
                 }
-                
+
                 // --- ISSUE #4249: BLOCK WAITLIST IF ASSET OVERDUE ---
                 if (hasOverdueAssets) {
-                  toast.error("Action Blocked: Please return your overdue photography equipment to join waitlists.");
+                  toast.error(
+                    "Action Blocked: Please return your overdue photography equipment to join waitlists.",
+                  );
                   return;
                 }
                 // ----------------------------------------------------

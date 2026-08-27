@@ -26,6 +26,7 @@ import { HelpQueueAttendeeWidget } from "@/components/events/HelpQueueAttendeeWi
 import { DietaryForecastPanel } from "@/components/events/DietaryForecastPanel";
 import { User } from "@supabase/supabase-js";
 import { SponsorBountiesSection } from "@/components/events/SponsorBountiesSection";
+import { EventDualClockTime } from "@/components/EventDualClockTime";
 
 import { toast } from "sonner";
 import { hasTemporalConflict } from "@/utils/timeConflicts";
@@ -72,7 +73,7 @@ export default function EventDetail() {
       const { data, error } = await supabase
         .from("events")
         .select(
-          "id, title, description, event_date, location, banner_url, clubs(id, name), venues(name), is_live_album_active"
+          "id, title, description, event_date, location, banner_url, clubs(id, name), venues(name), is_live_album_active",
         )
         .eq("id", eventId)
         .maybeSingle();
@@ -216,12 +217,10 @@ export default function EventDetail() {
             {new Date(event.event_date).toLocaleString()}
           </p>
         )}
-        
+
         <div className="flex flex-wrap gap-x-8 gap-y-4 font-mono text-sm text-gray-700">
           <div className="min-w-[260px]">
-             {/* @ts-expect-error - EventDualClockTime might be dynamically registered */}
-             {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
-             {React.createElement(require('@/components/events/EventDualClockTime').EventDualClockTime || 'div', { data: dualClock, venueLabel: venueLabel, variant: "full" })}
+            <EventDualClockTime data={dualClock} venueLabel={venueLabel} variant="full" />
           </div>
 
           {event.location && (
@@ -240,9 +239,11 @@ export default function EventDetail() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
               <div>
                 <h2 className="font-display text-2xl font-bold">Live Event Album</h2>
-                <p className="text-gray-600 text-sm mt-1">Snap photos and they will appear on the big screen instantly!</p>
+                <p className="text-gray-600 text-sm mt-1">
+                  Snap photos and they will appear on the big screen instantly!
+                </p>
               </div>
-              
+
               {isOrganizer && (
                 <a
                   href={`/events/${event.id}/projector`}
@@ -254,13 +255,13 @@ export default function EventDetail() {
                 </a>
               )}
             </div>
-            
-            <LiveAlbumUploader 
-              eventId={event.id} 
+
+            <LiveAlbumUploader
+              eventId={event.id}
               onUploadComplete={(url) => {
                 broadcastNewPhoto(event.id, url);
                 toast.success("Awesome shot! Sent to the projector.", { icon: "📸" });
-              }} 
+              }}
             />
           </div>
         )}
@@ -268,9 +269,7 @@ export default function EventDetail() {
         {/* ── NEW (Issue #4791): Interactive Drag-and-Drop Timeline Builder ──────────────── */}
         <div className="pt-8 mt-8 border-t-2 border-black">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="font-display text-2xl font-bold">
-              Event Schedule & Itinerary Builder
-            </h2>
+            <h2 className="font-display text-2xl font-bold">Event Schedule & Itinerary Builder</h2>
             {itinerary.length > 0 && (
               <button
                 onClick={() =>
@@ -282,10 +281,9 @@ export default function EventDetail() {
               </button>
             )}
           </div>
-          
+
           {/* Injecting the new Drag and Drop Calendar component here */}
           <ItineraryCalendar />
-          
         </div>
 
         {user && event.id && (
