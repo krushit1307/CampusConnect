@@ -25,6 +25,8 @@ import { useQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryRepl
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { VendorPortfolioViewer } from "./VendorPortfolioViewer";
+import { VendorW9Form } from "./VendorW9Form";
+import { Vendor1099MiscPanel } from "./Vendor1099MiscPanel";
 
 export interface VendorRfpManagerProps {
   clubId?: string;
@@ -131,6 +133,17 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
     enabled: !!selectedRfpId,
   });
 
+  const { data: requiresW9 } = useQuery({
+    queryKey: ["vendor_requires_w9_to_bid"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("vendor_requires_w9_to_bid");
+      if (error) throw error;
+      return data === true;
+    },
+    enabled: isVendorView,
+  });
+  const biddingFrozen = requiresW9 === true;
+
   // Ensure selectedRfpId is valid or set it to first RFP
   React.useEffect(() => {
     if (rfps.length > 0 && !selectedRfpId) {
@@ -167,7 +180,14 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
 
   const submitBidMutation = useMutation({
     mutationFn: async (newBid: any) => {
-      const { data, error } = await supabase.from("rfp_bids").insert(newBid).select().single();
+      const { data, error } = await supabase.rpc("submit_vendor_rfp_bid", {
+        p_rfp_id: newBid.rfp_id,
+        p_vendor_name: newBid.vendor_name,
+        p_vendor_email: newBid.vendor_email,
+        p_quoted_price: newBid.quoted_price,
+        p_proposal_pdf_url: newBid.proposal_pdf_url,
+        p_notes: newBid.notes,
+      });
       if (error) throw error;
       return data;
     },
@@ -188,15 +208,15 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       rfpId,
       bidId,
       amount,
+      vendorUserId,
+      vendorName,
     }: {
       rfpId: string;
       bidId: string;
       amount: number;
+      vendorUserId?: string | null;
+      vendorName: string;
     }) => {
-      // Begin escrow integration simulation
-      // TODO (#4225 integration boundary): Escrow system for vendor bidding should be integrated here.
-      // E.g., await createTransferEscrow(bidId, "organizer-id", "vendor@example.com", amount);
-
       const { error: rfpError } = await supabase
         .from("vendor_rfps")
         .update({ status: "awarded", accepted_bid_id: bidId })
@@ -216,6 +236,21 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
         .eq("rfp_id", rfpId)
         .neq("id", bidId);
       if (rejectError) throw rejectError;
+
+      const escrowClubId = clubId || rfps.find((r) => r.id === rfpId)?.club_id;
+      if (escrowClubId) {
+        const expiration = new Date();
+        expiration.setUTCFullYear(expiration.getUTCFullYear() + 1);
+        const { error: escrowError } = await supabase.from("vendor_contracts").insert({
+          club_id: escrowClubId,
+          vendor_id: vendorUserId || null,
+          vendor_name: vendorName,
+          amount,
+          escrow_locked_at: new Date().toISOString(),
+          expiration_date: expiration.toISOString().slice(0, 10),
+        });
+        if (escrowError) throw escrowError;
+      }
     },
     onSuccess: () => {
       toast.success(`Bid accepted! Escrow payment workflow initiated.`);
@@ -259,6 +294,12 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       toast.error("Your bid exceeds the maximum budget. Please adjust your quote.");
       return;
     }
+    if (biddingFrozen) {
+      toast.error(
+        "W-9 required: Total_Paid is at least $600 for this fiscal year. Submit a digital W-9 before bidding on new gigs.",
+      );
+      return;
+    }
 
     submitBidMutation.mutate({
       rfp_id: selectedRfpId,
@@ -272,7 +313,13 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
 
   const handleAcceptBid = (bid: RfpBid) => {
     if (window.confirm(`Are you sure you want to accept this bid for $${bid.quoted_price}?`)) {
-      acceptBidMutation.mutate({ rfpId: selectedRfpId!, bidId: bid.id, amount: bid.quoted_price });
+      acceptBidMutation.mutate({
+        rfpId: selectedRfpId!,
+        bidId: bid.id,
+        amount: bid.quoted_price,
+        vendorUserId: bid.vendor_user_id,
+        vendorName: bid.vendor_name,
+      });
     }
   };
 
@@ -344,12 +391,12 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
           {isVendorView ? (
             <button
               type="button"
-              disabled={!activeRfp || activeRfp.status !== "open"}
+              disabled={!activeRfp || activeRfp.status !== "open" || biddingFrozen}
               onClick={() => setShowVendorBidModal(true)}
               className="px-3.5 py-2 border-2 border-black bg-white hover:bg-gray-100 disabled:opacity-50 font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5"
             >
               <Send className="w-4 h-4 text-emerald-600" />
-              Submit Vendor Quote
+              {biddingFrozen ? "W-9 Required to Bid" : "Submit Vendor Quote"}
             </button>
           ) : (
             <button
@@ -928,6 +975,18 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {isVendorView && (
+        <div className="p-5 space-y-4 border-t-2 border-black bg-white">
+          {biddingFrozen && (
+            <p className="font-mono text-xs font-bold text-red-700">
+              Bidding is frozen until you submit a digital W-9. Fiscal-year escrow payouts are at
+              least $600.
+            </p>
+          )}
+          <VendorW9Form />
+          <Vendor1099MiscPanel isVendorView />
         </div>
       )}
       <VendorPortfolioViewer bid={portfolioBid} onClose={() => setPortfolioBid(null)} />

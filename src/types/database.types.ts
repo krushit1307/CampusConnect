@@ -871,6 +871,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      vendor_w9_forms: {
+        Row: {
+          id: string;
+          vendor_id: string;
+          legal_name: string;
+          business_name: string | null;
+          tin_type: "ssn" | "ein";
+          tin: string;
+          address_line1: string;
+          city: string;
+          state: string;
+          zip: string;
+          signed_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          legal_name: string;
+          business_name?: string | null;
+          tin_type: "ssn" | "ein";
+          tin: string;
+          address_line1: string;
+          city: string;
+          state: string;
+          zip: string;
+          signed_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          vendor_id?: string;
+          legal_name?: string;
+          business_name?: string | null;
+          tin_type?: "ssn" | "ein";
+          tin?: string;
+          address_line1?: string;
+          city?: string;
+          state?: string;
+          zip?: string;
+          signed_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      vendor_1099_misc_filings: {
+        Row: {
+          id: string;
+          tax_year: number;
+          club_id: string;
+          vendor_id: string;
+          total_paid: number;
+          schema: Json;
+          pdf_url: string | null;
+          treasurer_notified_at: string | null;
+          vendor_notified_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tax_year: number;
+          club_id: string;
+          vendor_id: string;
+          total_paid: number;
+          schema?: Json;
+          pdf_url?: string | null;
+          treasurer_notified_at?: string | null;
+          vendor_notified_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tax_year?: number;
+          club_id?: string;
+          vendor_id?: string;
+          total_paid?: number;
+          schema?: Json;
+          pdf_url?: string | null;
+          treasurer_notified_at?: string | null;
+          vendor_notified_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       currency_exchange_rates: {
         Row: {
           id: string;
@@ -4910,6 +4997,35 @@ export type Database = {
           p_notes?: string | null;
         };
         Returns: Database["public"]["Tables"]["rfp_bids"]["Row"];
+      };
+      vendor_fiscal_year_escrow_total: {
+        Args: { p_vendor_id: string; p_tax_year?: number };
+        Returns: number;
+      };
+      vendor_requires_w9_to_bid: {
+        Args: { p_tax_year?: number };
+        Returns: boolean;
+      };
+      submit_vendor_w9: {
+        Args: {
+          p_legal_name: string;
+          p_tin_type: string;
+          p_tin: string;
+          p_address_line1: string;
+          p_city: string;
+          p_state: string;
+          p_zip: string;
+          p_business_name?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["vendor_w9_forms"]["Row"];
+      };
+      prepare_vendor_1099_misc_filings: {
+        Args: { p_tax_year?: number; p_club_id?: string | null };
+        Returns: number;
+      };
+      is_club_treasurer: {
+        Args: { p_club_id: string; p_user_id: string };
+        Returns: boolean;
       };
       save_vendor_portfolio: {
         Args: { p_portfolio: Json };
