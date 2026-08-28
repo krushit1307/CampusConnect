@@ -1,8 +1,14 @@
 // server/routes/githubWebhookRoutes.ts
 
 import { Router, Request, Response } from 'express';
+import { Octokit } from '@octokit/rest';
 import { verifyGitHubSignature, markStudentAttendedByGitHubHandle } from '../services/githubClassroomService';
-
+import {
+    fetchFailedCheckLogs,
+    fetchPullRequestDiff,
+    generateRemediationFeedback,
+    postRemediationComment,
+} from '../services/aiRemediationService';
 const router = Router();
 const WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || 'mock_secret';
 
@@ -29,6 +35,28 @@ router.post('/webhooks/github-classroom', async (req: Request, res: Response) =>
             return res.status(200).json({ message: 'Attendance automatically verified and updated via GitHub PR.' });
         } catch (err: any) {
             return res.status(500).json({ error: err.message });
+        }
+    }
+
+    // Listen for failed GitHub Actions checks on a student's PR and post AI remediation feedback.
+    if (event === 'check_run' && req.body.action === 'completed' && req.body.check_run.conclusion === 'failure') {
+        const checkRun = req.body.check_run;
+        const owner = req.body.repository.owner.login;
+        const repo = req.body.repository.name;
+        const pullRequest = checkRun.pull_requests && checkRun.pull_requests[0];
+
+        if (pullRequest) {
+            try {
+                const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+                const logs = await fetchFailedCheckLogs(octokit, owner, repo, checkRun.id);
+                const diff = await fetchPullRequestDiff(octokit, owner, repo, pullRequest.number);
+                const feedback = await generateRemediationFeedback(diff, logs);
+                await postRemediationComment(octokit, owner, repo, pullRequest.number, feedback);
+                return res.status(200).json({ message: 'Remediation feedback posted to PR.' });
+            } catch (err: any) {
+                console.error('Failed to generate remediation feedback:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
         }
     }
 
