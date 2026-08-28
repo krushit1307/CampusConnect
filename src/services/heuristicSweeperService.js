@@ -37,13 +37,13 @@ async function sweepFakeAccounts() {
     }
 
     // Flag 3: Account created 3 months ago, 0 RSVPs, 0 profile updates
-    const threeMonthsAgo = new Date(now.setMonth(now.getMonth() - 3));
+    const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     if (user.createdAt < threeMonthsAgo && user.rsvps.length === 0 && !user.profileUpdated) {
       flags++;
     }
 
     // Flag 4: Velocity attack (Created 1 hour ago, RSVP'd to > 50 events in 5 minutes)
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     if (user.createdAt > oneHourAgo) {
       const recentRsvps = user.rsvps.filter(r => (new Date() - new Date(r.createdAt)) <= 5 * 60 * 1000);
       if (recentRsvps.length > 50) {
@@ -52,7 +52,7 @@ async function sweepFakeAccounts() {
     }
 
     // If account hits > 3 flags, quarantine and drop RSVPs
-    if (flags > 3) {
+    if (flags >= 2) {
       user.status = 'quarantined';
       await user.save();
       

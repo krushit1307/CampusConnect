@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getPasswordStrength } from "@/components/ui/password-strength";
+import { SUPPORTED_CURRENCY_CODES } from "@/lib/currency";
 
 // --- Database Native Enums (#2020) -------------------------------------------
 
@@ -105,6 +106,8 @@ export const profileSchema = z.object({
       return /^\+?[0-9\s\-()]{10,20}$/.test(val);
     }, "Please enter a valid phone number (minimum 10 digits)."),
   expectedGraduationDate: z.string().optional().or(z.literal("")),
+  preferredCurrency: z.enum(SUPPORTED_CURRENCY_CODES).default("USD"),
+  showOnLeaderboard: z.boolean().default(true),
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -225,6 +228,8 @@ export const ProfileUpdateAllowlistSchema = z
     phone_number: z.string().trim().nullable().optional(),
     skills: z.array(z.string()).optional(),
     expected_graduation_date: z.string().nullable().optional().or(z.literal("")),
+    preferred_currency: z.enum(SUPPORTED_CURRENCY_CODES),
+    show_on_leaderboard: z.boolean().optional(),
   })
   .strict(); // Strips or rejects any unmapped properties
 

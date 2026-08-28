@@ -60,8 +60,14 @@ export class FaceAutoTaggingService {
         throw new Error(`Failed to upload reference photo #${i + 1}: ${uploadErr.message}`);
       }
 
-      const { data: publicUrlData } = supabase.storage.from("face-indexing").getPublicUrl(filePath);
-      photoUrls.push(publicUrlData.publicUrl || filePath);
+      const { data: signedUrlData, error: signErr } = await supabase.storage
+        .from("face-indexing")
+        .createSignedUrl(filePath, 60 * 60 * 24);
+      if (signErr || !signedUrlData?.signedUrl) {
+        photoUrls.push(filePath);
+      } else {
+        photoUrls.push(signedUrlData.signedUrl);
+      }
     }
 
     // 2. Call facial-recognition edge function or update DB directly
