@@ -2114,6 +2114,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      event_hardware_encoders: {
+        Row: {
+          id: string;
+          event_id: string;
+          encoder_type: "blackmagic_web_presenter" | "aws_medialive";
+          rest_base_url: string;
+          rtmp_url: string | null;
+          channel_id: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          encoder_type: "blackmagic_web_presenter" | "aws_medialive";
+          rest_base_url: string;
+          rtmp_url?: string | null;
+          channel_id?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          encoder_type?: "blackmagic_web_presenter" | "aws_medialive";
+          rest_base_url?: string;
+          rtmp_url?: string | null;
+          channel_id?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       event_broadcast_health_events: {
         Row: {
           id: string;
@@ -4855,6 +4891,17 @@ export type Database = {
       is_event_organizer: {
         Args: { p_event_id: string; p_user_id?: string };
         Returns: boolean;
+      };
+      upsert_event_hardware_encoder: {
+        Args: {
+          p_event_id: string;
+          p_encoder_type: string;
+          p_rest_base_url: string;
+          p_rtmp_url?: string | null;
+          p_channel_id?: string | null;
+          p_is_active?: boolean;
+        };
+        Returns: Database["public"]["Tables"]["event_hardware_encoders"]["Row"];
       };
       upsert_event_wifi_access_point: {
         Args: {
