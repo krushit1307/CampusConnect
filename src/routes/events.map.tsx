@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from "react";
+import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
 import Map from "lucide-react/dist/esm/icons/map";
@@ -7,6 +8,7 @@ import X from "lucide-react/dist/esm/icons/x";
 import ThumbsDown from "lucide-react/dist/esm/icons/thumbs-down";
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import MoreVertical from "lucide-react/dist/esm/icons/more-vertical";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 
 const CampusMap = lazy(() =>
   import("@/components/CampusMap/CampusMap").then((m) => ({ default: m.CampusMap })),
@@ -30,25 +32,35 @@ export default function EventsMapPage() {
             </div>
 
             {/* View Toggle */}
-            <div className="neu-border flex bg-white p-1">
-              <button
-                onClick={() => setMapView("cluster")}
-                className={`flex items-center gap-2 px-4 py-2 font-mono text-xs font-bold uppercase transition-colors ${
-                  mapView === "cluster" ? "bg-black text-cream" : "hover:bg-cream"
-                }`}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="neu-border flex bg-white p-1">
+                <button
+                  onClick={() => setMapView("cluster")}
+                  className={`flex items-center gap-2 px-4 py-2 font-mono text-xs font-bold uppercase transition-colors ${
+                    mapView === "cluster" ? "bg-black text-cream" : "hover:bg-cream"
+                  }`}
+                >
+                  <Map size={16} />
+                  Map
+                </button>
+                <button
+                  onClick={() => setMapView("list")}
+                  className={`flex items-center gap-2 px-4 py-2 font-mono text-xs font-bold uppercase transition-colors ${
+                    mapView === "list" ? "bg-black text-cream" : "hover:bg-cream"
+                  }`}
+                >
+                  <List size={16} />
+                  List
+                </button>
+              </div>
+
+              <Link
+                to="/events/interactive-map"
+                className="flex items-center gap-2 px-4 py-2 font-mono text-xs font-bold uppercase border-2 border-black bg-[#a3e635] text-black hover:bg-[#b5f448] shadow-[2px_2px_0_0_#000] transition-all select-none"
               >
-                <Map size={16} />
-                Map
-              </button>
-              <button
-                onClick={() => setMapView("list")}
-                className={`flex items-center gap-2 px-4 py-2 font-mono text-xs font-bold uppercase transition-colors ${
-                  mapView === "list" ? "bg-black text-cream" : "hover:bg-cream"
-                }`}
-              >
-                <List size={16} />
-                List
-              </button>
+                <Sparkles size={16} />
+                Snap Map ✨
+              </Link>
             </div>
           </div>
         </section>

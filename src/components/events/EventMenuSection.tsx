@@ -11,6 +11,8 @@ import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { UtensilsCrossed, Leaf, WheatOff, NutOff, MilkOff } from "lucide-react";
 import { ManageEventMenu } from "@/components/events/ManageEventMenu";
+import { DietaryMacroNutrientWidget } from "@/components/events/DietaryMacroNutrientWidget";
+
 
 interface MenuItem {
   id: string;
@@ -149,8 +151,14 @@ export function EventMenuSection({
         </>
       )}
 
+      {/* Interactive Dietary Restriction Macro-Nutrient Analyzer */}
+      <div className="mt-8">
+        <DietaryMacroNutrientWidget />
+      </div>
+
       {isOrganizer && (
         <div className="mt-8 border-t-2 border-black pt-6">
+
           <ManageEventMenu eventId={eventId} />
         </div>
       )}

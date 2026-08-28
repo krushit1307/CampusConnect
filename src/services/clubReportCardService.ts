@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 
 export interface ClubReportCard {
   id: string;
@@ -51,14 +51,14 @@ Club Name: ${clubName}
 Academic Year: ${report.academic_year}
 Computed Grade: ${report.computed_grade} (Score: ${report.rubric_breakdown.totalScore}/100)
 
----------------- PERFORMANCE SUMMARY ----------------
+//-------------- PERFORMANCE SUMMARY ----------------
 * Total Events Hosted: ${report.total_events}
 * Average Attendance Per Event: ${report.avg_attendance} attendees
 * Total Revenue Generated: $${(report.total_revenue_cents / 100).toFixed(2)}
 * Total Budget Expended: $${(report.total_budget_spent_cents / 100).toFixed(2)}
 * Member Churn Rate: ${report.member_churn_rate}%
 
------------------- RUBRIC BREAKDOWN -----------------
+//---------------- RUBRIC BREAKDOWN -----------------
 - Attendance Metric Score: ${report.rubric_breakdown.attendanceScore} / 35
 - Event Frequency Score: ${report.rubric_breakdown.eventsScore} / 25
 - Budget Execution Score: ${report.rubric_breakdown.budgetUtilizationScore} / 25

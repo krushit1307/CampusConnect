@@ -18,7 +18,7 @@ export interface PrinterStatus {
 
 /**
  * Pings the local proxy agent to check if the service is running and 
--- if a physical printer is detected and ready.
+// if a physical printer is detected and ready.
  */
 export async function getPrinterStatus(): Promise<PrinterStatus> {
     try {
@@ -51,7 +51,7 @@ export async function getPrinterStatus(): Promise<PrinterStatus> {
 /**
  * Sends an SVG payload to the local proxy agent.
  * The proxy is responsible for converting the SVG to a raster image 
--- and pushing it to the CUPS printing system or raw USB device.
+// and pushing it to the CUPS printing system or raw USB device.
  */
 export async function printSVGLabel(svgContent: string): Promise<boolean> {
     try {
@@ -77,7 +77,7 @@ export async function printSVGLabel(svgContent: string): Promise<boolean> {
 
 /**
  * Sends raw ZPL commands directly to the proxy, which forwards them 
--- to the printer's raw TCP port (usually 9100).
+// to the printer's raw TCP port (usually 9100).
  */
 export async function printZPLLabel(zplContent: string): Promise<boolean> {
     try {

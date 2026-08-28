@@ -23,7 +23,9 @@ import Filter from "lucide-react/dist/esm/icons/filter";
 import BarChart2 from "lucide-react/dist/esm/icons/bar-chart-2";
 import { SponsorshipValueCalculator } from "@/components/sponsorship/SponsorshipValueCalculator";
 import { toast } from "sonner";
-import { ClubPruneReportPanel } from "./ClubPruneReportPanel";
+import { SkillRadarChart } from "@/components/Clubs/SkillGap/SkillRadarChart";
+import { SkillGapSuggestions } from "@/components/Clubs/SkillGap/SkillGapSuggestions";
+import { ClubSkillGapService, SkillCount } from "@/services/clubSkillGapService";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -121,6 +123,16 @@ export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) 
   const attendanceQuery = useQuery<AttendanceStats | null>({
     queryKey: ["club-attendance-stats", clubId],
     queryFn: fetchAttendanceStats,
+    enabled: !!clubId,
+  });
+
+  const fetchSkills = useCallback(async (): Promise<SkillCount[]> => {
+    return ClubSkillGapService.getBoardSkills(clubId);
+  }, [clubId]);
+
+  const skillQuery = useQuery<SkillCount[]>({
+    queryKey: ["club-board-skills", clubId],
+    queryFn: fetchSkills,
     enabled: !!clubId,
   });
 
@@ -486,6 +498,35 @@ export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) 
                 )}
               </div>
             </div>
+          </div>
+
+          {/* ─── Chart 4: Executive Board Analyzer (Skill Gap) ─── */}
+          <div className="border-2 border-black bg-white p-5 shadow-[4px_4px_0_0_#000] dark:bg-zinc-900 dark:border-white mt-6 space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-black pb-3 dark:border-white">
+              <div>
+                <h3 className="font-display font-black text-lg uppercase flex items-center gap-2">
+                  <BarChart2 className="h-5 w-5 text-purple-600" />
+                  Executive Board Analyzer
+                </h3>
+                <p className="font-mono text-xs text-gray-500">
+                  Assess your leadership team's competencies against the Healthy Board heuristic.
+                  Identify missing skills to guide your next recruitment campaign.
+                </p>
+              </div>
+            </div>
+
+            {skillQuery.isLoading ? (
+              <div className="h-64 animate-pulse bg-gray-100 dark:bg-zinc-800" />
+            ) : skillQuery.isError ? (
+              <div className="p-4 border-2 border-red-500 bg-red-50 font-mono text-xs text-red-600">
+                Failed to load skills matrix.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
+                <SkillRadarChart currentSkills={skillQuery.data || []} />
+                <SkillGapSuggestions clubId={clubId} currentSkills={skillQuery.data || []} />
+              </div>
+            )}
           </div>
         </>
       )}

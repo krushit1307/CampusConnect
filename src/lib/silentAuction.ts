@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "./supabase/client";
 
 export interface AuctionItem {
@@ -7,6 +8,7 @@ export interface AuctionItem {
   description?: string;
   starting_bid: number;
   current_highest_bid: number;
+  bid_increment_cents: number;
   highest_bidder_id?: string;
   end_time: string;
   is_closed: boolean;
@@ -23,6 +25,30 @@ export interface AuctionBidResult {
 
 export const ANTI_SNIPING_THRESHOLD_MS = 120000; // Final 2 minutes (120,000ms)
 export const ANTI_SNIPING_EXTENSION_MS = 300000; // 5-minute extension (300,000ms)
+
+export interface AuctionItemUpdate {
+  item_id: string;
+  event_id: string;
+  current_highest_bid: number;
+  end_time: string;
+  is_closed: boolean;
+}
+
+export interface AuctionWinner {
+  id: string;
+  item_id: string;
+  winning_bid: number;
+  stripe_checkout_url: string | null;
+  payment_status: string;
+}
+
+export function formatAuctionCents(cents: number): string {
+  return (cents / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
+}
 
 /**
  * Senior Bid Validation Engine: Validates proposed bid against current highest and starting bids.
@@ -71,6 +97,40 @@ export function calculateAntiSnipingExtension(
   }
 
   return { shouldExtend: false };
+}
+
+/** Fetches item state without exposing highest_bidder_id to the attendee UI. */
+export async function fetchEventAuctionItems(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<AuctionItem[]> {
+  const { data, error } = await supabase
+    .from("auction_item_public_state")
+    .select(
+      "id, event_id, title, description, starting_bid, current_highest_bid, bid_increment_cents, end_time, is_closed, created_at",
+    )
+    .eq("event_id", eventId)
+    .order("end_time", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as AuctionItem[];
+}
+
+export async function fetchUserAuctionWinners(
+  supabase: SupabaseClient,
+  userId: string,
+  itemIds: string[],
+): Promise<AuctionWinner[]> {
+  if (itemIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("auction_winners")
+    .select("id, item_id, winning_bid, stripe_checkout_url, payment_status")
+    .eq("winner_user_id", userId)
+    .in("item_id", itemIds);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as AuctionWinner[];
 }
 
 /**

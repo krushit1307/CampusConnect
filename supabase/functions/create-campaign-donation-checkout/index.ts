@@ -48,7 +48,8 @@ Deno.serve(async (req) => {
     if (!user) throw new Error("Unauthorized");
 
     // 2. Parse & validate request
-    const { campaignId, amountCents, isAnonymous } = await req.json();
+    const { campaignId, amountCents, isAnonymous, matchId: requestedMatchId } = await req.json();
+    const matchId = typeof requestedMatchId === "string" ? requestedMatchId : undefined;
 
     if (!campaignId || typeof campaignId !== "string") {
       throw new Error("Missing campaignId");
@@ -58,7 +59,9 @@ Deno.serve(async (req) => {
       amountCents < MIN_DONATION_CENTS ||
       amountCents > MAX_DONATION_CENTS
     ) {
-      throw new Error(`Donation amount must be between $${MIN_DONATION_CENTS / 100} and $${MAX_DONATION_CENTS / 100}`);
+      throw new Error(
+        `Donation amount must be between $${MIN_DONATION_CENTS / 100} and $${MAX_DONATION_CENTS / 100}`,
+      );
     }
 
     // 3. Fetch campaign & club, ensure it's still accepting donations
@@ -69,9 +72,27 @@ Deno.serve(async (req) => {
       .single();
 
     if (campaignError || !campaign) throw new Error("Campaign not found");
-    if (campaign.status !== "active") throw new Error("This campaign is no longer accepting donations");
+    if (campaign.status !== "active")
+      throw new Error("This campaign is no longer accepting donations");
     if (campaign.end_date && new Date(campaign.end_date).getTime() < Date.now()) {
       throw new Error("This campaign has ended");
+    }
+
+    if (matchId) {
+      const { data: invitation, error: invitationError } = await supabase
+        .rpc("get_campaign_match_invitation", { p_match_id: matchId })
+        .maybeSingle();
+
+      if (
+        invitationError ||
+        !invitation ||
+        invitation.campaign_id !== campaignId ||
+        invitation.requested_amount_cents !== amountCents
+      ) {
+        throw new Error(
+          "This alumni match invitation is invalid, expired, or has a different amount.",
+        );
+      }
     }
 
     // 4. Look up a display name snapshot for the leaderboard (ignored if anonymous)
@@ -82,7 +103,8 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const displayName = profile?.full_name || profile?.handle || "A generous donor";
-    const clubName = (campaign as unknown as { clubs?: { name?: string } }).clubs?.name ?? "this club";
+    const clubName =
+      (campaign as unknown as { clubs?: { name?: string } }).clubs?.name ?? "this club";
 
     // 5. Create the Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
@@ -109,6 +131,7 @@ Deno.serve(async (req) => {
         donor_id: user.id,
         display_name: displayName,
         is_anonymous: String(Boolean(isAnonymous)),
+        ...(matchId ? { match_id: matchId } : {}),
       },
     });
 
