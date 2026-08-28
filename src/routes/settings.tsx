@@ -1,4 +1,4 @@
-import { useNavigate, useBlocker } from "react-router-dom";
+import { useNavigate, useBlocker, Link } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -9,6 +9,7 @@ import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import X from "lucide-react/dist/esm/icons/x";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import CreditCard from "lucide-react/dist/esm/icons/credit-card";
+import Download from "lucide-react/dist/esm/icons/download";
 import { toast } from "sonner";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
@@ -97,6 +98,7 @@ export default function SettingsPage() {
   const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
   const [personalEmail, setPersonalEmail] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isRequestingArchive, setIsRequestingArchive] = useState(false);
   const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
   const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [borderThickness, setBorderThickness] = useState(4);
@@ -1453,12 +1455,43 @@ export default function SettingsPage() {
                   Manage your data, request exports of your personal information, or permanently
                   delete your account and all associated data.
                 </p>
-                <Link
-                  to="/settings/data"
-                  className="inline-block neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
-                >
-                  Manage Data & Privacy
-                </Link>
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    to="/settings/data"
+                    className="inline-block neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+                  >
+                    Manage Data & Privacy
+                  </Link>
+                  <button
+                    type="button"
+                    disabled={isRequestingArchive || !user}
+                    onClick={async () => {
+                      if (!user) return;
+                      setIsRequestingArchive(true);
+                      try {
+                        const { error } = await supabase.functions.invoke("request-gdpr-sar");
+                        if (error) throw error;
+                        toast.success(
+                          "Your data archive is being prepared. You will receive a secure download link by email within 30 days.",
+                        );
+                      } catch (err: unknown) {
+                        toast.error(
+                          err instanceof Error ? err.message : "Failed to request data archive",
+                        );
+                      } finally {
+                        setIsRequestingArchive(false);
+                      }
+                    }}
+                    className="neu-border neu-press inline-flex items-center gap-2 bg-lime px-4 py-2 font-mono text-xs font-bold uppercase text-black disabled:opacity-50"
+                  >
+                    {isRequestingArchive ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    Request My Data Archive
+                  </button>
+                </div>
               </div>
             </div>
           </Panel>
