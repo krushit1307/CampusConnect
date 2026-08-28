@@ -179,7 +179,9 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabase
       .from("events")
-      .select("title, club_id, clubs ( id, campus_instance_id, stripe_account_id )")
+      .select(
+        "title, club_id, requires_signature, clubs ( id, campus_instance_id, stripe_account_id )",
+      )
       .eq("id", eventId)
       .single();
 
@@ -187,6 +189,22 @@ serve(async (req) => {
       throw new Error("Event not found");
     }
 
+    // Issue #4837: Block checkout until the NDA is signed for gated events.
+    if ((event as any).requires_signature) {
+      const { data: signature } = await adminSupabase
+        .from("event_nda_signatures")
+        .select("status")
+        .eq("event_id", eventId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (signature?.status !== "completed") {
+        return new Response(
+          JSON.stringify({ error: "You must sign the event NDA before checking out." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
     const remainingCapacity = tier.capacity !== null ? tier.capacity - tier.sold_count : Infinity;
 
     if (totalQuantity > remainingCapacity) {

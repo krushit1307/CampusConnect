@@ -232,8 +232,9 @@ export function eventFormToDbPayload(
     requires_approval: values.requiresApproval || false,
     tags: values.tags || [],
     dress_code: values.dress_code || null,
-  };
-}
+    requires_signature: values.requiresSignature || false,
+    nda_template_url: values.ndaTemplateUrl || null,
+  };}
 
 export function parseFlyerDate(dateStr: string): { startDate: string; endDate: string } | null {
   try {

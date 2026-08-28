@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { isFlashSaleRealtimePayload, type ActiveFlashSale } from "@/lib/flashSale";
 import { evaluateEarlyBirdThreshold } from "@/lib/dynamicEarlyBirdThresholds";
-
+import { NDASignatureModal } from "@/components/events/NDASignatureModal";
 interface TicketTier {
   id: string;
   name: string;
@@ -45,7 +45,9 @@ export function TicketPricingTimeline({
   const [friendEmails, setFriendEmails] = useState<string[]>(["", "", "", ""]);
   const [hasJson, setHasJson] = useState(false);
   const [selectedTierName, setSelectedTierName] = useState<string | null>(null);
-
+  const [requiresSignature, setRequiresSignature] = useState(false);
+  const [ndaSigned, setNdaSigned] = useState(false);
+  const [showNdaModal, setShowNdaModal] = useState(false);
   useEffect(() => {
     let cancelled = false;
 
@@ -103,14 +105,31 @@ export function TicketPricingTimeline({
         // Fetch event's dynamic pricing details and venue capacity
         const { data: eventData, error: eventError } = await supabase
           .from("events")
-          .select("base_price, surge_multiplier, venue_capacity, max_attendees, ticket_tiers")
+          .select(
+            "base_price, surge_multiplier, venue_capacity, max_attendees, ticket_tiers, requires_signature",
+          )
           .eq("id", eventId)
           .single();
 
         if (eventData) {
           setVenueCapacity(eventData.venue_capacity ?? eventData.max_attendees ?? null);
-        }
+          setRequiresSignature(!!(eventData as any).requires_signature);
 
+          if ((eventData as any).requires_signature) {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+            if (user) {
+              const { data: sig } = await supabase
+                .from("event_nda_signatures")
+                .select("status")
+                .eq("event_id", eventId)
+                .eq("user_id", user.id)
+                .maybeSingle();
+              setNdaSigned(sig?.status === "completed");
+            }
+          }
+        }
         const jsonTiers = (eventData as any)?.ticket_tiers;
         const hasJsonTiers = Array.isArray(jsonTiers) && jsonTiers.length > 0;
 
@@ -219,8 +238,12 @@ export function TicketPricingTimeline({
   }, [eventId]);
 
   const handlePurchase = async () => {
-    setPurchasing(true);
-    const activeEmails = isGroupRsvp ? friendEmails.filter((e) => e.trim() !== "") : [];
+    if (requiresSignature && !ndaSigned) {
+      setShowNdaModal(true);
+      return;
+    }
+
+    setPurchasing(true);    const activeEmails = isGroupRsvp ? friendEmails.filter((e) => e.trim() !== "") : [];
     if (isGroupRsvp && activeEmails.length !== 4) {
       toast.error(
         "Please provide exactly 4 friend emails to receive the Buy 4, Get 1 Free discount!",
@@ -583,6 +606,17 @@ export function TicketPricingTimeline({
                     : "Unavailable"}
         </Button>
       </div>
-    </div>
+
+      {showNdaModal && (
+        <NDASignatureModal
+          eventId={eventId}
+          onClose={() => setShowNdaModal(false)}
+          onSigned={() => {
+            setNdaSigned(true);
+            setShowNdaModal(false);
+            handlePurchase();
+          }}
+        />
+      )}    </div>
   );
 }
