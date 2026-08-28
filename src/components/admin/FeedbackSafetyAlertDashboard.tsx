@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  RefreshCw,
+  Lock,
+  Unlock,
+  ShieldAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { triggerLockdown, clearLockdown } from "@/services/lockdownService";
 
 type AlertStatus = "open" | "acknowledged" | "resolved";
 type SafetyAlert = {
@@ -25,6 +34,11 @@ export function FeedbackSafetyAlertDashboard() {
   const [eventTitles, setEventTitles] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [busyAlertId, setBusyAlertId] = useState<string | null>(null);
+
+  // Lockdown state
+  const [isLockingDown, setIsLockingDown] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [isLockedDown, setIsLockedDown] = useState(false);
 
   const loadAlerts = async () => {
     setIsLoading(true);
@@ -74,11 +88,87 @@ export function FeedbackSafetyAlertDashboard() {
     await loadAlerts();
   };
 
+  const handleLockdown = async () => {
+    setIsLockingDown(true);
+    const res = await triggerLockdown();
+    if (res.success) {
+      toast.success(res.message || "PHYSICAL LOCKDOWN INITIATED.");
+      setIsLockedDown(true);
+    } else {
+      toast.error(res.error || "Failed to trigger lockdown.");
+    }
+    setIsLockingDown(false);
+  };
+
+  const handleClearLockdown = async () => {
+    setIsClearing(true);
+    const res = await clearLockdown();
+    if (res.success) {
+      toast.success(res.message || "ALL CLEAR - DOORS UNLOCKED.");
+      setIsLockedDown(false);
+    } else {
+      toast.error(res.error || "Failed to clear lockdown.");
+    }
+    setIsClearing(false);
+  };
+
   return (
     <section
       className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-6"
       aria-labelledby="safety-alerts-title"
     >
+      {/* Physical Access Control Panel */}
+      <div
+        className={`border-4 p-6 shadow-[8px_8px_0_0_#000] transition-colors ${isLockedDown ? "border-red-600 bg-red-50" : "border-black bg-white"}`}
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-2xl font-black uppercase text-red-700">
+              <ShieldAlert className="h-6 w-6" /> Physical Access Control
+            </h2>
+            <p className="mt-1 font-mono text-sm text-black/70">
+              Instantly lock exterior building doors during an active threat (Mass Override).
+            </p>
+            {isLockedDown && (
+              <p className="mt-2 inline-block bg-red-600 px-3 py-1 font-mono text-xs font-bold text-white uppercase animate-pulse">
+                STATUS: ACTIVE LOCKDOWN
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {!isLockedDown ? (
+              <Button
+                size="lg"
+                onClick={handleLockdown}
+                disabled={isLockingDown}
+                className="neu-border bg-red-600 hover:bg-red-700 text-white font-mono text-sm font-bold uppercase w-full sm:w-auto h-14"
+              >
+                {isLockingDown ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <Lock className="mr-2 h-5 w-5" />
+                )}
+                Lockdown Campus
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={handleClearLockdown}
+                disabled={isClearing}
+                className="neu-border bg-green-600 hover:bg-green-700 text-white font-mono text-sm font-bold uppercase w-full sm:w-auto h-14"
+              >
+                {isClearing ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <Unlock className="mr-2 h-5 w-5" />
+                )}
+                All Clear - Unlock
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="flex flex-col gap-3 border-b-2 border-black pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider text-red-700">
