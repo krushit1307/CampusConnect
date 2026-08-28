@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.sponsor_ab_tests (
     logo_b_target_url TEXT NOT NULL,
     traffic_split_a INT NOT NULL DEFAULT 50 CHECK (traffic_split_a BETWEEN 0 AND 100),
     traffic_split_b INT NOT NULL DEFAULT 50 CHECK (traffic_split_b BETWEEN 0 AND 100),
-    sample_threshold INT NOT NULL DEFAULT 500,
+    sample_threshold INT NOT NULL DEFAULT 1000,
     winning_variant TEXT CHECK (winning_variant IN ('LOGO_A', 'LOGO_B', NULL)),
     winner_declared_at TIMESTAMPTZ,
     auto_promote_winner BOOLEAN NOT NULL DEFAULT true,
@@ -91,8 +91,11 @@ DECLARE
     v_clk_a INT := 0;
     v_imp_b INT := 0;
     v_clk_b INT := 0;
-    v_ctr_a NUMERIC;
-    v_ctr_b NUMERIC;
+    v_pa NUMERIC;
+    v_pb NUMERIC;
+    v_pooled NUMERIC;
+    v_se NUMERIC;
+    v_z NUMERIC;
     v_winning_variant TEXT := NULL;
 BEGIN
     -- Insert event log
@@ -130,13 +133,21 @@ BEGIN
         SELECT impressions, clicks INTO v_imp_b, v_clk_b
         FROM public.sponsor_ab_metrics WHERE test_id = p_test_id AND variant_key = 'LOGO_B';
 
-        v_ctr_a := CASE WHEN v_imp_a > 0 THEN (v_clk_a::numeric / v_imp_a::numeric) ELSE 0 END;
-        v_ctr_b := CASE WHEN v_imp_b > 0 THEN (v_clk_b::numeric / v_imp_b::numeric) ELSE 0 END;
+        v_pa := CASE WHEN v_imp_a > 0 THEN v_clk_a::numeric / v_imp_a::numeric ELSE 0.0 END;
+        v_pb := CASE WHEN v_imp_b > 0 THEN v_clk_b::numeric / v_imp_b::numeric ELSE 0.0 END;
 
-        IF v_ctr_a > v_ctr_b THEN
-            v_winning_variant := 'LOGO_A';
-        ELSIF v_ctr_b > v_ctr_a THEN
-            v_winning_variant := 'LOGO_B';
+        -- We only promote B if B has a higher CTR than A with 99% significance (one-tailed: Z <= -2.326)
+        IF v_pb > v_pa AND v_imp_a > 0 AND v_imp_b > 0 THEN
+            v_pooled := (v_clk_a + v_clk_b)::numeric / (v_imp_a + v_imp_b)::numeric;
+            IF v_pooled > 0 AND v_pooled < 1 THEN
+                v_se := sqrt(v_pooled * (1.0 - v_pooled) * (1.0 / v_imp_a::numeric + 1.0 / v_imp_b::numeric));
+                IF v_se > 0 THEN
+                    v_z := (v_pa - v_pb) / v_se;
+                    IF v_z <= -2.326 THEN
+                        v_winning_variant := 'LOGO_B';
+                    END IF;
+                END IF;
+            END IF;
         END IF;
 
         IF v_winning_variant IS NOT NULL THEN

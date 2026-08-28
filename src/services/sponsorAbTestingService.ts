@@ -70,8 +70,8 @@ export class SponsorAbTestingService {
       winningVariant: null,
       winnerDeclaredAt: null,
       config: {
-        sampleThreshold: input.sampleThreshold || 500,
-        confidenceThresholdPercent: 95,
+        sampleThreshold: input.sampleThreshold || 1000,
+        confidenceThresholdPercent: 99,
         autoPromoteWinner: input.autoPromoteWinner !== undefined ? input.autoPromoteWinner : true,
         trafficSplitA: 50,
         trafficSplitB: 50,
@@ -228,9 +228,10 @@ export class SponsorAbTestingService {
     const absZ = Math.abs(zScore);
 
     // Approximate cumulative normal distribution function
-    // For Z=1.96, confidence is ~95%
+    // For one-tailed test at 99% significance, Z critical value is 2.326
     let confidence = 0;
-    if (absZ >= 2.58) confidence = 99.0;
+    if (absZ >= 2.58) confidence = 99.9;
+    else if (absZ >= 2.326) confidence = 99.0;
     else if (absZ >= 1.96) confidence = 95.0;
     else if (absZ >= 1.64) confidence = 90.0;
     else if (absZ >= 1.28) confidence = 80.0;
@@ -239,7 +240,7 @@ export class SponsorAbTestingService {
     return {
       zScore: parseFloat(zScore.toFixed(4)),
       confidencePercent: confidence,
-      isSignificant: absZ >= 1.64, // 90%+ confidence considered statistically significant
+      isSignificant: absZ >= 2.326, // 99% confidence threshold
     };
   }
 
@@ -270,27 +271,21 @@ export class SponsorAbTestingService {
     let actionTaken: "WINNER_PROMOTED" | "TEST_CONTINUING" | "MANUAL_INTERVENTION_NEEDED" =
       "TEST_CONTINUING";
 
-    if (ctrA > ctrB) {
-      recommendedWinner = "LOGO_A";
-    } else if (ctrB > ctrA) {
+    // Auto-promote LOGO_B only if it performs better than LOGO_A with 99% significance
+    if (ctrB > ctrA && stats.isSignificant && stats.zScore < 0) {
       recommendedWinner = "LOGO_B";
-    } else {
+    } else if (ctrA === ctrB) {
       recommendedWinner = "TIE";
     }
 
-    if (thresholdReached && recommendedWinner !== "TIE" && recommendedWinner !== "INCONCLUSIVE") {
-      test.winningVariant = recommendedWinner;
+    if (thresholdReached && recommendedWinner === "LOGO_B") {
+      test.winningVariant = "LOGO_B";
       test.winnerDeclaredAt = new Date().toISOString();
       test.status = "CONCLUDED";
 
-      // Route 100% of future traffic to winner
-      if (recommendedWinner === "LOGO_A") {
-        test.config.trafficSplitA = 100;
-        test.config.trafficSplitB = 0;
-      } else {
-        test.config.trafficSplitA = 0;
-        test.config.trafficSplitB = 100;
-      }
+      // Route 100% of future traffic to winner B
+      test.config.trafficSplitA = 0;
+      test.config.trafficSplitB = 100;
 
       actionTaken = "WINNER_PROMOTED";
       test.updatedAt = new Date().toISOString();
