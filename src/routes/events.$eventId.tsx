@@ -13,6 +13,7 @@ import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
+import { AslAvatarPip } from "@/components/events/AslAvatarPip";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
 import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
@@ -3682,6 +3683,7 @@ export default function EventDetailsPage() {
             />
           </div>
         )}
+        <AslAvatarPip eventId={eventId || ""} />
       </SiteShell>
     </>
   );
