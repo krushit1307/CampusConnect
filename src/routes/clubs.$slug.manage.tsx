@@ -34,6 +34,7 @@ import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
 import PermissionsGrid from "@/components/Clubs/PermissionsGrid";
 import ClubRenewalWizard from "@/components/ClubRenewalWizard"; // <-- NEW IMPORT FOR OUR WIZARD
 import { WidgetConfigEditor } from "@/components/widgets/WidgetConfigEditor";
+import { AdminQuiz } from "@/components/Clubs/AdminQuiz";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -244,7 +245,10 @@ export default function ClubManageRoute() {
             ?.permissions_level
         : legacyRoleToLevel(currentMember?.role);
 
-      if (!currentMember || (currentRoleLevel ?? 0) < 100) {
+      if (
+        !currentMember ||
+        ((currentRoleLevel ?? 0) < 100 && currentMember.role !== "admin_pending")
+      ) {
         throw new Error("Unauthorized");
       }
 
@@ -441,6 +445,20 @@ export default function ClubManageRoute() {
       <SiteShell>
         <div className="p-8 text-center font-mono text-red-500">
           Unauthorized or Club not found.
+        </div>
+      </SiteShell>
+    );
+  }
+
+  const currentMember = club.club_members.find(
+    (m: { user_id: string; role: string }) => m.user_id === user?.id,
+  );
+
+  if (currentMember?.role === "admin_pending") {
+    return (
+      <SiteShell>
+        <div className="bg-cream min-h-screen pt-8 px-4 pb-24">
+          <AdminQuiz clubId={club.id} onPass={() => refetch()} />
         </div>
       </SiteShell>
     );
