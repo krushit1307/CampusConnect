@@ -466,6 +466,19 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
                 />
               </label>
 
+              {(selected.kind === "rect_table" || selected.kind === "round_table") && (
+                <label className="block font-mono text-xs">
+                  Base Price ($)
+                  <input
+                    type="number"
+                    min={0}
+                    value={selected.base_price || 0}
+                    onChange={(e) => onUpdate(selected.id, { base_price: Number(e.target.value) })}
+                    className="neu-border mt-1 w-full px-2 py-1 font-sans text-sm"
+                  />
+                </label>
+              )}
+
               <div className="flex gap-3 font-mono text-xs">
                 <label className="flex-1">
                   Width (ft)

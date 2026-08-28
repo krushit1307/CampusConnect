@@ -40,6 +40,7 @@ export interface FloorplanAsset {
   width: number; // feet
   height: number; // feet
   assignment?: SponsorAssignment | null;
+  base_price?: number;
 }
 
 /** Wire format for a single asset, exactly as specified by issue #4145. */
@@ -52,6 +53,7 @@ export interface FloorplanAssetJson {
   width: number;
   height: number;
   assignment: SponsorAssignmentJson | null;
+  base_price?: number;
 }
 
 export interface FireExit {

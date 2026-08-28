@@ -57,6 +57,7 @@ export function toWireJson(asset: FloorplanAsset): FloorplanAssetJson {
     width: Math.round(asset.width * 100) / 100,
     height: Math.round(asset.height * 100) / 100,
     assignment: asset.assignment ? assignmentToWire(asset.assignment) : null,
+    base_price: asset.base_price,
   };
 }
 
@@ -127,6 +128,7 @@ export function parseFloorplanState(raw: unknown): {
           width: Number(a.width) || 1,
           height: Number(a.height) || 1,
           assignment: assignmentFromWire(a.assignment),
+          base_price: a.base_price || 0,
         }))
     : [];
 
