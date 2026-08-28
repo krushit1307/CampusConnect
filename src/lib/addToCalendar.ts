@@ -189,12 +189,75 @@ function formatUtcCompact(date: Date): string {
 }
 
 /**
+ * Sanitize a calendar description by converting Markdown and HTML to plain text.
+ * Returns a clean plain-text string suitable for calendar descriptions (Google,
+ * Apple Calendar, Outlook). Does NOT remove plain-text URLs.
+ *
+ * Processing order:
+ *   1. HTML tag removal (preserve text content, convert <br> to newlines)
+ *   2. Markdown link text extraction [text](url) → text
+ *   3. Bold **text** → text
+ *   4. Inline code `text` → text
+ *   5. Headings # text → text
+ *   6. Bullet list markers - / * at start of line → text
+ *   7. Italic *text* → text
+ *   8. Clean up whitespace
+ */
+export function sanitizeCalendarDescription(
+  description: string | null | undefined,
+): string {
+  if (!description) return "";
+
+  let text = description;
+
+  // Step 1: Convert common HTML tags to plain text.
+  // <br> and <br/> become newlines; <p>/</p> become paragraph breaks;
+  // all other HTML tags are removed while preserving their text.
+  text = text.replace(/<br\s*[\/]?>/gi, "\n");
+  text = text.replace(/<\/p>/gi, "\n\n");
+  text = text.replace(/<p>/gi, "\n\n");
+  text = text.replace(/<[^>]+>/g, "");
+
+  // Step 2: Handle Markdown links [text](url) → text
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+
+  // Step 3: Bold **text** → text
+  text = text.replace(/\*\*([^*]+)\*\*/g, "$1");
+
+  // Step 4: Inline code `text` → text
+  text = text.replace(/`([^`]+)`/g, "$1");
+
+  // Step 5: Headings # text → text (at start of line or after whitespace)
+  text = text.replace(/^#+\s+/gm, "");
+  text = text.replace(/#+\s+/g, "");
+
+  // Step 6: Bullet list markers - or * at start of line → text
+  text = text.replace(/^[-*]\s+/gm, "");
+
+  // Step 7: Italic *text* → text (single stars; after bold removal)
+  text = text.replace(/\*([^*]+)\*/g, "$1");
+
+  // Step 8: Clean up any stray ** remaining
+  text = text.replace(/\*\*/g, "");
+
+  // Step 9: Clean up whitespace
+  text = text.replace(/\s+/g, " ");
+  text = text.replace(/\n\s*\n/g, "\n");
+  text = text.trim();
+
+  return text;
+}
+
+/**
  * Build the calendar description, appending a "View on CampusConnect"
  * link if an eventUrl is provided. The link is appended on a new line
  * so the description reads naturally.
+ *
+ * Sanitization happens via sanitizeCalendarDescription() before the
+ * description is passed to escapeIcsText().
  */
 function buildDescriptionWithLink(event: CalendarEvent): string {
-  const baseDescription = (event.description ?? "").trim();
+  const baseDescription = sanitizeCalendarDescription(event.description);
   if (!event.eventUrl) return baseDescription;
   const linkLine = `\n\nView on CampusConnect: ${event.eventUrl}`;
   return baseDescription ? baseDescription + linkLine : linkLine.trim();

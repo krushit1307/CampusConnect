@@ -1,10 +1,10 @@
 // =============================================================================
 // Hook: useDeviceOrientation
 // Issue: #3232 - Build an 'Interactive Venue 360-Tour' Embed
---Description: Manages the DeviceOrientationEvent API to allow users to
---physically move their mobile phones to look around the 360 panorama(AR - lite).
---Handles the strict iOS 13 + permission request flow and provides normalized
---yaw / pitch values for the WebGL camera.
+//Description: Manages the DeviceOrientationEvent API to allow users to
+//physically move their mobile phones to look around the 360 panorama(AR - lite).
+//Handles the strict iOS 13 + permission request flow and provides normalized
+//yaw / pitch values for the WebGL camera.
     // =============================================================================
 
     import { useState, useEffect, useCallback, useRef } from 'react';

@@ -18,10 +18,17 @@ import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import type { DateRange } from "react-day-picker";
-import { legacyRoleToLevel } from "@/lib/clubPermissions";
 
 import format from "date-fns/format";
 import { createClient } from "@/lib/supabase/client";
+import {
+  checkOrganizerPostMortemGate,
+  searchClubPostMortems,
+  findHistoricalRetrospectiveSuggestions,
+  type PendingPostMortemEvent,
+  type EventPostMortem,
+} from "@/services/eventPostMortemService";
+import { PostMortemGatingModal } from "@/components/events/PostMortemGatingModal";
 import {
   eventFormSchema,
   TITLE_MAX_LENGTH,
@@ -34,17 +41,11 @@ import {
   removeFaq,
   updateFaq,
   DEFAULT_EVENT_TAG_OPTIONS,
+  RESOURCE_OPTIONS,
   type EventFormValues,
 } from "@/lib/eventUtils";
 import { EventLogisticsService } from "@/services/eventLogisticsService";
-import { getEventSpamErrorMessage, isPendingSpamReview } from "@/lib/eventSpam";
-import { isTechHeavyEvent, sortVenuesForEvent, type VenueWifiMetrics } from "@/lib/venueWifi";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import {
-  calendarEventTypeLabel,
-  findCampusCalendarConflicts,
-  type CampusCalendarEvent,
-} from "@/lib/campusCalendar";
 import { queueOfflineEvent } from "@/lib/offlineSync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,7 +87,6 @@ import {
   MIN_GEOFENCE_RADIUS_METERS,
   DEFAULT_GEOFENCE_RADIUS_METERS,
 } from "@/components/GeofenceMapPicker";
-import { VenueWifiOverlay } from "@/components/venue/VenueWifiOverlay";
 
 const STEPS = [
   { label: "Details", fields: ["title", "description"] as const },
@@ -106,8 +106,9 @@ interface LocalEventFormValues extends EventFormValues {
   maxAttendees?: number;
   offCampusSpeaker?: boolean;
   requiresApproval?: boolean;
+  requiresSignature?: boolean;
+  ndaTemplateUrl?: string;
 }
-
 const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
@@ -131,12 +132,12 @@ const defaultValues: LocalEventFormValues = {
   maxAttendees: undefined,
   offCampusSpeaker: false,
   requiresApproval: false,
+  requiresSignature: false,
+  ndaTemplateUrl: undefined,
   isPrivate: false,
   tags: [],
   faqs: [],
-  ratingMetrics: [],
 };
-
 const DRAFT_KEY = "event_draft";
 const DRAFT_AUTOSAVE_INTERVAL_MS = 5000;
 
@@ -182,18 +183,14 @@ export function CreateEventDialog({
     if (!user) return;
     supabase
       .from("club_members")
-      .select("club_id, club_roles (permissions_level)")
+      .select("club_id")
       .eq("user_id", user.id)
+      .eq("role", "admin")
       .eq("status", "approved")
+      .limit(1)
+      .single()
       .then(({ data }) => {
-        const adminClubs = (data ?? []).filter((m: Record<string, unknown>) => {
-          const cr = m["club_roles"] as
-            { permissions_level?: number }[] | { permissions_level?: number } | null;
-          const level = Array.isArray(cr) ? cr[0]?.permissions_level : cr?.permissions_level;
-          const legacyRole = m["role"] as string | undefined;
-          return (level ?? legacyRoleToLevel(legacyRole)) >= 40;
-        });
-        if (adminClubs.length > 0) setClubId(adminClubs[0].club_id as string);
+        if (data) setClubId(data.club_id);
       });
   }, [user]);
 
@@ -216,21 +213,6 @@ export function CreateEventDialog({
   const watchedTitle = form.watch("title");
   const watchedDescription = form.watch("description");
   const watchedVenueId = form.watch("venue_id");
-  const watchedTags = form.watch("tags") || [];
-  const watchedCategory = form.watch("category") || "";
-  const watchedMaxAttendees = form.watch("maxAttendees");
-  const isTechHeavy = isTechHeavyEvent(
-    watchedTags,
-    watchedCategory,
-    watchedTitle,
-    watchedDescription,
-  );
-  const selectedVenue = venues?.find((venue: VenueWifiMetrics) => venue.id === watchedVenueId);
-  const orderedVenues = sortVenuesForEvent(
-    (venues ?? []) as VenueWifiMetrics[],
-    isTechHeavy,
-    watchedMaxAttendees,
-  );
   const control = form.control as never;
 
   useEffect(() => {
@@ -272,6 +254,31 @@ export function CreateEventDialog({
 
     return () => window.clearTimeout(timer);
   }, [watchedTitle, watchedDescription, clubId]);
+
+  // Post-Mortem Gating & Historical Retrospective Suggestions
+  const [showGatingModal, setShowGatingModal] = useState(false);
+
+  const { data: gatingStatus, refetch: refetchGating } = useQuery({
+    queryKey: ["organizer_post_mortem_gate", user?.id, clubId],
+    queryFn: () => (user ? checkOrganizerPostMortemGate(user.id, clubId) : null),
+    enabled: Boolean(user && open),
+  });
+
+  const { data: pastRetrospectives } = useQuery<EventPostMortem[]>({
+    queryKey: ["club_past_retrospectives", clubId],
+    queryFn: () => (clubId ? searchClubPostMortems(clubId) : []),
+    enabled: Boolean(clubId && open),
+  });
+
+  const historicalSuggestions = useMemo(() => {
+    if (!pastRetrospectives || pastRetrospectives.length === 0) return [];
+    return findHistoricalRetrospectiveSuggestions(
+      String(watchedTitle || ""),
+      String(watchedDescription || ""),
+      pastRetrospectives,
+    );
+  }, [watchedTitle, watchedDescription, pastRetrospectives]);
+
   const isUndoingRedoingRef = useRef(false);
   const {
     state: undoableState,
@@ -282,6 +289,7 @@ export function CreateEventDialog({
   } = useUndoableState(defaultValues, 1000);
 
   const watchedValues = form.watch();
+  const watchedValuesJson = JSON.stringify(watchedValues);
 
   // Reset/initialize undoable state when the modal opens/closes
   useEffect(() => {
@@ -296,8 +304,11 @@ export function CreateEventDialog({
       isUndoingRedoingRef.current = false;
       return;
     }
-    setUndoableState(watchedValues);
-  }, [watchedValues, setUndoableState]);
+    const currentUndoableJson = JSON.stringify(undoableState);
+    if (watchedValuesJson !== currentUndoableJson) {
+      setUndoableState(JSON.parse(watchedValuesJson));
+    }
+  }, [watchedValuesJson, undoableState, setUndoableState]);
 
   // Sync undoableState back to form values
   useEffect(() => {
@@ -383,6 +394,13 @@ export function CreateEventDialog({
         throw new Error("You must be logged in to create an event.");
       }
 
+      if (gatingStatus?.is_locked && gatingStatus.pending_events?.length > 0) {
+        setShowGatingModal(true);
+        throw new Error(
+          `Event creation locked: You have ${gatingStatus.pending_count} pending post-mortem retrospective(s) to complete first.`,
+        );
+      }
+
       const payload = eventFormToDbPayload(values, user.id, clubId);
 
       // If user is currently offline, queue in IndexedDB & Background Sync immediately
@@ -396,12 +414,34 @@ export function CreateEventDialog({
           .from("events")
           .insert(payload)
           .select(
-            "id, status, event_date, start_date, max_attendees, capacity, has_catering, has_food, tags",
+            "id, event_date, start_date, max_attendees, capacity, has_catering, has_food, tags",
           )
           .single();
 
         if (error) {
           throw new Error(error.message);
+        }
+
+        if (createdData?.id && values.resourceNeeds && values.resourceNeeds.length > 0) {
+          try {
+            const { error: resourceError } = await supabase.from("event_resource_requests").insert({
+              event_id: createdData.id,
+              resources: values.resourceNeeds,
+              status: "pending",
+              provider: "zendesk", // Default extensible provider
+            });
+            if (resourceError) {
+              console.warn("Failed to log resource request:", resourceError);
+            } else {
+              supabase.functions
+                .invoke("submit-resource-ticket", {
+                  body: { eventId: createdData.id },
+                })
+                .catch((err) => console.warn("Failed to invoke submit-resource-ticket:", err));
+            }
+          } catch (e) {
+            console.warn("Resource req fail", e);
+          }
         }
 
         if (createdData?.id) {
@@ -412,10 +452,7 @@ export function CreateEventDialog({
           }
         }
 
-        return {
-          isOffline: false,
-          isPendingSpamReview: isPendingSpamReview(createdData?.status),
-        };
+        return { isOffline: false };
       } catch (err: unknown) {
         const isNetworkError =
           !navigator.onLine ||
@@ -437,10 +474,6 @@ export function CreateEventDialog({
           "Event saved offline! It will sync automatically when connectivity is restored.",
           { duration: 6000 },
         );
-      } else if (data?.isPendingSpamReview) {
-        toast.info("Event submitted for moderation review. It will stay hidden until approved.", {
-          duration: 7000,
-        });
       } else {
         toast.success("Event created!");
       }
@@ -456,8 +489,7 @@ export function CreateEventDialog({
     },
     onError: (error: Error) => {
       console.error("[CreateEventDialog] Failed to create event:", error);
-      const message = error.message || "Couldn't create the event. Please try again.";
-      toast.error(getEventSpamErrorMessage(error) ?? message);
+      toast.error(error.message || "Couldn't create the event. Please try again.");
     },
   });
 
@@ -499,28 +531,6 @@ export function CreateEventDialog({
   const startDateStr = form.watch("startDate");
   const endDateStr = form.watch("endDate");
 
-  const { data: campusCalendarEvents = [] } = useQuery({
-    queryKey: ["campusCalendarEvents", startDateStr, endDateStr],
-    queryFn: async (): Promise<CampusCalendarEvent[]> => {
-      const { data, error } = await supabase
-        .from("campus_calendar_events")
-        .select("id, title, start_date, end_date, type")
-        .lte("start_date", endDateStr)
-        .gte("end_date", startDateStr)
-        .order("start_date", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as CampusCalendarEvent[];
-    },
-    enabled: open && step === 1 && Boolean(startDateStr && endDateStr),
-    staleTime: 1000 * 60 * 15,
-  });
-
-  const campusCalendarConflicts = findCampusCalendarConflicts(
-    campusCalendarEvents,
-    startDateStr,
-    endDateStr,
-  );
-
   const parsedStart = startDateStr ? new Date(startDateStr) : undefined;
   const parsedEnd = endDateStr ? new Date(endDateStr) : undefined;
 
@@ -552,7 +562,10 @@ export function CreateEventDialog({
                   description: "Would you like to resume where you left off?",
                   action: {
                     label: "Resume",
-                    onClick: () => form.reset(draftValues),
+                    onClick: () => {
+                      form.reset(draftValues);
+                      resetState(draftValues);
+                    },
                   },
                 });
               }
@@ -707,6 +720,22 @@ export function CreateEventDialog({
                     </FormItem>
                   )}
                 />
+
+                {/* Historical Retrospective Institutional Memory Suggestions */}
+                {historicalSuggestions.length > 0 && (
+                  <div className="border-2 border-amber-500 bg-amber-50 p-3 shadow-[2px_2px_0_0_#000]">
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-black uppercase text-amber-950 mb-1">
+                      <span>💡 Institutional Memory Tip</span>
+                    </div>
+                    <div className="space-y-1 font-mono text-[11px] text-amber-900">
+                      {historicalSuggestions.map((s, idx) => (
+                        <p key={idx}>
+                          • From <strong>{s.eventTitle}</strong> ({s.keyword}): &quot;{s.advice}&quot;
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <FormField
                   control={control}
                   name="category"
@@ -809,6 +838,33 @@ export function CreateEventDialog({
                 />
                 <FormField
                   control={control}
+                  name="dress_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dress Code</FormLabel>
+                      <Select
+                        onValueChange={(val) => field.onChange(val === "none" ? "" : val)}
+                        value={field.value || "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select event dress code (optional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No Specific Dress Code</SelectItem>
+                          <SelectItem value="casual">Casual</SelectItem>
+                          <SelectItem value="smart_casual">Smart Casual</SelectItem>
+                          <SelectItem value="business_casual">Business Casual</SelectItem>
+                          <SelectItem value="formal">Formal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={control}
                   name="isPrivate"
                   render={({ field }) => (
                     <FormItem className="neu-border flex items-center justify-between bg-white p-3 shadow-none">
@@ -894,13 +950,9 @@ export function CreateEventDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {orderedVenues.map((v) => (
+                          {venues?.map((v: any) => (
                             <SelectItem key={v.id} value={v.id}>
-                              {v.name} ({v.capacity} capacity
-                              {isTechHeavy && v.max_device_capacity
-                                ? ` • Wi-Fi ${v.max_device_capacity} devices`
-                                : ""}
-                              )
+                              {v.name} ({v.capacity} capacity)
                             </SelectItem>
                           ))}
                           <SelectItem value="custom">Custom Location</SelectItem>
@@ -910,15 +962,6 @@ export function CreateEventDialog({
                     </FormItem>
                   )}
                 />
-
-                {watchedVenueId && watchedVenueId !== "custom" && (
-                  <VenueWifiOverlay
-                    venue={selectedVenue}
-                    venues={(venues ?? []) as VenueWifiMetrics[]}
-                    techHeavy={isTechHeavy}
-                    attendeeCount={watchedMaxAttendees}
-                  />
-                )}
 
                 {isCustomVenue && (
                   <>
@@ -1069,10 +1112,69 @@ export function CreateEventDialog({
                   )}
                 />
 
+                <FormField
+                  control={control}
+                  name="requiresSignature"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Requires NDA Signature
+                        </FormLabel>
+                        <p className="text-xs text-black/50">
+                          Attendees must digitally sign an NDA before their RSVP is confirmed.
+                          Recommended for talks involving unreleased products or confidential
+                          material.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("requiresSignature") && (
+                  <FormField
+                    control={control}
+                    name="ndaTemplateUrl"
+                    render={({ field }) => (
+                      <FormItem className="rounded-md border-2 border-black bg-white p-4">
+                        <FormLabel className="font-bold">NDA Template (PDF)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const path = `${Date.now()}-${file.name}`;
+                              const { error: uploadError } = await supabase.storage
+                                .from("event_nda_templates")
+                                .upload(path, file);
+                              if (uploadError) {
+                                toast.error("Failed to upload NDA template");
+                                return;
+                              }
+                              const { data: publicUrlData } = supabase.storage
+                                .from("event_nda_templates")
+                                .getPublicUrl(path);
+                              field.onChange(publicUrlData.publicUrl);
+                            }}
+                          />
+                        </FormControl>
+                        <p className="mt-1 text-xs text-black/50">
+                          Attendees will be shown this document to review and sign before RSVP.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 {watchedGeofencingEnabled && (
                   <div className="space-y-3 rounded-md border-2 border-black bg-white p-4">
-                    <GeofenceMapPicker
-                      latitude={watchedLatitude}
+                    <GeofenceMapPicker                      latitude={watchedLatitude}
                       longitude={watchedLongitude}
                       radiusMeters={watchedGeofenceRadius || DEFAULT_GEOFENCE_RADIUS_METERS}
                       onChange={({ latitude, longitude }) => {
@@ -1174,27 +1276,6 @@ export function CreateEventDialog({
                       {form.formState.errors.endDate.message}
                     </p>
                   )}
-                  {campusCalendarConflicts.length > 0 && (
-                    <div
-                      role="status"
-                      className="neu-border flex gap-3 bg-amber-200 p-3 text-sm text-black"
-                    >
-                      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                      <div className="space-y-1">
-                        <p className="font-bold">Academic calendar conflict</p>
-                        {campusCalendarConflicts.map((conflict) => (
-                          <p key={conflict.id}>
-                            Warning: This date falls during <strong>{conflict.title}</strong>.
-                            Expected attendance may be impacted. (
-                            {calendarEventTypeLabel(conflict.type)})
-                          </p>
-                        ))}
-                        <p className="text-xs font-semibold">
-                          You can still create this event; this warning is advisory only.
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1233,6 +1314,35 @@ export function CreateEventDialog({
                     />
                   </div>
                 </div>
+
+                <FormField
+                  control={control}
+                  name="resourceNeeds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                        Resource Needs (IT & Facilities)
+                      </FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          value={(field.value || []).map((res: string) => {
+                            const option = RESOURCE_OPTIONS.find((o) => o.value === res);
+                            return { value: res, label: option?.label || res };
+                          })}
+                          onChange={(resources) => field.onChange(resources.map((r) => r.value))}
+                          options={RESOURCE_OPTIONS}
+                          placeholder="Select required resources..."
+                          allowCustom={true}
+                        />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-black/50">
+                        Automatically opens a ticket with the provider (e.g. Zendesk) for requested
+                        items.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
 
@@ -1337,54 +1447,6 @@ export function CreateEventDialog({
                 >
                   <Plus className="mr-1 h-3 w-3" /> Add Question
                 </Button>
-
-                <p className="font-mono text-xs font-bold text-black/50 uppercase">
-                  Post-event rating dimensions (optional)
-                </p>
-                {form.watch("ratingMetrics")?.map((metric: string, index: number) => (
-                  <div key={index} className="neu-border flex items-center gap-2 bg-white p-3">
-                    <Input
-                      placeholder="e.g. Food Quality"
-                      value={metric}
-                      onChange={(e) => {
-                        const current = form.getValues("ratingMetrics") || [];
-                        const next = [...current];
-                        next[index] = e.target.value;
-                        form.setValue("ratingMetrics", next);
-                      }}
-                      className="font-mono text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const current = form.getValues("ratingMetrics") || [];
-                        form.setValue(
-                          "ratingMetrics",
-                          current.filter((_, i) => i !== index),
-                        );
-                      }}
-                      className="text-destructive hover:text-destructive/80"
-                      aria-label={`Remove rating dimension ${metric || index + 1}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    const current = form.getValues("ratingMetrics") || [];
-                    form.setValue("ratingMetrics", [...current, ""]);
-                  }}
-                  className="w-full border-dashed font-mono text-xs font-bold"
-                >
-                  <Plus className="mr-1 h-3 w-3" /> Add Rating Dimension
-                </Button>
-                <p className="text-xs text-black/50">
-                  After the event, attendees rate these categories on a 0-100 slider. Leave empty to
-                  use the default dimensions.
-                </p>
               </div>
             )}
 
@@ -1435,13 +1497,6 @@ export function CreateEventDialog({
                       <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
                     </div>
                   )}
-                  {form.getValues("ratingMetrics") &&
-                    form.getValues("ratingMetrics").length > 0 && (
-                      <div>
-                        <p className="text-xs text-black/40">Rating Dimensions</p>
-                        <p className="font-bold">{form.getValues("ratingMetrics").join(", ")}</p>
-                      </div>
-                    )}
                 </div>
 
                 <FormField
@@ -1472,52 +1527,48 @@ export function CreateEventDialog({
               </p>
 
               <div className="grid grid-cols-2 gap-4">
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                <div className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-sm font-bold">Alcohol Present</FormLabel>
+                    <label className="text-sm font-bold">Alcohol Present</label>
                   </div>
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 border-2 border-black"
-                      checked={form.watch("alcoholPresent") || false}
-                      onChange={(e) => form.setValue("alcoholPresent", e.target.checked)}
-                    />
-                  </FormControl>
-                </FormItem>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 border-2 border-black"
+                    checked={form.watch("alcoholPresent") || false}
+                    onChange={(e) => form.setValue("alcoholPresent", e.target.checked)}
+                  />
+                </div>
 
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                <div className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-sm font-bold">Off-Campus Speaker</FormLabel>
+                    <label className="text-sm font-bold">Off-Campus Speaker</label>
                   </div>
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 border-2 border-black"
-                      checked={form.watch("offCampusSpeaker") || false}
-                      onChange={(e) => form.setValue("offCampusSpeaker", e.target.checked)}
-                    />
-                  </FormControl>
-                </FormItem>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 border-2 border-black"
+                    checked={form.watch("offCampusSpeaker") || false}
+                    onChange={(e) => form.setValue("offCampusSpeaker", e.target.checked)}
+                  />
+                </div>
               </div>
 
-              <FormItem>
-                <FormLabel>Expected Attendance / Capacity</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 150"
-                    className="border-2 border-black bg-white"
-                    value={form.watch("maxAttendees") || ""}
-                    onChange={(e) =>
-                      form.setValue(
-                        "maxAttendees",
-                        e.target.value ? Number(e.target.value) : undefined,
-                      )
-                    }
-                  />
-                </FormControl>
-              </FormItem>
+              <div>
+                <label className="font-mono text-xs font-bold uppercase text-black block mb-1">
+                  Expected Attendance / Capacity
+                </label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 150"
+                  className="border-2 border-black bg-white"
+                  value={form.watch("maxAttendees") || ""}
+                  onChange={(e) =>
+                    form.setValue(
+                      "maxAttendees",
+                      e.target.value ? Number(e.target.value) : undefined,
+                    )
+                  }
+                />
+              </div>
             </div>
 
             <DialogFooter className="pt-2 flex gap-2">
@@ -1549,6 +1600,17 @@ export function CreateEventDialog({
           </form>
         </Form>
       </DialogContent>
+      {gatingStatus?.pending_events && (
+        <PostMortemGatingModal
+          isOpen={showGatingModal}
+          pendingEvents={gatingStatus.pending_events}
+          onClose={() => setShowGatingModal(false)}
+          onSuccess={() => {
+            setShowGatingModal(false);
+            refetchGating();
+          }}
+        />
+      )}
     </Dialog>
   );
 }

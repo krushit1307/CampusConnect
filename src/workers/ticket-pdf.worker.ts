@@ -30,6 +30,7 @@ export interface TicketWorkerInput {
   eventEndDate?: string;
   eventLocation: string;
   attendeeName: string;
+  noMediaConsent?: boolean;
   rsvpId: string;
 }
 
@@ -58,7 +59,12 @@ function formatTime(iso: string): string {
 }
 
 /** Wrap long text into lines that fit within maxWidth (in PDF points). */
-function wrapText(text: string, font: { widthOfTextAtSize: (t: string, s: number) => number }, size: number, maxWidth: number): string[] {
+function wrapText(
+  text: string,
+  font: { widthOfTextAtSize: (t: string, s: number) => number },
+  size: number,
+  maxWidth: number,
+): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
   let current = "";
@@ -78,8 +84,16 @@ function wrapText(text: string, font: { widthOfTextAtSize: (t: string, s: number
 
 self.onmessage = async (event: MessageEvent<TicketWorkerInput>) => {
   try {
-    const { token, eventTitle, eventDate, eventEndDate, eventLocation, attendeeName, rsvpId } =
-      event.data;
+    const {
+      token,
+      eventTitle,
+      eventDate,
+      eventEndDate,
+      eventLocation,
+      attendeeName,
+      noMediaConsent,
+      rsvpId,
+    } = event.data;
 
     // ─────────────────────────────────────────────────────────────
     // 1. Generate QR code as a PNG data-URI (Error Correction: H)
@@ -111,6 +125,7 @@ self.onmessage = async (event: MessageEvent<TicketWorkerInput>) => {
     const lime = rgb(0.796, 1, 0.2); // #CBFF33
     const darkGray = rgb(0.15, 0.15, 0.15);
     const midGray = rgb(0.45, 0.45, 0.45);
+    const warningRed = rgb(0.72, 0.11, 0.11);
 
     // ── Header bar ───────────────────────────────────────────────
     const headerH = 100;
@@ -139,7 +154,13 @@ self.onmessage = async (event: MessageEvent<TicketWorkerInput>) => {
     });
 
     // Lime accent block (top-right)
-    page.drawRectangle({ x: width - 110, y: height - headerH, width: 110, height: headerH, color: lime });
+    page.drawRectangle({
+      x: width - 110,
+      y: height - headerH,
+      width: 110,
+      height: headerH,
+      color: lime,
+    });
     page.drawText("ADMIT", {
       x: width - 97,
       y: height - 48,
@@ -179,21 +200,55 @@ self.onmessage = async (event: MessageEvent<TicketWorkerInput>) => {
 
     // Horizontal rule
     const ruleY = titleY - 10;
-    page.drawLine({ start: { x: leftMargin, y: ruleY }, end: { x: width - 28, y: ruleY }, thickness: 1, color: rgb(0.85, 0.85, 0.85) });
+    page.drawLine({
+      start: { x: leftMargin, y: ruleY },
+      end: { x: width - 28, y: ruleY },
+      thickness: 1,
+      color: rgb(0.85, 0.85, 0.85),
+    });
 
     // Date / Time block
     const detailTop = ruleY - 22;
-    page.drawText("DATE & TIME", { x: leftMargin, y: detailTop, size: 8, font: boldFont, color: midGray });
+    page.drawText("DATE & TIME", {
+      x: leftMargin,
+      y: detailTop,
+      size: 8,
+      font: boldFont,
+      color: midGray,
+    });
     const dateStr = formatDate(eventDate);
     const timeStr = formatTime(eventDate);
     const endTimeStr = eventEndDate ? ` – ${formatTime(eventEndDate)}` : "";
-    page.drawText(`${dateStr}`, { x: leftMargin, y: detailTop - 14, size: 12, font: boldFont, color: darkGray });
-    page.drawText(`${timeStr}${endTimeStr}`, { x: leftMargin, y: detailTop - 28, size: 11, font: regularFont, color: darkGray });
+    page.drawText(`${dateStr}`, {
+      x: leftMargin,
+      y: detailTop - 14,
+      size: 12,
+      font: boldFont,
+      color: darkGray,
+    });
+    page.drawText(`${timeStr}${endTimeStr}`, {
+      x: leftMargin,
+      y: detailTop - 28,
+      size: 11,
+      font: regularFont,
+      color: darkGray,
+    });
 
     // Location block
     const locTop = detailTop - 52;
-    page.drawText("LOCATION", { x: leftMargin, y: locTop, size: 8, font: boldFont, color: midGray });
-    const locationLines = wrapText(eventLocation || "To Be Announced", regularFont, 11, contentWidth);
+    page.drawText("LOCATION", {
+      x: leftMargin,
+      y: locTop,
+      size: 8,
+      font: boldFont,
+      color: midGray,
+    });
+    const locationLines = wrapText(
+      eventLocation || "To Be Announced",
+      regularFont,
+      11,
+      contentWidth,
+    );
     let locY = locTop - 14;
     for (const line of locationLines.slice(0, 2)) {
       page.drawText(line, { x: leftMargin, y: locY, size: 11, font: regularFont, color: darkGray });
@@ -202,13 +257,44 @@ self.onmessage = async (event: MessageEvent<TicketWorkerInput>) => {
 
     // Attendee block
     const attTop = locY - 14;
-    page.drawText("ATTENDEE", { x: leftMargin, y: attTop, size: 8, font: boldFont, color: midGray });
+    page.drawText("ATTENDEE", {
+      x: leftMargin,
+      y: attTop,
+      size: 8,
+      font: boldFont,
+      color: midGray,
+    });
     const attendeeDisplayName = attendeeName || "Guest";
     const nameLines = wrapText(attendeeDisplayName, boldFont, 14, contentWidth);
     let nameY = attTop - 16;
     for (const line of nameLines.slice(0, 2)) {
       page.drawText(line, { x: leftMargin, y: nameY, size: 14, font: boldFont, color: darkGray });
       nameY -= 18;
+    }
+
+    if (noMediaConsent) {
+      const warningY = nameY - 52;
+      page.drawRectangle({
+        x: leftMargin,
+        y: warningY,
+        width: contentWidth,
+        height: 44,
+        color: warningRed,
+      });
+      page.drawText("NO PHOTOGRAPHY / FILMING", {
+        x: leftMargin + 10,
+        y: warningY + 27,
+        size: 11,
+        font: boldFont,
+        color: white,
+      });
+      page.drawText("Issue a red wristband at the door. Do not photograph or film this attendee.", {
+        x: leftMargin + 10,
+        y: warningY + 12,
+        size: 6.5,
+        font: regularFont,
+        color: white,
+      });
     }
 
     // ── QR Code block (right column) ─────────────────────────────
@@ -260,13 +346,24 @@ self.onmessage = async (event: MessageEvent<TicketWorkerInput>) => {
     // Stub background (lime)
     page.drawRectangle({ x: 0, y: 0, width, height: tearY - 2, color: lime });
     // Black top border of stub
-    page.drawLine({ start: { x: 0, y: tearY - 2 }, end: { x: width, y: tearY - 2 }, thickness: 2, color: black });
+    page.drawLine({
+      start: { x: 0, y: tearY - 2 },
+      end: { x: width, y: tearY - 2 },
+      thickness: 2,
+      color: black,
+    });
 
     // Ticket ID (human readable)
     const shortId = rsvpId.slice(0, 8).toUpperCase();
     page.drawText("TICKET ID", { x: leftMargin, y: 100, size: 8, font: boldFont, color: darkGray });
     page.drawText(shortId, { x: leftMargin, y: 82, size: 18, font: boldFont, color: black });
-    page.drawText(`Full ID: ${rsvpId}`, { x: leftMargin, y: 64, size: 7, font: regularFont, color: darkGray });
+    page.drawText(`Full ID: ${rsvpId}`, {
+      x: leftMargin,
+      y: 64,
+      size: 7,
+      font: regularFont,
+      color: darkGray,
+    });
 
     // Event name in stub
     const stubTitleLines = wrapText(eventTitle, boldFont, 10, contentWidth);

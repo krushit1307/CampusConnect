@@ -6,11 +6,13 @@ import {
   processBatchRefunds,
 } from "../eventCancellationService";
 
-const mockRpc = vi.fn();
+const mockInvoke = vi.fn();
 
 vi.mock("../../lib/supabase/client", () => ({
   createClient: () => ({
-    rpc: mockRpc,
+    functions: {
+      invoke: mockInvoke,
+    },
   }),
 }));
 
@@ -34,8 +36,8 @@ describe("eventCancellationService", () => {
   });
 
   describe("cancelEventAndRefund", () => {
-    it("invokes cancel_event_and_refund RPC with eventId and reason", async () => {
-      mockRpc.mockResolvedValueOnce({
+    it("invokes cancel-event-refunds Edge Function with eventId and reason", async () => {
+      mockInvoke.mockResolvedValueOnce({
         data: {
           success: true,
           total_rsvps_cancelled: 200,
@@ -45,14 +47,34 @@ describe("eventCancellationService", () => {
         error: null,
       });
 
-      const res = await cancelEventAndRefund("evt-902", "Blizzard Warning");
+      const res = await cancelEventAndRefund("evt-902", "Blizzard Warning", "Fall Music Fest");
 
-      expect(mockRpc).toHaveBeenCalledWith("cancel_event_and_refund", {
-        p_event_id: "evt-902",
-        p_reason: "Blizzard Warning",
+      expect(mockInvoke).toHaveBeenCalledWith("cancel-event-refunds", {
+        body: { eventId: "evt-902", reason: "Blizzard Warning" },
       });
       expect(res.success).toBe(true);
       expect(res.total_rsvps_cancelled).toBe(200);
+      expect(res.vendor_summary).toBeDefined();
+      expect(res.vendor_summary?.totalVendorsNotified).toBeGreaterThan(0);
+    });
+
+    it("files an insurance claim when the organizer opts in", async () => {
+      mockInvoke
+        .mockResolvedValueOnce({
+          data: { success: true, total_rsvps_cancelled: 200 },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { success: true, claim_id: "clm-1", underwriter_status: "submitted" },
+          error: null,
+        });
+
+      const res = await cancelEventAndRefund("evt-902", "Severe Weather", "Fall Music Fest", true);
+
+      expect(mockInvoke).toHaveBeenCalledWith("file-event-insurance-claim", {
+        body: { eventId: "evt-902", reason: "Severe Weather" },
+      });
+      expect(res.insurance_claim?.underwriter_status).toBe("submitted");
     });
   });
 

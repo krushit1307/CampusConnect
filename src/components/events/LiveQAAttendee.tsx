@@ -1,8 +1,8 @@
 // =============================================================================
 // Component: LiveQAAttendee
---Issue: #2898 - Develop a Real - Time 'Live Q&A' Module for Events
---Description: The mobile - optimized interface for event attendees to submit
---questions and upvote others.Features a chat - like scrolling feed.
+//Issue: #2898 - Develop a Real - Time 'Live Q&A' Module for Events
+//Description: The mobile - optimized interface for event attendees to submit
+//questions and upvote others.Features a chat - like scrolling feed.
 // =============================================================================
 
 import React, { useState } from 'react';
