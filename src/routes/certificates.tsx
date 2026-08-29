@@ -19,6 +19,7 @@ import { downloadCertificatePdf } from "@/lib/certificateUtils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useConfetti } from "@/hooks/useConfetti";
+import { SeriesCertificateRevocationPanel } from "@/components/certificates/SeriesCertificateRevocationPanel";
 
 interface CertificateClub {
   name: string;
@@ -105,6 +106,8 @@ export default function Certificates() {
           animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
+
+      <SeriesCertificateRevocationPanel />
 
       <section className="bg-amber-300 px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">

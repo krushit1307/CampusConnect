@@ -104,11 +104,12 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
 
     sessionManager.setCallbacks(handleLogout, handleTokenUpdate);
 
+    const supabase = createClient();
+
     // Initial auth check with Supabase
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        setIsAuthenticated(true);
-        setToken(session.access_token);
+        setAuthenticated(session.access_token);
         
         try {
           const { publicKeyBase64, isNew } = await ensureKeyPair();
@@ -121,10 +122,6 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
         } catch (err) {
           console.error("Failed to setup decentralized ticketing keys:", err);
         }
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setAuthenticated(session.access_token);
       }
     });
 
@@ -133,8 +130,7 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
-        setIsAuthenticated(true);
-        setToken(session.access_token);
+        setAuthenticated(session.access_token);
         
         // Ensure the user has a local cryptographic key pair for decentralized ticketing
         try {
@@ -149,7 +145,6 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
         } catch (err) {
           console.error("Failed to setup decentralized ticketing keys:", err);
         }
-        setAuthenticated(session.access_token);
       } else {
         setAuthenticated(null);
       }

@@ -26,6 +26,7 @@ serve(async (req: Request) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+    // Client for auth checking
     const supabaseUserClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -43,10 +44,14 @@ serve(async (req: Request) => {
 
     const { action, requestId, eventId, clubId, provider, resourceType, quantity } =
       await req.json();
+
+    // Client for admin operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
     const cloudProvider = getCloudProvider();
 
     if (action === "provision") {
+      // 1. Validate Organizer
       const { data: clubMember, error: cmError } = await supabaseAdmin
         .from("club_members")
         .select("role")
@@ -65,6 +70,7 @@ serve(async (req: Request) => {
         );
       }
 
+      // 2. Validate Limits
       const maxQuantity = parseInt(Deno.env.get("MAX_HARDWARE_QUANTITY") || "100", 10);
       if (quantity > maxQuantity || quantity <= 0) {
         return new Response(
@@ -73,6 +79,7 @@ serve(async (req: Request) => {
         );
       }
 
+      // 3. Create Request
       const { data: event } = await supabaseAdmin
         .from("events")
         .select("start_time, end_time")
@@ -98,6 +105,9 @@ serve(async (req: Request) => {
 
       if (reqError) throw reqError;
 
+      // 4. Do Provisioning asynchronously but for simplicity we await it if it's mock
+      // In a real environment, this might be a trigger to another worker, but Cloud APIs
+      // often return immediately with instances in 'pending' state.
       try {
         const tags = {
           managed_by: "CampusConnect",
@@ -111,6 +121,7 @@ serve(async (req: Request) => {
           tags,
         );
 
+        // 5. Track each resource
         const resourceInserts = provisionResult.instanceIds.map((instanceId: string) => ({
           request_id: request.id,
           event_id: eventId,
@@ -128,6 +139,7 @@ serve(async (req: Request) => {
           .from("hardware_provisioning_requests")
           .update({ status: "active" })
           .eq("id", request.id);
+
         return new Response(JSON.stringify({ success: true, request }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -139,6 +151,7 @@ serve(async (req: Request) => {
         throw e;
       }
     } else if (action === "terminate_manual") {
+      // Manual termination
       const { data: request, error: fetchErr } = await supabaseAdmin
         .from("hardware_provisioning_requests")
         .select("*, hardware_provisioned_resources(*)")
@@ -146,6 +159,7 @@ serve(async (req: Request) => {
         .single();
       if (fetchErr || !request) throw new Error("Request not found");
 
+      // Verify Organizer
       const { data: clubMember, error: cmError } = await supabaseAdmin
         .from("club_members")
         .select("role")
@@ -167,6 +181,7 @@ serve(async (req: Request) => {
       const instanceIds = request.hardware_provisioned_resources
         .map((r: any) => r.provider_resource_id)
         .filter(Boolean);
+
       await supabaseAdmin
         .from("hardware_provisioning_requests")
         .update({ status: "terminating" })
@@ -195,6 +210,7 @@ serve(async (req: Request) => {
         throw e;
       }
     } else if (action === "assign_attendees") {
+      // Automatic Attendee distribution
       const { data: resources } = await supabaseAdmin
         .from("hardware_provisioned_resources")
         .select("*")
@@ -224,7 +240,7 @@ serve(async (req: Request) => {
           .update({
             attendee_id: attendees[i].id,
             connection_metadata: {
-              ssh_command: `ssh attendee@${resources[i].public_ip || "10.0.0." + i} -i ~/.ssh/id_rsa`,
+              ssh_command: `ssh attendee@${resources[i].public_ip || "machine-ip"} -i ~/.ssh/id_rsa`,
               instructions: "Use this connection for the hackathon.",
             },
           })
@@ -235,6 +251,7 @@ serve(async (req: Request) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

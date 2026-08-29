@@ -1,14 +1,11 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
-import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
-import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
 import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
-import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
-import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
@@ -16,18 +13,25 @@ import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
+import { AslAvatarPip } from "@/components/events/AslAvatarPip";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
+import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
 import { InteractiveSeatingChart } from "@/components/events/InteractiveSeatingChart";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { useBannerColor } from "@/hooks/useBannerColor";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
 import { Helmet } from "react-helmet-async";
+import { LiveScoreboardOverlay } from "@/components/Scoreboard/LiveScoreboardOverlay";
 import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
-import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
+import { LiveCapacityMeter } from "@/components/events/LiveCapacityMeter";
+import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
+import { FlashSaleBanner } from "@/components/events/FlashSaleBanner";
+import { FlashSaleControl } from "@/components/events/FlashSaleControl";
+import { DutchAuctionPanel } from "@/components/events/DutchAuctionPanel";
 import { formatDateLong } from "@/lib/dateFormatter";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
@@ -64,10 +68,16 @@ import {
 import LiveQA from "@/components/qa/LiveQA";
 import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
+import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
 import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
+import {
+  CampusSafetyGeofenceAlerts,
+  CampusSafetyGeofenceMonitor,
+} from "@/components/events/CampusSafetyGeofenceMonitor";
 import Ticket from "lucide-react/dist/esm/icons/ticket";
+import Send from "lucide-react/dist/esm/icons/send";
 import { useTicketDownload } from "@/hooks/useTicketDownload";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -82,11 +92,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { DietaryAllergenWarning } from "@/components/events/DietaryAllergenWarning";
+import { detectAbsoluteAllergenCollision } from "@/lib/dietaryAllergenCollision";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SeatingCanvas } from "@/components/events/SeatingCanvas";
 import { SponsorManager } from "@/components/events/SponsorManager";
-import { SteganographicQRScanner } from "@/components/events/SteganographicQRScanner";
 import { EventGuestList } from "@/components/events/EventGuestList";
+import { SongRequestSection } from "@/components/events/SongRequestSection";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
@@ -97,8 +109,8 @@ import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
 import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
+import { EventSeriesCatchUpCard } from "@/components/events/EventSeriesCatchUpCard";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
-import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import {
   buildKanbanColumns,
@@ -124,17 +136,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import DynamicQRCode from "@/components/events/DynamicQRCode";
-import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
+import { isHighDemandEvent, normalizeDeviceFingerprint } from "@/lib/ticketScalping";
 import { EditEventDialog } from "@/components/EditEventDialog";
 import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
+import { EventCoSponsorshipPortal } from "@/components/events/EventCoSponsorshipPortal";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
+import { WaitlistBiddingLeaderboard } from "@/components/events/WaitlistBiddingLeaderboard";
 
 /**
  * Hero banner for the event detail page.
@@ -283,6 +298,8 @@ function SimilarEvents({
                 alt={evt.title}
                 aspectRatio="video"
                 className="border-2 border-black mb-3"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                responsiveWidths={[300, 600, 1200]}
               />
             ) : (
               <div className="w-full h-32 bg-peach/30 border-2 border-black mb-3 flex items-center justify-center font-mono text-xs font-bold text-black/50">
@@ -327,16 +344,6 @@ function downloadCsv(csvContent: string, filename: string) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-}
-interface EventSignature {
-  id: string;
-  event_id: string;
-  signer_role: string;
-  signer_name: string;
-  signer_email: string;
-  signature_token: string;
-  signed_at: string | null;
-  ip_address: string | null;
 }
 
 function DressCodeVisualizer({ code }: { code: string }) {
@@ -435,6 +442,7 @@ export default function EventDetailsPage() {
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rsvpDialogOpen, setRsvpDialogOpen] = useState(false);
+  const [acknowledgeAllergenWarning, setAcknowledgeAllergenWarning] = useState(false);
   const [needAccommodations, setNeedAccommodations] = useState(false);
   const [accommodationsText, setAccommodationsText] = useState("");
   const [validationError, setValidationError] = useState("");
@@ -448,6 +456,61 @@ export default function EventDetailsPage() {
   const [decryptError, setDecryptError] = useState<string | null>(null);
   const [isDecryptedModalOpen, setIsDecryptedModalOpen] = useState(false);
   const { downloadTicket, isGenerating: isTicketGenerating } = useTicketDownload();
+  const { visitorId } = useDeviceFingerprint();
+  const [hasTiersOrSurge, setHasTiersOrSurge] = useState(false);
+
+  useEffect(() => {
+    if (!event?.id) return;
+    const checkPricing = async () => {
+      if (event.base_price !== null && event.base_price !== undefined) {
+        setHasTiersOrSurge(true);
+        return;
+      }
+      const { count } = await supabase
+        .from("ticket_tiers")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", event.id);
+      if (count && count > 0) {
+        setHasTiersOrSurge(true);
+      }
+    };
+    void checkPricing();
+  }, [event?.id, event?.base_price, supabase]);
+
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferEmail, setTransferEmail] = useState("");
+
+  const transferMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Please log in to transfer your ticket.");
+      if (!myRsvp?.ticket_id && !myRsvp?.id) {
+        throw new Error("You do not have a ticket to transfer.");
+      }
+
+      const ticketId = myRsvp.ticket_id || myRsvp.id;
+      const { data, error } = await supabase.rpc("transfer_ticket_transaction", {
+        p_ticket_id: ticketId,
+        p_sender_id: user.id,
+        p_recipient_email: transferEmail.trim(),
+      });
+
+      if (error) throw error;
+      if (data && !data.success) {
+        throw new Error(data.message || "Failed to transfer ticket.");
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Ticket transferred successfully!");
+      setIsTransferDialogOpen(false);
+      setTransferEmail("");
+      refetch();
+      refetchMyRsvp();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to transfer ticket.");
+    },
+  });
 
   const handleViewAccommodation = async (rsvpId: string) => {
     setIsDecrypting(true);
@@ -623,20 +686,48 @@ export default function EventDetailsPage() {
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
-clubs (name, slug, logo_url, primary_color, secondary_color),          event_rsvps (id, user_id),
+          clubs (name, slug, logo_url, primary_color, secondary_color),         event_rsvps (id, user_id),
           attendee_count,
           venues (
-            name, building, capacity, accessibility_features
-          )
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code,
+            name, building, capacity, accessibility_features, latitude, longitude, geofence_radius_meters
+          ),
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code, base_price, surge_multiplier, is_bidding_enabled,
           profiles (full_name, email),
-clubs (name, slug, logo_url, primary_color, secondary_color),          event_metrics (views)
+          event_metrics (views)
         `,
         )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
         .single();
 
       if (error) {
+        // Fallback to check remote_events table for federated events
+        const { data: remoteData, error: remoteError } = await supabase
+          .from("remote_events")
+          .select("*")
+          .eq("id", eventId)
+          .maybeSingle();
+
+        if (!remoteError && remoteData) {
+          return {
+            id: remoteData.id,
+            title: remoteData.title,
+            description: remoteData.description,
+            event_date: remoteData.start_time,
+            start_date: remoteData.start_time,
+            end_date: remoteData.end_time,
+            location: remoteData.location,
+            banner_url: remoteData.banner_url,
+            created_by: null,
+            is_remote: true,
+            host_institution: remoteData.host_institution,
+            origin_server_domain: remoteData.origin_server_domain,
+            origin_event_id: remoteData.origin_event_id,
+            max_attendees: (remoteData.federated_payload as any)?.capacity || null,
+            clubs: { name: `Hosted by ${remoteData.host_institution}` },
+            event_rsvps: [],
+            attendee_count: 0,
+          };
+        }
         // Fallback to mock data in development if db fails or doesn't exist
         if (import.meta.env.DEV && eventId.startsWith("mock-")) {
           return {
@@ -668,6 +759,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
             banner_url: null as string | null,
             max_attendees: eventId === "mock-1" ? 1 : null,
+            is_high_demand: false,
             latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
             longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
             geofencing_enabled: eventId === "mock-1",
@@ -784,6 +876,18 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     queryKey: ["my_rsvp", eventId, user?.id],
     queryFn: async () => {
       if (!user?.id || eventId.startsWith("mock-")) return null;
+
+      if (event && "is_remote" in event && event.is_remote) {
+        const { data, error } = await supabase
+          .from("remote_event_rsvps")
+          .select("*")
+          .eq("remote_event_id", eventId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (error) return null;
+        return data ? { id: data.id, user_id: user.id } : null;
+      }
+
       const { data, error } = await supabase
         .from("event_rsvps")
         .select("*")
@@ -793,8 +897,64 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id && !!eventId,
+    enabled: !!user?.id && !!eventId && !!event,
   });
+
+  // --- ISSUE #4249: OVERDUE ASSET PENALTY CHECK ---
+  const { data: overdueAssets } = useQuery({
+    queryKey: ["overdue_assets", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("asset_loans")
+        .select("id")
+        .eq("borrower_id", user.id)
+        .eq("status", "active")
+        .lt("due_date", new Date().toISOString());
+
+      if (error) {
+        console.error("Failed to check asset loans", error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const hasOverdueAssets = overdueAssets && overdueAssets.length > 0;
+  // ------------------------------------------------
+
+  const { data: dietaryRestrictions = [] } = useQuery<string[]>({
+    queryKey: ["profile_dietary_restrictions", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("dietary_restrictions")
+        .eq("id", user!.id)
+        .single();
+      if (error) throw error;
+      return (data?.dietary_restrictions as string[]) || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: eventMenuItems = [] } = useQuery({
+    queryKey: ["event_menu_items", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_menu_items")
+        .select("is_vegan, is_gluten_free, contains_nuts, contains_dairy")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId && !eventId.startsWith("mock-"),
+  });
+
+  const allergenCollision = useMemo(
+    () => detectAbsoluteAllergenCollision(dietaryRestrictions, eventMenuItems),
+    [dietaryRestrictions, eventMenuItems],
+  );
 
   const { data: adminRsvps, refetch: refetchAdminRsvps } = useQuery({
     queryKey: ["admin_rsvps", eventId],
@@ -859,6 +1019,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     },
     enabled: !!user?.id && !!eventId && isOnWaitlist,
   });
+
   // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
@@ -972,7 +1133,21 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
         return;
       }
 
+      if (event && "is_remote" in event && event.is_remote) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const { error } = await supabase.functions.invoke("proxy-rsvp", {
+          body: { eventId, hasRsvpd, action: "toggle" },
+          headers: {
+            Authorization: `Bearer ${sessionData.session?.access_token}`,
+          },
+        });
+        if (error) throw error;
+        return;
+      }
+
       const idempotencyKey = getRsvpIdempotencyKey(eventId);
+      const deviceFingerprint = normalizeDeviceFingerprint(visitorId);
+      const highDemandClaim = !hasRsvpd && isHighDemandEvent(event);
 
       const {
         data: { session },
@@ -985,6 +1160,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
           headers: {
             Authorization: `Bearer ${session?.access_token}`,
             "Idempotency-Key": idempotencyKey,
+            ...(deviceFingerprint ? { "X-Device-Fingerprint": deviceFingerprint } : {}),
           },
         });
         funcError = error;
@@ -995,6 +1171,9 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
           err.message.includes("network") ||
           err.message.includes("Failed to fetch")
         ) {
+          if (highDemandClaim) {
+            throw new Error("HIGH_DEMAND_REQUIRES_ONLINE");
+          }
           await queueRsvpSubmission({
             eventId,
             hasRsvpd,
@@ -1010,8 +1189,6 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
         }
       }
       if (funcError) throw funcError;
-
-      if (error) throw error;
       clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ hasRsvpd }) => {
@@ -1050,19 +1227,29 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       }
 
       const err = error as Record<string, unknown>;
-      if (err?.message === "OFFLINE_SAVED" || error?.message === "OFFLINE_SAVED") {
+      if (err?.message === "HIGH_DEMAND_REQUIRES_ONLINE") {
+        toast.error(
+          "High-demand RSVPs require an active internet connection and fresh verification.",
+        );
+      } else if (
+        err?.message === "OFFLINE_SAVED" ||
+        (error as Error)?.message === "OFFLINE_SAVED"
+      ) {
         toast.success(
           "You're offline. Your RSVP is saved and will sync automatically when you reconnect.",
           { duration: 5000 },
         );
       } else if (
-        (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
-        (typeof err?.details === "string" && err.details.includes("Rate limit")) ||
-        (typeof err?.context === "string" && err.context.includes("Rate limit")) ||
-        (typeof error === "string" && error.includes("Rate limit"))
+        (typeof err?.status === "number" && err.status === 429) ||
+        (typeof (err?.context as { status?: unknown })?.status === "number" &&
+          (err.context as { status: number }).status === 429) ||
+        (typeof err?.message === "string" &&
+          (err.message.includes("Rate limit") || err.message.includes("Too many ticket claims")))
       ) {
-        toast.error("Please wait a minute before toggling RSVP again.");
+        setCaptchaToken(undefined);
+        toast.error("Too many claims for this event. Please try again after the cooldown.");
       } else {
+        if (requiresHighDemandCaptcha) setCaptchaToken(undefined);
         toast.error(
           (err?.message as string) ||
             (error as Error)?.message ||
@@ -1077,6 +1264,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       setNeedAccommodations(false);
       setAccommodationsText("");
       setValidationError("");
+      setCaptchaToken(undefined);
     },
   });
 
@@ -1418,11 +1606,10 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     ? parseCoordinates(event.location)
     : { isCoordinates: false, isValid: true };
 
+  const requiresHighDemandCaptcha = isHighDemandEvent(event);
   const captchaSiteKey =
     import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
-  const captchaSecretKey =
-    import.meta.env.VITE_TURNSTILE_SECRET_KEY || import.meta.env.VITE_HCAPTCHA_SECRET_KEY;
-  const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
+  const captchaConfigured = Boolean(captchaSiteKey);
   const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
 
   const isAfterDeadline = useMemo(() => {
@@ -1515,20 +1702,33 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       toast.error("Please verify your email to RSVP");
       return;
     }
+
+    // --- ISSUE #4249: BLOCK RSVP IF ASSET OVERDUE ---
+    if (hasOverdueAssets) {
+      toast.error(
+        "Action Blocked: Please return your overdue photography equipment to RSVP for events.",
+      );
+      return;
+    }
+    // ------------------------------------------------
+
     if (hasRsvpd) {
       setConfirmOpen(true);
       return;
     }
 
-    if (captchaEnabled && !shouldRequireCaptcha(captchaSiteKey, captchaSecretKey, captchaToken)) {
-      toast.error("Please complete the CAPTCHA challenge to RSVP.");
+    if (requiresHighDemandCaptcha && !captchaConfigured) {
+      toast.error("High-demand ticket verification is temporarily unavailable.");
       return;
     }
+    // The challenge is rendered in the RSVP dialog and checked again at submit time.
 
     // Open accommodations dialog instead of immediate submit
     setNeedAccommodations(false);
     setAccommodationsText("");
     setValidationError("");
+    setCaptchaToken(undefined);
+    setAcknowledgeAllergenWarning(false);
     setRsvpDialogOpen(true);
   };
 
@@ -1656,10 +1856,15 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
           )}
 
           <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
-            <div className="mb-4">
+            <div className="mb-4 flex items-center gap-2">
               <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
                 Event Details
               </span>
+              {event.is_remote && (
+                <span className="neu-border inline-block bg-blue-100 px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-blue-800 border-2 border-blue-300">
+                  🌐 External Event
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -1689,15 +1894,33 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               </TooltipProvider>
             </div>
 
-            {club && (
+            {event.is_remote ? (
               <p
                 className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
               >
-                Organized by:{" "}
-                <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
-                  {club.name}
-                </Link>
+                Hosted by: {event.host_institution}
               </p>
+            ) : (
+              club && (
+                <p
+                  className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
+                >
+                  Organized by:{" "}
+                  <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
+                    {club.name}
+                  </Link>
+                </p>
+              )
+            )}
+
+            {/* Live Scoreboard */}
+            {(event as any).score_data && (
+              <div className="mt-8 z-10 relative">
+                <LiveScoreboardOverlay
+                  eventId={event.id}
+                  initialScoreData={(event as any).score_data}
+                />
+              </div>
             )}
 
             {!club && event.profiles && (
@@ -1756,6 +1979,18 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               />
             </div>
 
+            <div id="ticket-pricing-section" className="mt-6 max-w-2xl space-y-4">
+              <DutchAuctionPanel eventId={event.id} />
+              <FlashSaleBanner eventId={event.id} />
+              <TicketPricingTimeline eventId={event.id} isOrganizer={isOrganizer} />
+              {isOrganizer && (
+                <div className="mt-4 space-y-4">
+                  <FlashSaleControl eventId={event.id} />
+                  <FlashSaleTriggerRules eventId={event.id} />
+                </div>
+              )}
+            </div>
+
             {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
               <div className="mt-6 max-w-md">
                 <GeofencedCheckInButton
@@ -1766,8 +2001,42 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               </div>
             )}
 
+            {user && hasRsvpd && myRsvpId && !isOrganizer && !hasEnded && (
+              <CampusSafetyGeofenceMonitor
+                rsvpId={myRsvpId}
+                eventStart={(event as Record<string, unknown>).start_date as string | null}
+                eventEnd={(event as Record<string, unknown>).end_date as string | null}
+                geofencingEnabled={Boolean((event as Record<string, unknown>).geofencing_enabled)}
+                latitude={
+                  ((event as Record<string, unknown>).latitude as number | null) ??
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
+                    ?.latitude as number | null)
+                }
+                longitude={
+                  ((event as Record<string, unknown>).longitude as number | null) ??
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
+                    ?.longitude as number | null)
+                }
+                radiusMeters={
+                  ((event as Record<string, unknown>).geofence_radius_meters as
+                    number | undefined) ??
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
+                    ?.geofence_radius_meters as number | undefined) ??
+                  500
+                }
+              />
+            )}
+
+            {isOrganizer && Boolean((event as Record<string, unknown>).geofencing_enabled) && (
+              <CampusSafetyGeofenceAlerts eventId={event.id} eventTitle={event.title} />
+            )}
+
             <div className="mt-8 hidden items-center gap-4 md:flex">
-              {hasRsvpd ? (
+              {hasTiersOrSurge ? (
+                <div className="text-sm font-mono text-slate-500 bg-slate-50 border-2 border-black p-3 rounded-lg">
+                  🎟️ Paid Ticketed Event — See Pricing Timeline to buy a ticket
+                </div>
+              ) : hasRsvpd ? (
                 <Button
                   onClick={handleRsvpClick}
                   disabled={toggleRsvp.isPending}
@@ -1788,6 +2057,16 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                         toast.error("Please verify your email to join the waitlist");
                         return;
                       }
+
+                      // --- ISSUE #4249: BLOCK WAITLIST IF ASSET OVERDUE ---
+                      if (hasOverdueAssets) {
+                        toast.error(
+                          "Action Blocked: Please return your overdue photography equipment to join waitlists.",
+                        );
+                        return;
+                      }
+                      // ----------------------------------------------------
+
                       toggleWaitlist.mutate({ isOnWaitlist });
                     }}
                     disabled={toggleWaitlist.isPending}
@@ -1801,90 +2080,101 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                         : "Join Waitlist"}
                   </Button>
                   {isOnWaitlist && (
-                    <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
-                      <p className="font-mono text-sm font-bold text-amber-900">
-                        Priority Score: {waitlistScore?.total_score || "..."}
-                      </p>
-                      <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
-                        Your position is determined by:
-                        <br />
-                        • Time on waitlist
-                        <br />
-                        • Club membership
-                        <br />
-                        • Attendance streak
-                        <br />• Graduation status
-                      </p>
+                    <>
+                      <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
+                        <p className="font-mono text-sm font-bold text-amber-900">
+                          Priority Score: {waitlistScore?.total_score || "..."}
+                        </p>
+                        <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
+                          Your position is determined by:
+                          <br />
+                          • Time on waitlist
+                          <br />
+                          • Club membership
+                          <br />
+                          • Attendance streak
+                          <br />• Graduation status
+                        </p>
 
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
-                          >
-                            View Score Breakdown
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
-                          <DialogHeader>
-                            <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
-                              Priority Score Breakdown
-                            </DialogTitle>
-                            <DialogDescription className="font-mono text-gray-600">
-                              How your waitlist priority is calculated.
-                            </DialogDescription>
-                          </DialogHeader>
-                          {waitlistScore ? (
-                            <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
-                                <span className="font-bold text-blue-600">
-                                  +{waitlistScore.time_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Active club member</span>
-                                <span className="font-bold text-lime-600">
-                                  +{waitlistScore.membership_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Attendance streak</span>
-                                <span className="font-bold text-orange-600">
-                                  +{waitlistScore.streak_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-black pb-2">
-                                <span>Graduating senior</span>
-                                <span className="font-bold text-purple-600">
-                                  +{waitlistScore.senior_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
-                                <span>Total Score</span>
-                                <span>{waitlistScore.total_score}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="p-4 text-center font-mono text-gray-500">
-                              Loading score...
-                            </div>
-                          )}
-                          <DialogFooter className="sm:justify-start">
+                        <Dialog>
+                          <DialogTrigger asChild>
                             <Button
                               variant="outline"
-                              className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
+                              size="sm"
+                              className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
                             >
-                              Close
+                              View Score Breakdown
                             </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
+                            <DialogHeader>
+                              <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
+                                Priority Score Breakdown
+                              </DialogTitle>
+                              <DialogDescription className="font-mono text-gray-600">
+                                How your waitlist priority is calculated.
+                              </DialogDescription>
+                            </DialogHeader>
+                            {waitlistScore ? (
+                              <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
+                                <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                  <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
+                                  <span className="font-bold text-blue-600">
+                                    +{waitlistScore.time_score}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                  <span>Active club member</span>
+                                  <span className="font-bold text-lime-600">
+                                    +{waitlistScore.membership_score}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                  <span>Attendance streak</span>
+                                  <span className="font-bold text-orange-600">
+                                    +{waitlistScore.streak_score}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center border-b-2 border-black pb-2">
+                                  <span>Graduating senior</span>
+                                  <span className="font-bold text-purple-600">
+                                    +{waitlistScore.senior_score}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
+                                  <span>Total Score</span>
+                                  <span>{waitlistScore.total_score}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-4 text-center font-mono text-gray-500">
+                                Loading score...
+                              </div>
+                            )}
+                            <DialogFooter className="sm:justify-start">
+                              <Button
+                                variant="outline"
+                                className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
+                              >
+                                Close
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      {/* Issue #4257: Waitlist Bidding Leaderboard */}
+                      {(event as any)?.is_bidding_enabled && (
+                        <div className="mt-4 w-full">
+                          <WaitlistBiddingLeaderboard
+                            eventId={eventId}
+                            userRsvpId={myRsvp?.status === "waitlisted" ? myRsvp.id : null}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
-              ) : (
+              ) : hasTiersOrSurge ? null : (
                 <div className="flex flex-col gap-1">
                   <Button
                     onClick={handleRsvpClick}
@@ -1894,22 +2184,6 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   >
                     {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
                   </Button>
-                  {captchaEnabled && (
-                    <div className="flex flex-col gap-2">
-                      <span
-                        className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
-                      >
-                        Verification required before RSVP
-                      </span>
-                      <CaptchaWidget
-                        siteKey={captchaSiteKey}
-                        provider={captchaProvider}
-                        onToken={(token) => setCaptchaToken(token)}
-                        onError={() => setCaptchaToken(undefined)}
-                        onExpire={() => setCaptchaToken(undefined)}
-                      />
-                    </div>
-                  )}
                 </div>
               )}
               <span
@@ -1950,15 +2224,25 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
 
               {/* Download Ticket — visible to confirmed attendees of upcoming/ongoing events */}
               {hasRsvpd && !hasEnded && (
-                <Button
-                  onClick={() => downloadTicket(event)}
-                  disabled={isTicketGenerating}
-                  variant="outline"
-                  className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
-                >
-                  <Ticket className="mr-2 h-4 w-4" />
-                  {isTicketGenerating ? "Generating…" : "Download Ticket"}
-                </Button>
+                <>
+                  <Button
+                    onClick={() => downloadTicket(event)}
+                    disabled={isTicketGenerating}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
+                  >
+                    <Ticket className="mr-2 h-4 w-4" />
+                    {isTicketGenerating ? "Generating…" : "Download Ticket"}
+                  </Button>
+                  <Button
+                    onClick={() => setIsTransferDialogOpen(true)}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-rose-600 hover:bg-rose-500 text-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Send className="mr-2 h-4 w-4 text-white" />
+                    Transfer Ticket
+                  </Button>
+                </>
               )}
 
               {isOrganizer && (
@@ -1996,6 +2280,12 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   >
                     Layout Builder
                   </Link>
+                  <Link
+                    to={`/events/${eventId}/floorplan`}
+                    className="neu-border neu-press flex h-12 items-center justify-center bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    Floor Plan
+                  </Link>
                 </>
               )}
 
@@ -2023,6 +2313,69 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   Report Event
                 </Button>
               )}
+
+              {/* Peer-to-Peer Ticket Transfer Dialog */}
+              <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+                <DialogContent className="neu-border border-black bg-cream rounded-none p-6 text-black">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-xl font-bold uppercase text-rose-950 flex items-center gap-2">
+                      <Send className="w-5 h-5 text-rose-950" />
+                      Transfer Event Ticket
+                    </DialogTitle>
+                    <DialogDescription className="font-mono text-xs text-gray-700">
+                      Transfer your ticket to another student. This action is irreversible. The
+                      recipient must have an active account on CampusConnect.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 font-mono text-sm my-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold uppercase text-gray-700">
+                        Recipient Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={transferEmail}
+                        onChange={(e) => setTransferEmail(e.target.value)}
+                        placeholder="e.g. student@university.edu"
+                        className="neu-border bg-white p-2 font-mono text-sm w-full focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="border border-dashed border-red-400 bg-red-50/50 p-3 text-xs text-red-900 space-y-1">
+                      <p className="font-bold uppercase">⚠️ Scalper Prevention Policies:</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        <li>
+                          Only **Paid** tickets can be transferred. Free tickets cannot be
+                          transferred to prevent boarding/hoarding.
+                        </li>
+                        <li>
+                          Your current QR code / ticket PDF will be immediately and permanently
+                          invalidated.
+                        </li>
+                        <li>This transfer is completely free of charge on the platform.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <DialogFooter className="flex gap-2">
+                    <button
+                      onClick={() => setIsTransferDialogOpen(false)}
+                      className="neu-border border-black bg-white text-black hover:bg-gray-50 font-bold uppercase px-4 py-2 font-mono text-xs shadow-[2px_2px_0_0_#000] focus:outline-none"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => transferMutation.mutate()}
+                      disabled={transferMutation.isPending || !transferEmail.trim()}
+                      className="neu-border border-black bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase px-4 py-2 font-mono text-xs shadow-[2px_2px_0_0_#000] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+                    >
+                      {transferMutation.isPending ? "Transferring..." : "Confirm Transfer"}
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               {isCheckedIn && hasEnded && (
                 <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
@@ -2136,6 +2489,11 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
             </div>
 
+            {/* Collaborative Event Soundtrack */}
+            <div className="mt-8">
+              <SongRequestSection eventId={eventId} isOrganizer={isOrganizer} />
+            </div>
+
             {/* Transportation / Carpool Matching (Issue #2877) */}
             <div className="mt-8">
               <CarpoolMatchingSection eventId={eventId} user={user} />
@@ -2145,6 +2503,12 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             <div className="mt-8">
               <EventLiveChat eventId={eventId} user={user} />
             </div>
+            {/* Realtime A/V failover broadcaster (Issue #4298) */}
+            <EventBroadcastFallbackPanel
+              eventId={eventId}
+              isOrganizer={isOrganizer}
+              presenterUserId={user?.id}
+            />
 
             {/* Public Guest List */}
             <div className="mt-8">
@@ -2188,6 +2552,13 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
 
             <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
 
+            <SilentAuctionSection
+              eventId={event.id}
+              eventEndDate={event.end_date}
+              userId={user?.id}
+              isOrganizer={Boolean(isOrganizer)}
+            />
+
             <InteractiveSeatingChart eventId={event.id} user={user} />
 
             {/* Interactive venue map layout for attendees */}
@@ -2199,6 +2570,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 <AttendeeVenueMap
                   nodes={venueMapData.nodes}
                   backgroundImageUrl={venueMapData.map?.background_image_url}
+                  venueId={event.venue_id}
+                  eventId={event.id}
                 />
               </div>
             ) : event.map_layout &&
@@ -2355,6 +2728,15 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 )}
               </div>
             )}
+
+            {/* Event Series Catch-Up Hub */}
+            <EventSeriesCatchUpCard
+              eventId={event.id}
+              eventTitle={event.title}
+              recordingUrl={(event as any).recording_url}
+              materialsUrl={(event as any).materials_url}
+              seriesId={(event as any).series_id}
+            />
 
             {/* Event Feedback (Only if ended and user RSVP'd) */}
             {user &&
@@ -2562,6 +2944,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             </div>
 
             <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
+            {user && <EventCoSponsorshipPortal eventId={event.id} isOrganizer={isOrganizer} />}
             {/* Kanban Board for Organizer */}
             {isOrganizer && (
               <div className="mt-12 border-t-4 border-black pt-10">
@@ -2985,7 +3368,17 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               </span>
             )}
           </div>
-          {hasRsvpd ? (
+          {hasTiersOrSurge ? (
+            <Button
+              onClick={() => {
+                const el = document.getElementById("ticket-pricing-section");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+              variant="primary"
+            >
+              Buy Ticket
+            </Button>
+          ) : hasRsvpd ? (
             <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
               {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
             </Button>
@@ -2996,6 +3389,16 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   toast.error("Please log in to join waitlist");
                   return;
                 }
+
+                // --- ISSUE #4249: BLOCK WAITLIST IF ASSET OVERDUE ---
+                if (hasOverdueAssets) {
+                  toast.error(
+                    "Action Blocked: Please return your overdue photography equipment to join waitlists.",
+                  );
+                  return;
+                }
+                // ----------------------------------------------------
+
                 toggleWaitlist.mutate({ isOnWaitlist });
               }}
               disabled={toggleWaitlist.isPending}
@@ -3030,6 +3433,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               setNeedAccommodations(false);
               setAccommodationsText("");
               setValidationError("");
+              setCaptchaToken(undefined);
+              setAcknowledgeAllergenWarning(false);
             }
             setRsvpDialogOpen(open);
           }}
@@ -3045,6 +3450,34 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {allergenCollision.hasAbsoluteCollision && allergenCollision.warningMessage && (
+                <DietaryAllergenWarning
+                  message={allergenCollision.warningMessage}
+                  acknowledged={acknowledgeAllergenWarning}
+                  onAcknowledgeChange={setAcknowledgeAllergenWarning}
+                  disabled={toggleRsvp.isPending}
+                />
+              )}
+              {requiresHighDemandCaptcha && (
+                <div className="space-y-2 border-2 border-black bg-yellow-100 p-3">
+                  <p className="font-mono text-xs font-bold uppercase">
+                    High-demand event verification
+                  </p>
+                  {captchaConfigured ? (
+                    <CaptchaWidget
+                      siteKey={captchaSiteKey}
+                      provider={captchaProvider}
+                      onToken={(token) => setCaptchaToken(token)}
+                      onError={() => setCaptchaToken(undefined)}
+                      onExpire={() => setCaptchaToken(undefined)}
+                    />
+                  ) : (
+                    <p className="font-mono text-xs text-red-700">
+                      Verification is temporarily unavailable. Please try again later.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <input
                   id="req-accommodations-checkbox"
@@ -3125,6 +3558,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   setNeedAccommodations(false);
                   setAccommodationsText("");
                   setValidationError("");
+                  setCaptchaToken(undefined);
+                  setAcknowledgeAllergenWarning(false);
                   setRsvpDialogOpen(false);
                 }}
                 disabled={toggleRsvp.isPending}
@@ -3135,6 +3570,17 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               <Button
                 variant="primary"
                 onClick={() => {
+                  if (allergenCollision.hasAbsoluteCollision && !acknowledgeAllergenWarning) {
+                    return;
+                  }
+                  if (requiresHighDemandCaptcha && !captchaConfigured) {
+                    setValidationError("High-demand verification is temporarily unavailable.");
+                    return;
+                  }
+                  if (requiresHighDemandCaptcha && !captchaToken) {
+                    setValidationError("Complete the CAPTCHA verification before confirming RSVP.");
+                    return;
+                  }
                   if (needAccommodations) {
                     if (!accommodationsText.trim()) {
                       setValidationError("Accommodation description is required when requested.");
@@ -3153,10 +3599,18 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                     accommodationsRequested: needAccommodations ? accommodationsText : null,
                   });
                 }}
-                disabled={toggleRsvp.isPending}
+                disabled={
+                  toggleRsvp.isPending ||
+                  (requiresHighDemandCaptcha && (!captchaConfigured || !captchaToken)) ||
+                  (allergenCollision.hasAbsoluteCollision && !acknowledgeAllergenWarning)
+                }
                 className="neu-border font-mono text-xs font-bold uppercase"
               >
-                {toggleRsvp.isPending ? "Submitting..." : "Confirm RSVP"}
+                {toggleRsvp.isPending
+                  ? "Submitting..."
+                  : requiresHighDemandCaptcha && !captchaToken
+                    ? "Complete verification"
+                    : "Confirm RSVP"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -3239,6 +3693,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             />
           </div>
         )}
+        <AslAvatarPip eventId={eventId || ""} />
       </SiteShell>
     </>
   );

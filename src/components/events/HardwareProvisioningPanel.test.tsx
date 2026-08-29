@@ -54,11 +54,13 @@ describe("HardwareProvisioningPanel", () => {
     expect(screen.getByText(/Status: active/i)).toBeInTheDocument();
     expect(screen.getByText(/2 VMs Provisioned/i)).toBeInTheDocument();
 
+    // Check buttons
     expect(screen.getByRole("button", { name: /Terminate Resources/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Assign to Checked-In/i })).toBeInTheDocument();
   });
 
   it("renders the provisioning form when no active request exists", () => {
+    // Provide a different event ID so mock returns null
     renderWithClient(<HardwareProvisioningPanel eventId="evt-none" clubId="club-1" />);
 
     expect(screen.getByText(/AWS EC2/i)).toBeInTheDocument();

@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: ReportIssueModal
 // Issue: #2969 - Build an 'Anonymous Incident Reporting' Workflow
---Description: The UI for students to submit anonymous incident reports.
---Includes a CAPTCHA placeholder, character limits, and displays the
---generated Claim Ticket upon successful submission.
+//Description: The UI for students to submit anonymous incident reports.
+//Includes a CAPTCHA placeholder, character limits, and displays the
+//generated Claim Ticket upon successful submission.
 // =============================================================================
 
 import React, { useState } from 'react';

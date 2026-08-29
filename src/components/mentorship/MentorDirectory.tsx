@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: MentorDirectory
 // Issue: #2963 - Build an 'Alumni Mentorship' Matching Module
---Description: The main directory page where students can browse, filter,
-    --and search for alumni mentors.Includes a sidebar for filters and a grid
---of MentorProfileCards.
+//Description: The main directory page where students can browse, filter,
+    //and search for alumni mentors.Includes a sidebar for filters and a grid
+//of MentorProfileCards.
 // =============================================================================
 
 import React, { useState } from 'react';

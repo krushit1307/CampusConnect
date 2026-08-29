@@ -36,6 +36,7 @@ serve(async (req: Request) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const cloudProvider = getCloudProvider();
 
+    // Find all active requests where event_end_time is in the past
     const now = new Date().toISOString();
     const { data: expiredRequests, error: reqError } = await supabaseAdmin
       .from("hardware_provisioning_requests")
@@ -44,6 +45,7 @@ serve(async (req: Request) => {
       .in("status", ["active", "provisioning", "partially_failed"]);
 
     if (reqError) throw reqError;
+
     const results = [];
 
     for (const request of expiredRequests) {
@@ -84,6 +86,7 @@ serve(async (req: Request) => {
         results.push({ id: request.id, status: "failed", error: err.message });
       }
     }
+
     return new Response(JSON.stringify({ success: true, processed: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

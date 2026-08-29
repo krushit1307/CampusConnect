@@ -5,7 +5,7 @@
 //              and pitch deck proposal generator for student organizations.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import type {
   ClubHistoricalReach,
   ValuationModelParams,
@@ -31,8 +31,7 @@ export const STANDARD_PERKS_CATALOG: TierPerk[] = [
   {
     id: "perk-logo-tshirt",
     name: "Logo on Official Event T-Shirts / Merch",
-    description:
-      "Printed sponsor logo on attendee and volunteer shirts (1-year walking impression life).",
+    description: "Printed sponsor logo on attendee and volunteer shirts (1-year walking impression life).",
     category: "branding",
     baseFairMarketValue: 350,
     isIncluded: false,
@@ -68,8 +67,7 @@ export const STANDARD_PERKS_CATALOG: TierPerk[] = [
   {
     id: "perk-dedicated-email",
     name: "Dedicated Newsletter / Email Blast",
-    description:
-      "Solo sponsor spotlight email sent to all active club subscribers (no competing ads).",
+    description: "Solo sponsor spotlight email sent to all active club subscribers (no competing ads).",
     category: "digital",
     baseFairMarketValue: 300,
     isIncluded: false,
@@ -87,8 +85,7 @@ export const STANDARD_PERKS_CATALOG: TierPerk[] = [
   {
     id: "perk-custom-challenge",
     name: "Sponsored API / Track Bounty Challenge",
-    description:
-      "Company-branded contest prize track with direct developer adoption of company APIs.",
+    description: "Company-branded contest prize track with direct developer adoption of company APIs.",
     category: "vip",
     baseFairMarketValue: 750,
     isIncluded: false,
@@ -139,19 +136,19 @@ export function getMockClubHistoricalReach(clubId: string = "club-demo-1"): Club
  */
 export function calculateDynamicSponsorshipTiers(
   reach: ClubHistoricalReach,
-  params: ValuationModelParams = getDefaultValuationParams(),
+  params: ValuationModelParams = getDefaultValuationParams()
 ): SuggestedTierPricing[] {
   const industryMultiplier =
     params.industryType === "tech_software"
       ? 1.2
       : params.industryType === "finance_consulting"
-        ? 1.35
-        : params.industryType === "consumer_retail"
-          ? 0.95
-          : 0.75;
+      ? 1.35
+      : params.industryType === "consumer_retail"
+      ? 0.95
+      : 0.75;
 
   const demographicMultiplier =
-    1.0 + reach.majorDistribution.stem * (params.stemDemographicPremium - 1.0);
+    1.0 + (reach.majorDistribution.stem * (params.stemDemographicPremium - 1.0));
 
   const totalMultiplier =
     industryMultiplier * demographicMultiplier * params.peakRecruitingSeasonMultiplier;
@@ -168,11 +165,8 @@ export function calculateDynamicSponsorshipTiers(
     ...p,
     isIncluded: p.id === "perk-logo-web" || p.id === "perk-dedicated-email",
   }));
-  const bronzePerkSum = bronzePerks
-    .filter((p) => p.isIncluded)
-    .reduce((s, p) => s + p.baseFairMarketValue, 0);
-  const bronzeRaw =
-    (baseAttendanceValue * 0.15 + baseImpressionValue * 0.2 + bronzePerkSum) * totalMultiplier;
+  const bronzePerkSum = bronzePerks.filter((p) => p.isIncluded).reduce((s, p) => s + p.baseFairMarketValue, 0);
+  const bronzeRaw = (baseAttendanceValue * 0.15 + baseImpressionValue * 0.2 + bronzePerkSum) * totalMultiplier;
   const bronzePrice = Math.round(bronzeRaw / 50) * 50;
 
   // Tier 2: Silver (Career engagement)
@@ -184,11 +178,8 @@ export function calculateDynamicSponsorshipTiers(
       p.id === "perk-booth-priority" ||
       p.id === "perk-dedicated-email",
   }));
-  const silverPerkSum = silverPerks
-    .filter((p) => p.isIncluded)
-    .reduce((s, p) => s + p.baseFairMarketValue, 0);
-  const silverRaw =
-    (baseAttendanceValue * 0.4 + baseImpressionValue * 0.45 + silverPerkSum) * totalMultiplier;
+  const silverPerkSum = silverPerks.filter((p) => p.isIncluded).reduce((s, p) => s + p.baseFairMarketValue, 0);
+  const silverRaw = (baseAttendanceValue * 0.4 + baseImpressionValue * 0.45 + silverPerkSum) * totalMultiplier;
   const silverPrice = Math.round(silverRaw / 50) * 50;
 
   // Tier 3: Gold (Full recruiting access)
@@ -202,15 +193,8 @@ export function calculateDynamicSponsorshipTiers(
       p.id === "perk-mentor-access" ||
       p.id === "perk-dedicated-email",
   }));
-  const goldPerkSum = goldPerks
-    .filter((p) => p.isIncluded)
-    .reduce((s, p) => s + p.baseFairMarketValue, 0);
-  const goldRaw =
-    (baseAttendanceValue * 0.75 +
-      baseImpressionValue * 0.75 +
-      baseDigitalValue * 0.5 +
-      goldPerkSum) *
-    totalMultiplier;
+  const goldPerkSum = goldPerks.filter((p) => p.isIncluded).reduce((s, p) => s + p.baseFairMarketValue, 0);
+  const goldRaw = (baseAttendanceValue * 0.75 + baseImpressionValue * 0.75 + baseDigitalValue * 0.5 + goldPerkSum) * totalMultiplier;
   const goldPrice = Math.round(goldRaw / 50) * 50;
 
   // Tier 4: Platinum (Keynote + Primary Branding)
@@ -219,12 +203,7 @@ export function calculateDynamicSponsorshipTiers(
     isIncluded: true,
   }));
   const platinumPerkSum = platinumPerks.reduce((s, p) => s + p.baseFairMarketValue, 0);
-  const platinumRaw =
-    (baseAttendanceValue * 1.0 +
-      baseImpressionValue * 1.0 +
-      baseDigitalValue * 0.9 +
-      platinumPerkSum) *
-    totalMultiplier;
+  const platinumRaw = (baseAttendanceValue * 1.0 + baseImpressionValue * 1.0 + baseDigitalValue * 0.9 + platinumPerkSum) * totalMultiplier;
   const platinumPrice = Math.round(platinumRaw / 50) * 50;
 
   const createTierPricing = (
@@ -232,12 +211,10 @@ export function calculateDynamicSponsorshipTiers(
     tierName: string,
     price: number,
     perks: TierPerk[],
-    weight: number,
+    weight: number
   ): SuggestedTierPricing => {
     const margin = Math.round(price * 0.12);
-    const perkSum = perks
-      .filter((p) => p.isIncluded)
-      .reduce((s, p) => s + p.baseFairMarketValue, 0);
+    const perkSum = perks.filter((p) => p.isIncluded).reduce((s, p) => s + p.baseFairMarketValue, 0);
     const estimatedInteractions = Math.round(reach.avgActualAttendance * weight * 1.2);
     const estimatedImpressions = Math.round(reach.totalAnnualImpressions * weight * 0.8);
 
@@ -256,9 +233,7 @@ export function calculateDynamicSponsorshipTiers(
         estimatedImpressions,
         estimatedDirectInteractions: estimatedInteractions,
         costPerInteraction: Number((price / Math.max(1, estimatedInteractions)).toFixed(2)),
-        costPerQualifiedLead: Number(
-          (price / Math.max(1, reach.totalActiveMembers * weight * 0.6)).toFixed(2),
-        ),
+        costPerQualifiedLead: Number((price / Math.max(1, reach.totalActiveMembers * weight * 0.6)).toFixed(2)),
       },
     };
   };
@@ -278,13 +253,10 @@ export function generateValuationReport(
   clubId: string,
   clubName: string,
   reach: ClubHistoricalReach,
-  params: ValuationModelParams,
+  params: ValuationModelParams
 ): SponsorshipValuationReport {
   const suggestedTiers = calculateDynamicSponsorshipTiers(reach, params);
-  const totalPotentialRevenue = suggestedTiers.reduce(
-    (sum, t) => sum + (t.customPriceOverride || t.recommendedPrice),
-    0,
-  );
+  const totalPotentialRevenue = suggestedTiers.reduce((sum, t) => sum + (t.customPriceOverride || t.recommendedPrice), 0);
 
   return {
     clubId,
@@ -314,15 +286,9 @@ export function exportSponsorshipProposalText(report: SponsorshipValuationReport
   report.suggestedTiers.forEach((tier) => {
     const finalPrice = tier.customPriceOverride || tier.recommendedPrice;
     lines.push(`### ${tier.tierName} - $${finalPrice.toLocaleString()} USD`);
-    lines.push(
-      `- **Estimated Reach**: ${tier.estimatedSponsorROI.estimatedImpressions.toLocaleString()} impressions`,
-    );
-    lines.push(
-      `- **Direct Student Interactions**: ~${tier.estimatedSponsorROI.estimatedDirectInteractions} candidates`,
-    );
-    lines.push(
-      `- **Cost per Direct Interaction**: $${tier.estimatedSponsorROI.costPerInteraction.toFixed(2)}`,
-    );
+    lines.push(`- **Estimated Reach**: ${tier.estimatedSponsorROI.estimatedImpressions.toLocaleString()} impressions`);
+    lines.push(`- **Direct Student Interactions**: ~${tier.estimatedSponsorROI.estimatedDirectInteractions} candidates`);
+    lines.push(`- **Cost per Direct Interaction**: $${tier.estimatedSponsorROI.costPerInteraction.toFixed(2)}`);
     lines.push(`- **Included Package Perks**:`);
     tier.perks
       .filter((p) => p.isIncluded)
@@ -332,9 +298,7 @@ export function exportSponsorshipProposalText(report: SponsorshipValuationReport
     lines.push(`\n`);
   });
 
-  lines.push(
-    `---\n*Pricing algorithmically verified by CampusConnect Dynamic Valuation Engine based on historical attendee engagement and industry talent acquisition standards.*`,
-  );
+  lines.push(`---\n*Pricing algorithmically verified by CampusConnect Dynamic Valuation Engine based on historical attendee engagement and industry talent acquisition standards.*`);
 
   return lines.join("\n");
 }
@@ -344,7 +308,7 @@ export function exportSponsorshipProposalText(report: SponsorshipValuationReport
  */
 export async function saveClubSponsorshipTiers(
   clubId: string,
-  tiers: SuggestedTierPricing[],
+  tiers: SuggestedTierPricing[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const payload = tiers.map((t) => ({

@@ -95,7 +95,10 @@ export default function EventBudgetRoiRoute() {
         </div>
 
         {/* Interactive Calculator Dashboard */}
-        <InteractiveEventRoiCalculator eventId={event?.id} eventTitle={event?.title} />
+        <InteractiveEventRoiCalculator
+          eventId={event?.id}
+          eventTitle={event?.title}
+        />
       </div>
     </SiteShell>
   );
