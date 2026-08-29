@@ -94,7 +94,7 @@ export default function EventDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("title, is_public_showcase")
+        .select("title, is_public_showcase, club_id")
         .eq("id", eventId!)
         .single();
       if (error) throw error;
@@ -535,7 +535,9 @@ export default function EventDashboard() {
           </div>
 
           <div className="mb-8">
-            {event && <HardwareProvisioningPanel eventId={eventId!} clubId={event.club_id} />}
+            {eventData && (
+              <HardwareProvisioningPanel eventId={eventId!} clubId={eventData.club_id} />
+            )}
           </div>
 
           <div className="mb-8">
@@ -607,11 +609,6 @@ export default function EventDashboard() {
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             {/* Area Chart Card */}
             <div className="neu-border bg-white p-4 transition-transform hover:-translate-y-1">
-              <ReactECharts
-                option={areaChartOption}
-                style={{ height: "400px", width: "100%" }}
-                opts={{ renderer: "svg" }}
-              />
               <Suspense fallback={<ChartSkeleton height="400px" />}>
                 <EChartsWrapper
                   option={areaChartOption}
@@ -645,11 +642,6 @@ export default function EventDashboard() {
                   Year
                 </button>
               </div>
-              <ReactECharts
-                option={pieChartOption}
-                style={{ height: "350px", width: "100%" }}
-                opts={{ renderer: "svg" }}
-              />
               <Suspense fallback={<ChartSkeleton height="350px" />}>
                 <EChartsWrapper
                   option={pieChartOption}
