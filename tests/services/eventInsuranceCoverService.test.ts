@@ -333,6 +333,26 @@ describe("per-claim limits and aggregate erosion", () => {
     ).toBe(10 * MILLION);
   });
 
+  test("an exhausted aggregate is a gap even for an activity nobody set a minimum for", () => {
+    const bare = build();
+    bare.recordClaim({
+      claimId: "clm-05",
+      policyId: "pol-2829",
+      incurredAt: new Date("2028-11-10T00:00:00.000Z"),
+      amountIncurredPence: 10 * MILLION,
+    });
+
+    const assessment = bare.assessEvent(
+      ball([activity({ activityId: "act-bar", classId: "cls-bar" })]),
+    );
+    const bar = find(assessment, "act-bar");
+
+    expect(bar.requiredCoverPence).toBe(0);
+    expect(bar.status).toBe("AGGREGATE_SHORTFALL");
+    expect(bar.remedy.detail).toContain("exhausted the policy aggregate");
+    expect(assessment.adequate).toBe(false);
+  });
+
   test("claims beyond the aggregate leave nothing rather than a negative remainder", () => {
     service.recordClaim({
       claimId: "clm-04",
@@ -412,6 +432,65 @@ describe("layered venue and third-party requirements", () => {
     expect(bar.requiredCoverPence).toBe(4 * MILLION);
     expect(bar.bindingRequirement).toBe("Local authority licence condition");
     expect(bar.status).toBe("COVERED");
+  });
+
+  test("a requirement withdrawn before the event no longer binds", () => {
+    service.addCoverRequirement({
+      requirementId: "req-old",
+      source: "Superseded hire agreement",
+      classId: null,
+      venueId: "ven-great-hall",
+      minimumCoverPence: 10 * MILLION,
+      imposedFrom: new Date("2026-09-01T00:00:00.000Z"),
+      imposedTo: new Date("2028-09-01T00:00:00.000Z"),
+    });
+
+    const bar = find(
+      service.assessEvent(ball([activity({ activityId: "act-bar", classId: "cls-bar" })])),
+      "act-bar",
+    );
+
+    expect(bar.requiredCoverPence).toBe(0);
+    expect(bar.status).toBe("COVERED");
+  });
+
+  test("a requirement that starts after the event does not bind it either", () => {
+    service.addCoverRequirement({
+      requirementId: "req-future",
+      source: "Hire agreement from September",
+      classId: null,
+      venueId: "ven-great-hall",
+      minimumCoverPence: 10 * MILLION,
+      imposedFrom: new Date("2029-09-01T00:00:00.000Z"),
+      imposedTo: null,
+    });
+
+    expect(
+      find(
+        service.assessEvent(ball([activity({ activityId: "act-bar", classId: "cls-bar" })])),
+        "act-bar",
+      ).requiredCoverPence,
+    ).toBe(0);
+  });
+
+  test("a requirement in force on the event date binds it", () => {
+    service.addCoverRequirement({
+      requirementId: "req-current",
+      source: "Current hire agreement",
+      classId: null,
+      venueId: "ven-great-hall",
+      minimumCoverPence: 10 * MILLION,
+      imposedFrom: new Date("2028-09-01T00:00:00.000Z"),
+      imposedTo: new Date("2029-09-01T00:00:00.000Z"),
+    });
+
+    const bar = find(
+      service.assessEvent(ball([activity({ activityId: "act-bar", classId: "cls-bar" })])),
+      "act-bar",
+    );
+
+    expect(bar.requiredCoverPence).toBe(10 * MILLION);
+    expect(bar.bindingRequirement).toBe("Current hire agreement");
   });
 
   test("a requirement attached to another venue does not follow the event", () => {

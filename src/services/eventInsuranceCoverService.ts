@@ -134,6 +134,14 @@ export interface CoverRequirement {
   /** Null applies it at every venue. */
   venueId: string | null;
   minimumCoverPence: number;
+  /**
+   * When the requirement was imposed and when it stopped applying, half-open.
+   * Null at either end means it has always applied, or applies indefinitely. A
+   * hire agreement withdrawn last summer must not raise the figure for an event
+   * next week, and one starting in September must not raise it for one in June.
+   */
+  imposedFrom?: Date | null;
+  imposedTo?: Date | null;
 }
 
 export interface EventActivity {
@@ -309,6 +317,7 @@ export class EventInsuranceCoverService {
   requiredCoverFor(
     activity: EventActivity,
     venueId: string,
+    at: Date,
   ): { amountPence: number; source: string } {
     let amountPence = activity.statedRequirementPence ?? 0;
     let source = activity.statedRequirementPence
@@ -318,7 +327,12 @@ export class EventInsuranceCoverService {
     for (const requirement of this.requirements) {
       const classApplies = requirement.classId === null || requirement.classId === activity.classId;
       const venueApplies = requirement.venueId === null || requirement.venueId === venueId;
-      if (!classApplies || !venueApplies) continue;
+      // Every other predicate here is evaluated as at the event date, and a
+      // requirement's own validity window is no exception.
+      const inForceThen =
+        (!requirement.imposedFrom || at.getTime() >= requirement.imposedFrom.getTime()) &&
+        (!requirement.imposedTo || at.getTime() < requirement.imposedTo.getTime());
+      if (!classApplies || !venueApplies || !inForceThen) continue;
       if (requirement.minimumCoverPence > amountPence) {
         amountPence = requirement.minimumCoverPence;
         source = requirement.source;
@@ -402,6 +416,7 @@ export class EventInsuranceCoverService {
     const { amountPence: requiredCoverPence, source: bindingRequirement } = this.requiredCoverFor(
       activity,
       event.venueId,
+      event.eventDate,
     );
 
     const contractor = this.contractorCoverFor(activity, event.eventDate, requiredCoverPence);
@@ -543,14 +558,20 @@ export class EventInsuranceCoverService {
 
     // The aggregate is checked separately from the per-claim limit because the
     // remedies differ: one is a conversation about this event, the other is a
-    // conversation about the policy year.
-    if (aggregateRemainingPence < requiredCoverPence) {
+    // conversation about the policy year. An aggregate eroded to nothing is a
+    // gap whatever the required figure says — otherwise an activity nobody has
+    // set a minimum for comes back COVERED while also reporting that no cover
+    // is available, which is the exact failure this check exists to catch.
+    if (aggregateRemainingPence < requiredCoverPence || aggregateRemainingPence === 0) {
       return finish(
         "AGGREGATE_SHORTFALL",
         Math.min(perClaimPence, aggregateRemainingPence),
         {
           kind: "INCREASE_LIMIT",
-          detail: "The policy aggregate has been eroded below the requirement by earlier claims",
+          detail:
+            aggregateRemainingPence === 0
+              ? "Earlier claims have exhausted the policy aggregate for this policy year"
+              : "The policy aggregate has been eroded below the requirement by earlier claims",
           costPence: null,
         },
         `Aggregate remaining ${aggregateRemainingPence} pence against a requirement of ${requiredCoverPence}`,

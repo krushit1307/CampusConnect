@@ -152,7 +152,11 @@ CREATE TABLE IF NOT EXISTS public.event_insured_activities (
   contractor_id UUID,
   stated_requirement_pence BIGINT CHECK (stated_requirement_pence IS NULL OR stated_requirement_pence > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (event_id, activity_class_id, contractor_id)
+  -- NULLS NOT DISTINCT because an in-house activity has no contractor, and the
+  -- default treatment would let the same activity be recorded against an event
+  -- twice — which doubles its determination, its entry in the blocking list and
+  -- its contribution to the shortfall.
+  UNIQUE NULLS NOT DISTINCT (event_id, activity_class_id, contractor_id)
 );
 
 CREATE INDEX IF NOT EXISTS event_insured_activities_event_idx
