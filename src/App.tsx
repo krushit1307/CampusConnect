@@ -121,6 +121,7 @@ const DashboardCalendar = lazy(() => import("./routes/dashboard.calendar"));
 const GlobalCalendar = lazy(() => import("./routes/calendar"));
 const Feed = lazy(() => import("./routes/feed"));
 const EventsMapPage = lazy(() => import("./routes/events.map"));
+const AcousticWayfindingRoute = lazy(() => import("./routes/events.acoustic-wayfinding"));
 const InteractiveCampusMap = lazy(() => import("./routes/events.interactive-map"));
 const EventKiosk = lazy(() => import("./routes/events.$eventId.kiosk"));
 const MapPage = lazy(() => import("./routes/map"));
@@ -508,6 +509,7 @@ const router = createBrowserRouter(
               />
 
               <Route path="/events/map" element={<EventsMapPage />} />
+              <Route path="/events/acoustic-wayfinding" element={<AcousticWayfindingRoute />} />
 
               {/* Maps */}
               <Route path="/map" element={<MapPage />} />
@@ -601,15 +603,14 @@ const router = createBrowserRouter(
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Route>
-              {/* Campus Shuttle Tracker */}
-              <Route path="/shuttle-tracker" element={<CampusShuttleTracker />} />
-              {/* Course Reviews */}
-              <Route path="/course-reviews" element={<CourseReviews />} />
-              {/* Campus Parking Spot Finder */}
-              <Route path="/parking" element={<CampusParkingSpotFinder />} />
-              {/* Library Book Finder */}
-              <Route path="/library" element={<LibraryBookFinder />} />
-
+            {/* Campus Shuttle Tracker */}
+            <Route path="/shuttle-tracker" element={<CampusShuttleTracker />} />
+            {/* Course Reviews */}
+            <Route path="/course-reviews" element={<CourseReviews />} />
+            {/* Campus Parking Spot Finder */}
+            <Route path="/parking" element={<CampusParkingSpotFinder />} />
+            {/* Library Book Finder */}
+            <Route path="/library" element={<LibraryBookFinder />} />
 
             <Route path="/shuttle" element={<ShuttleTrackerRoute />} />
           </Route>
