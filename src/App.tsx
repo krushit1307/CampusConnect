@@ -129,6 +129,7 @@ const GlobalCalendar = lazy(() => import("./routes/calendar"));
 const Feed = lazy(() => import("./routes/feed"));
 const EventsMapPage = lazy(() => import("./routes/events.map"));
 const AcousticWayfindingRoute = lazy(() => import("./routes/events.acoustic-wayfinding"));
+const VipTransportRoute = lazy(() => import("./routes/events.vip-transport"));
 const InteractiveCampusMap = lazy(() => import("./routes/events.interactive-map"));
 const EventKiosk = lazy(() => import("./routes/events.$eventId.kiosk"));
 const MapPage = lazy(() => import("./routes/map"));
@@ -545,6 +546,7 @@ const router = createBrowserRouter(
               <Route path="/settings/data" element={<SettingsData />} />
               <Route path="/clubs/equity-swap" element={<EquitySwapRoute />} />
               <Route path="/privacy/voice-redaction" element={<VoiceRedactionRoute />} />
+              <Route path="/events/vip-transport" element={<VipTransportRoute />} />
 
               {/* Facility */}
               <Route path="/facility-dashboard" element={<FacilityDashboard />} />
