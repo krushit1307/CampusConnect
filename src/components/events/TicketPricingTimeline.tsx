@@ -20,18 +20,21 @@ interface TicketTier {
   sold_count?: number; // fetched separately
 }
 
-export function TicketPricingTimeline({
-  eventId,
-  isOrganizer,
-}: {
+interface TicketPricingTimelineProps {
   eventId: string;
   isOrganizer?: boolean;
-}) {
+}
+
+export function TicketPricingTimeline({ eventId, isOrganizer }: TicketPricingTimelineProps) {
   const [tiers, setTiers] = useState<TicketTier[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [preferredCurrency, setPreferredCurrency] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+
+  // Surge Pricing State
+  const [surgeActive, setSurgeActive] = useState(false);
+  const [surgeMultiplier, setSurgeMultiplier] = useState(1.0);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +106,44 @@ export function TicketPricingTimeline({
     fetchTiers();
   }, [eventId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSurgeStatus = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL || "http://localhost:54321"}/functions/v1/check-surge-status?eventId=${eventId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          },
+        );
+        if (response.ok) {
+          const result = await response.json();
+          if (!cancelled) {
+            setSurgeActive(result.isSurgeActive);
+            setSurgeMultiplier(result.multiplier);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch surge status", err);
+      }
+    };
+
+    fetchSurgeStatus();
+    // Poll every 15 seconds
+    const interval = setInterval(fetchSurgeStatus, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [eventId]);
+
   const handlePurchase = async () => {
     setPurchasing(true);
     try {
@@ -158,6 +199,10 @@ export function TicketPricingTimeline({
   const nextTier =
     activeIndex !== -1 && activeIndex + 1 < tiers.length ? tiers[activeIndex + 1] : null;
 
+  // Apply surge pricing to active tier display
+  const displayPrice = activeTier ? Math.round(activeTier.price * surgeMultiplier) : 0;
+  const isSurging = surgeActive && surgeMultiplier > 1.0;
+
   return (
     <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] relative overflow-hidden">
       <div className="flex items-center gap-2 mb-6">
@@ -167,11 +212,18 @@ export function TicketPricingTimeline({
         </h2>
       </div>
 
+      {isSurging && (
+        <div className="bg-yellow-400 border-2 border-black p-4 mb-6 flex items-center gap-3 font-mono text-sm animate-pulse shadow-[2px_2px_0_0_#000]">
+          <span className="text-xl">🚀</span>
+          <strong>HIGH DEMAND:</strong> Prices have temporarily surged. Secure your ticket now!
+        </div>
+      )}
+
       {activeTier && activeTier.end_date && (
         <div className="bg-peach/20 border-2 border-black p-3 mb-6 flex items-center gap-3 font-mono text-sm">
           <Clock className="w-5 h-5 text-red-500 animate-pulse" />
           <span>
-            🔥 <strong>{activeTier.name}</strong> ends in{" "}
+            ⏳ <strong>{activeTier.name}</strong> ends in{" "}
             {formatDistanceToNow(new Date(activeTier.end_date))}!
           </span>
           {nextTier && (
@@ -190,11 +242,16 @@ export function TicketPricingTimeline({
           {tiers.map((tier, idx) => {
             const state = getTierState(tier);
             const isCurrent = idx === activeIndex;
+            const currentPriceDisplay = isCurrent
+              ? Math.round(tier.price * surgeMultiplier)
+              : tier.price;
 
             return (
               <div key={tier.id} className="flex flex-col items-center flex-1">
-                <div className="text-lg font-black font-display mb-2">
-                  ${(tier.price / 100).toFixed(2)} USD
+                <div
+                  className={`text-lg font-black font-display mb-2 ${isCurrent && isSurging ? "text-red-600" : ""}`}
+                >
+                  ${(currentPriceDisplay / 100).toFixed(2)} USD
                 </div>
 
                 {/* Node */}
@@ -204,7 +261,9 @@ export function TicketPricingTimeline({
                     state === "ended" || state === "sold_out"
                       ? "bg-black"
                       : isCurrent
-                        ? "bg-lime scale-125"
+                        ? isSurging
+                          ? "bg-yellow-400 scale-125 animate-bounce"
+                          : "bg-lime scale-125"
                         : "bg-white"
                   }`}
                 >
@@ -238,10 +297,10 @@ export function TicketPricingTimeline({
         <div>
           {activeTier ? (
             <p className="font-mono text-sm text-black/70">
-              Current Tier: <strong>{activeTier.name}</strong> at $
-              {(activeTier.price / 100).toFixed(2)} USD
+              Current Tier: <strong>{activeTier.name}</strong> at ${(displayPrice / 100).toFixed(2)}{" "}
+              USD
               <CurrencyEstimate
-                amountUsd={activeTier.price / 100}
+                amountUsd={displayPrice / 100}
                 preferredCurrency={preferredCurrency}
               />
               {activeTier.capacity !== null && (
@@ -266,7 +325,7 @@ export function TicketPricingTimeline({
           {purchasing
             ? "Processing..."
             : activeTier
-              ? `Buy Ticket for $${(activeTier.price / 100).toFixed(2)} USD`
+              ? `Buy Ticket for $${(displayPrice / 100).toFixed(2)} USD`
               : "Unavailable"}
         </Button>
       </div>
