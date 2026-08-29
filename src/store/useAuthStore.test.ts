@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll } from "vitest";
 import { server } from "@/mocks/server";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse } from "vitest";
 import { useAuthStore } from "./useAuthStore";
 import { mockUser } from "@/mocks/handlers";
 

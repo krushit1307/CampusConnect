@@ -664,6 +664,23 @@ export interface EmbeddingVector {
 // CORE ENGINE CLASS
 // ============================================================================
 
+/**
+ * Configuration interface for knowledge graph
+ */
+export interface KGConfig {
+  enableInference: boolean;
+  enableEmbeddings: boolean;
+  enableAnalytics: boolean;
+  enableCaching: boolean;
+  maxEntities: number;
+  maxRelationships: number;
+  inferenceThreshold: number;
+  embeddingDimension: number;
+  similarityThreshold: number;
+  cacheTTL: number;
+  maintenanceInterval: number;
+}
+
 export class CampusKnowledgeGraphEngine {
   // Core graph structures
   private entities: Map<string, Entity> = new Map();
@@ -690,22 +707,7 @@ export class CampusKnowledgeGraphEngine {
   // Event listeners
   private eventListeners: Map<string, Function[]> = new Map();
 
-  /**
-   * Configuration interface for knowledge graph
-   */
-  interface KGConfig {
-    enableInference: boolean;
-    enableEmbeddings: boolean;
-    enableAnalytics: boolean;
-    enableCaching: boolean;
-    maxEntities: number;
-    maxRelationships: number;
-    inferenceThreshold: number;
-    embeddingDimension: number;
-    similarityThreshold: number;
-    cacheTTL: number;
-    maintenanceInterval: number;
-  }
+
 
   constructor(config: Partial<KGConfig> = {}) {
     this.config = {

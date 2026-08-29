@@ -1,8 +1,8 @@
 // =============================================================================
 // Page: CheckReportStatus
---Issue: #2969 - Build an 'Anonymous Incident Reporting' Workflow
---Description: Public page allowing users to check the status of their
---anonymous report using their Claim Ticket.Does not require authentication.
+// Issue: #2969 - Build an 'Anonymous Incident Reporting' Workflow
+// Description: Public page allowing users to check the status of their
+// anonymous report using their Claim Ticket.Does not require authentication.
 // =============================================================================
 
 import React, { useState } from 'react';

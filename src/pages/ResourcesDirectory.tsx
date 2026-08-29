@@ -1,9 +1,9 @@
 // =============================================================================
 // Page: ResourcesDirectory
---Issue: #3562 - Build an 'Interactive Campus "Safe Space" Directory'
---Description: The main route('/resources') containing the Safe Space Map
---and category filters.Integrates the Quick Escape button for digital safety.
--- =============================================================================
+// Issue: #3562 - Build an 'Interactive Campus "Safe Space" Directory'
+// Description: The main route('/resources') containing the Safe Space Map
+// and category filters.Integrates the Quick Escape button for digital safety.
+// =============================================================================
 
 import React from 'react';
 import { useCampusResources, ResourceCategory } from '../hooks/useCampusResources';

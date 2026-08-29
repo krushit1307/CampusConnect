@@ -15,10 +15,23 @@ import { EventPodcastPanel } from "@/components/audio/EventPodcastPanel";
 import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPredictionCard";
 import { EventPollsExportSection } from "@/components/polls/EventPollsExportSection";
 import { HardwareProvisioningPanel } from "@/components/events/HardwareProvisioningPanel";
+import { ResourceRequestWidget } from "@/components/ResourceRequestWidget";
+import { DietaryForecastPanel } from "@/components/events/DietaryForecastPanel";
 
 import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroadcast";
+import { EventFeedbackLlmSummaryCard } from "@/components/events/EventFeedbackLlmSummaryCard";
+import { EventWeatherWarningBanner } from "@/components/events/EventWeatherWarningBanner";
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
+import { VIPSeatingDashboard } from "@/components/events/VIPSeatingDashboard";
+import { FlashSaleTriggerRules } from "@/components/events/FlashSaleTriggerRules";
 import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
+import { VendorRfpManager } from "@/components/vendors/VendorRfpManager";
+import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
+import { MissingPhotoIncentiveWidget } from "@/components/events/MissingPhotoIncentiveWidget";
+import { MissingPhotoChaserTaskCard } from "@/components/events/MissingPhotoChaserTaskCard";
+import { dispatchPhotoChaserToTaskSystem } from "@/services/missingPhotoTaskRbacService";
+import { EventLayoutHeatmapAnalyzer } from "@/components/events/EventLayoutHeatmapAnalyzer";
+import { EarlyBirdSecretUrlManager } from "@/components/events/EarlyBirdSecretUrlManager";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -94,7 +107,7 @@ export default function EventDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("title, is_public_showcase")
+        .select("title, is_public_showcase, club_id, cover_image_url")
         .eq("id", eventId!)
         .single();
       if (error) throw error;
@@ -406,6 +419,47 @@ export default function EventDashboard() {
             <h1 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               {eventData?.title ? `${eventData.title} Analytics` : "Event Analytics"}
             </h1>
+
+            <div className="mt-4">
+              <EventWeatherWarningBanner
+                eventId={eventId!}
+                eventTitle={eventData?.title || "Outdoor Event"}
+              />
+            </div>
+            <div className="mt-4">
+              <EventLayoutHeatmapAnalyzer eventId={eventId!} />
+            </div>
+            <div className="mt-4">
+              <MissingPhotoIncentiveWidget
+                eventId={eventId!}
+                eventTitle={eventData?.title || "Event"}
+                hasPhoto={!!eventData?.cover_image_url}
+                onPhotoUploaded={() => refetchEventData()}
+              />
+            </div>
+            {!eventData?.cover_image_url && (
+              <div className="mt-4">
+                <MissingPhotoChaserTaskCard
+                  task={dispatchPhotoChaserToTaskSystem(
+                    eventId!,
+                    eventData?.title || "Campus Event",
+                    ["media_lead", "marketing_chair", "event_organizer"],
+                  )}
+                  userRole="event_organizer"
+                  userId="org-1"
+                  onTaskClaimed={() => refetchEventData()}
+                />
+              </div>
+            )}
+
+            <div className="mt-4">
+              <EarlyBirdSecretUrlManager
+                eventId={eventId!}
+                eventTitle={eventData?.title || "Campus Event"}
+                isOrganizer={true}
+              />
+            </div>
+
             <div className="flex flex-wrap gap-3 items-center mt-4 sm:mt-0">
               {/* Public Showcase Toggle */}
               <label className="flex items-center gap-2 font-mono text-xs font-bold uppercase cursor-pointer select-none bg-blue-50 dark:bg-blue-950/20 border-2 border-black dark:border-white p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors">
@@ -451,6 +505,13 @@ export default function EventDashboard() {
               >
                 Duplicate Event
               </button>
+
+              <button
+                onClick={() => navigate(`/events/${eventId}/scoreboard`)}
+                className="neu-border neu-press bg-blue-400 text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform whitespace-nowrap"
+              >
+                Scoreboard Admin
+              </button>
             </div>
           </div>
 
@@ -486,11 +547,26 @@ export default function EventDashboard() {
               )}
             </div>
           </div>
+
+          {/* Resource Request Widget */}
+          <ResourceRequestWidget eventId={eventId!} />
+
+          {/* Dietary Yield Forecast & Optimizer */}
+          <div className="mb-8">
+            <DietaryForecastPanel eventId={eventId!} />
+          </div>
           <div className="mb-8 border-2 border-black bg-yellow-100 p-5 shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center gap-2">
               <Star size={20} />
 
               <h2 className="font-display text-xl font-black uppercase">Post-Event Feedback</h2>
+            </div>
+
+            <div className="mt-4">
+              <EventFeedbackLlmSummaryCard
+                eventId={eventId!}
+                responseCount={feedbackSummary?.response_count ?? 0}
+              />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -536,6 +612,9 @@ export default function EventDashboard() {
 
           <div className="mb-8">
             {event && <HardwareProvisioningPanel eventId={eventId!} clubId={event.club_id} />}
+            {eventData && (
+              <HardwareProvisioningPanel eventId={eventId!} clubId={eventData.club_id} />
+            )}
           </div>
 
           <div className="mb-8">
@@ -601,17 +680,16 @@ export default function EventDashboard() {
           </div>
 
           <div className="mb-8">
+            <EventBroadcastFallbackPanel eventId={eventId!} isOrganizer />
+          </div>
+
+          <div className="mb-8">
             <EventAnnouncerBroadcast eventId={eventId!} />
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             {/* Area Chart Card */}
             <div className="neu-border bg-white p-4 transition-transform hover:-translate-y-1">
-              <ReactECharts
-                option={areaChartOption}
-                style={{ height: "400px", width: "100%" }}
-                opts={{ renderer: "svg" }}
-              />
               <Suspense fallback={<ChartSkeleton height="400px" />}>
                 <EChartsWrapper
                   option={areaChartOption}
@@ -645,11 +723,6 @@ export default function EventDashboard() {
                   Year
                 </button>
               </div>
-              <ReactECharts
-                option={pieChartOption}
-                style={{ height: "350px", width: "100%" }}
-                opts={{ renderer: "svg" }}
-              />
               <Suspense fallback={<ChartSkeleton height="350px" />}>
                 <EChartsWrapper
                   option={pieChartOption}
@@ -662,6 +735,15 @@ export default function EventDashboard() {
 
           <div className="mb-8 border-2 border-black bg-white p-5 shadow-[4px_4px_0_0_#000]">
             <ManageTicketTiers eventId={eventId!} />
+          </div>
+
+          <div className="mb-8">
+            <VIPSeatingDashboard eventId={eventId!} />
+            <FlashSaleTriggerRules eventId={eventId!} />
+          </div>
+
+          <div className="mb-8">
+            <VendorRfpManager eventId={eventId!} />
           </div>
 
           <EventFinancesSection eventId={eventId!} />

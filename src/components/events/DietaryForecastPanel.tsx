@@ -1,12 +1,13 @@
 // src/components/events/DietaryForecastPanel.tsx
 // -----------------------------------------------------------------------------
 // Issue: #3931 — Implement 'Dynamic Dietary Restriction Forecasting'
+// Issue: #4220 — Dynamic "Dietary Yield" Optimizer
 // -----------------------------------------------------------------------------
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Utensils, Loader2, AlertCircle, RefreshCw,
-  TrendingUp, Users,
+  TrendingUp, Users, FileSpreadsheet,
 } from "lucide-react";
 import { useDietaryForecast } from "@/hooks/useDietaryForecast";
 import {
@@ -14,6 +15,9 @@ import {
   totalForecastedMeals, isHighConfidence,
   type DietaryForecast,
 } from "@/lib/dietaryForecast";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import { CatererExportModal } from "./CatererExportModal";
 
 export interface DietaryForecastPanelProps {
   eventId: string;
@@ -75,6 +79,165 @@ function ForecastContent({
   const confColor = confidenceColor(forecast);
   const highConf = isHighConfidence(forecast);
 
+  // State for Caterer Export Modal
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  // States for Yield Optimizer constraints
+  const [constraints, setConstraints] = useState<Record<string, number>>({});
+  const [editingConstraints, setEditingConstraints] = useState<Record<string, string>>({});
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [assignedResult, setAssignedResult] = useState<{ tag: string; count: number; names: string[] } | null>(null);
+  
+  // States for IoT Temperature logging
+  const [contract, setContract] = useState<CatererContract | null>(null);
+  const [tempLogs, setTempLogs] = useState<CatererTempLog[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const loadCatererData = useCallback(async () => {
+    const c = await CatererTempLoggingService.fetchContractForEvent(forecast.event_id);
+    setContract(c);
+    if (c) {
+      const logs = await CatererTempLoggingService.fetchTempLogs(c.id);
+      setTempLogs(logs);
+    }
+  }, [forecast.event_id]);
+
+  useEffect(() => {
+    void loadCatererData();
+  }, [loadCatererData]);
+
+  useEffect(() => {
+    if (!contract) return;
+    const channel = supabase
+      .channel(`caterer-realtime-${contract.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "event_caterer_contracts", filter: `id=eq.${contract.id}` },
+        () => { void loadCatererData(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "caterer_iot_temp_logs", filter: `contract_id=eq.${contract.id}` },
+        () => { void loadCatererData(); }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [contract, loadCatererData, supabase]);
+
+  const handleSimulateSafeUpload = async () => {
+    if (!contract) return;
+    setUploading(true);
+    const mockSafeReadings = [
+      { recorded_at: new Date(Date.now() - 4 * 3600000).toISOString(), temperature_fahrenheit: 38.2 },
+      { recorded_at: new Date(Date.now() - 3 * 3600000).toISOString(), temperature_fahrenheit: 39.5 },
+      { recorded_at: new Date(Date.now() - 2 * 3600000).toISOString(), temperature_fahrenheit: 37.8 },
+      { recorded_at: new Date(Date.now() - 1 * 3600000).toISOString(), temperature_fahrenheit: 38.0 }
+    ];
+    const res = await CatererTempLoggingService.uploadTempLogs(contract.id, mockSafeReadings);
+    setUploading(false);
+    if (res.success) {
+      toast.success(res.message || "Safe logs uploaded successfully.");
+      void loadCatererData();
+    } else {
+      toast.error(res.error || "Failed to upload safe logs.");
+    }
+  };
+
+  const handleSimulateDangerUpload = async () => {
+    if (!contract) return;
+    setUploading(true);
+    const mockDangerReadings = [
+      { recorded_at: new Date(Date.now() - 4 * 3600000).toISOString(), temperature_fahrenheit: 38.0 },
+      { recorded_at: new Date(Date.now() - 3 * 3600000).toISOString(), temperature_fahrenheit: 42.5 },
+      { recorded_at: new Date(Date.now() - 2 * 3600000).toISOString(), temperature_fahrenheit: 43.1 },
+      { recorded_at: new Date(Date.now() - 1 * 3600000).toISOString(), temperature_fahrenheit: 41.8 }
+    ];
+    const res = await CatererTempLoggingService.uploadTempLogs(contract.id, mockDangerReadings);
+    setUploading(false);
+    if (res.success) {
+      if (res.shipment_status === 'CONDEMNED') {
+        toast.error("ALERT: Food shipment condemned! FDA Danger Zone exceeded. Stripe payment blocked.");
+      } else {
+        toast.success(res.message);
+      }
+      void loadCatererData();
+    } else {
+      toast.error(res.error || "Failed to upload danger logs.");
+    }
+  };
+  
+  const supabase = useMemo(() => createClient(), []);
+
+  const loadConstraints = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("event_dietary_constraints")
+        .select("dietary_tag, minimum_order_quantity")
+        .eq("event_id", forecast.event_id);
+      if (error) throw error;
+      const mapping: Record<string, number> = {};
+      (data || []).forEach((row) => {
+        mapping[row.dietary_tag.toLowerCase()] = row.minimum_order_quantity;
+      });
+      setConstraints(mapping);
+    } catch (err) {
+      console.error("Failed to load dietary constraints", err);
+    }
+  }, [forecast.event_id, supabase]);
+
+  useEffect(() => {
+    void loadConstraints();
+  }, [loadConstraints]);
+
+  const handleSaveConstraint = async (tag: string) => {
+    const tagLower = tag.toLowerCase();
+    const rawVal = editingConstraints[tagLower] ?? "";
+    const val = parseInt(rawVal, 10);
+    if (isNaN(val) || val < 0) {
+      toast.error("Please enter a valid non-negative number.");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("event_dietary_constraints")
+        .upsert({
+          event_id: forecast.event_id,
+          dietary_tag: tagLower,
+          minimum_order_quantity: val
+        });
+      if (error) throw error;
+      setConstraints((prev) => ({ ...prev, [tagLower]: val }));
+      toast.success(`Minimum order of ${val} set for ${tag}.`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save constraint.");
+    }
+  };
+
+  const handleOptimizeYield = async (tag: string, excessCount: number) => {
+    setAssigning(tag);
+    setAssignedResult(null);
+    try {
+      const { data, error } = await supabase.rpc("assign_excess_dietary_meals", {
+        p_event_id: forecast.event_id,
+        p_dietary_tag: tag,
+        p_excess_count: excessCount
+      });
+      if (error) throw error;
+      const names = (data || []).map((row: any) => row.name);
+      setAssignedResult({ tag, count: names.length, names });
+      toast.success(`Optimized! Assigned ${names.length} excess ${tag} meals.`);
+      onRefresh(); // Refresh the main forecast query
+      void loadConstraints(); // Reload constraints
+    } catch (err: any) {
+      toast.error(err.message || "Failed to optimize dietary yield.");
+    } finally {
+      setAssigning(null);
+    }
+  };
+
   return (
     <div className="neu-border bg-white p-6 space-y-4"
          data-testid="dietary-forecast-panel">
@@ -95,6 +258,12 @@ function ForecastContent({
                 data-testid="dietary-forecast-confidence">
             {confLabel} confidence
           </span>
+          <button type="button" onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-1 border-2 border-black bg-amber-400 text-black px-2 py-1 font-mono text-xs font-bold uppercase hover:bg-amber-500 shadow-[2px_2px_0_0_#000] cursor-pointer"
+            data-testid="open-caterer-export-modal-button">
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            Caterer Export
+          </button>
           <button type="button" onClick={() => void onRefresh()}
             className="flex items-center gap-1 border-2 border-black bg-gray-100 px-2 py-1 font-mono text-xs font-bold uppercase hover:bg-gray-200"
             aria-label="Refresh forecast" data-testid="dietary-forecast-refresh">
@@ -140,38 +309,223 @@ function ForecastContent({
               <th className="text-right p-2 font-mono text-[10px] uppercase">Historical %</th>
               <th className="text-right p-2 font-mono text-[10px] uppercase">Blended %</th>
               <th className="text-right p-2 font-mono text-[10px] uppercase">Forecast Meals</th>
+              <th className="text-right p-2 font-mono text-[10px] uppercase">Min Order</th>
             </tr>
           </thead>
           <tbody>
-            {top.map((entry) => (
-              <tr key={entry.tag} className="border-b border-gray-200 hover:bg-gray-50"
-                  data-testid={`forecast-row-${entry.tag}`}>
-                <td className="p-2 font-medium capitalize">{entry.tag}</td>
-                <td className="p-2 text-right font-mono text-gray-600">
-                  {entry.current_percentage > 0 ? `${entry.current_percentage}%` : "—"}
-                  {entry.current_count > 0 && (
-                    <span className="text-gray-400 ml-1">({entry.current_count})</span>
-                  )}
-                </td>
-                <td className="p-2 text-right font-mono text-gray-600">
-                  {entry.historical_percentage > 0 ? `${entry.historical_percentage}%` : "—"}
-                  {entry.historical_event_count > 0 && (
-                    <span className="text-gray-400 ml-1">({entry.historical_event_count} events)</span>
-                  )}
-                </td>
-                <td className="p-2 text-right font-mono font-bold text-gray-900">
-                  {entry.blended_percentage}%
-                </td>
-                <td className="p-2 text-right">
-                  <span className="font-display font-black text-orange-700 text-lg">
-                    {entry.forecast_meals}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {top.map((entry) => {
+              const tagLower = entry.tag.toLowerCase();
+              const minOrder = constraints[tagLower] ?? 0;
+              const currentEditingVal = editingConstraints[tagLower] ?? String(minOrder);
+
+              return (
+                <tr key={entry.tag} className="border-b border-gray-200 hover:bg-gray-50"
+                    data-testid={`forecast-row-${entry.tag}`}>
+                  <td className="p-2 font-medium capitalize">{entry.tag}</td>
+                  <td className="p-2 text-right font-mono text-gray-600">
+                    {entry.current_percentage > 0 ? `${entry.current_percentage}%` : "—"}
+                    {entry.current_count > 0 && (
+                      <span className="text-gray-400 ml-1">({entry.current_count})</span>
+                    )}
+                  </td>
+                  <td className="p-2 text-right font-mono text-gray-600">
+                    {entry.historical_percentage > 0 ? `${entry.historical_percentage}%` : "—"}
+                    {entry.historical_event_count > 0 && (
+                      <span className="text-gray-400 ml-1">({entry.historical_event_count} events)</span>
+                    )}
+                  </td>
+                  <td className="p-2 text-right font-mono font-bold text-gray-900">
+                    {entry.blended_percentage}%
+                  </td>
+                  <td className="p-2 text-right">
+                    <span className="font-display font-black text-orange-700 text-lg">
+                      {entry.forecast_meals}
+                    </span>
+                  </td>
+                  <td className="p-2 text-right">
+                    {entry.tag !== "none" ? (
+                      <div className="flex items-center justify-end gap-1.5" data-testid={`min-order-container-${entry.tag}`}>
+                        <input
+                          type="number"
+                          min="0"
+                          value={currentEditingVal}
+                          onChange={(e) => setEditingConstraints((prev) => ({ ...prev, [tagLower]: e.target.value }))}
+                          className="w-12 border border-black px-1 py-0.5 font-mono text-xs text-right outline-none"
+                          data-testid={`min-order-input-${entry.tag}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveConstraint(entry.tag)}
+                          className="border border-black bg-black text-white hover:bg-zinc-800 text-[10px] font-bold uppercase px-1.5 py-0.5 cursor-pointer"
+                          data-testid={`min-order-save-${entry.tag}`}
+                        >
+                          Set
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="font-mono text-xs text-gray-400">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {/* Yield Optimizer prompts */}
+      {top.map((entry) => {
+        if (entry.tag === "none") return null;
+        const minOrder = constraints[entry.tag.toLowerCase()] ?? 0;
+        const actualRsvps = entry.current_count;
+        if (minOrder > 0 && actualRsvps < minOrder) {
+          const excessMeals = minOrder - actualRsvps;
+          return (
+            <div
+              key={`yield-opt-${entry.tag}`}
+              className="border-4 border-black bg-yellow-100 p-4 shadow-[4px_4px_0_0_#000] space-y-3"
+              data-testid={`yield-optimizer-prompt-${entry.tag}`}
+            >
+              <div className="flex items-center gap-2 border-b-2 border-black pb-2">
+                <span className="border-2 border-black bg-black text-white px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
+                  Yield Optimizer Alert
+                </span>
+                <p className="font-mono text-xs font-bold text-black uppercase">
+                  Dietary Minimum Gap Detected
+                </p>
+              </div>
+              <p className="font-mono text-xs text-zinc-800 leading-relaxed">
+                You must order <strong className="text-orange-700">{excessMeals}</strong> extra <strong className="capitalize">{entry.tag}</strong> meals to satisfy the caterer's minimum order requirement of <strong>{minOrder}</strong> (only <strong>{actualRsvps}</strong> RSVP'd). Do you want to randomly assign these to General attendees to prevent waste?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={assigning === entry.tag}
+                  onClick={() => handleOptimizeYield(entry.tag, excessMeals)}
+                  className="border-2 border-black bg-lime hover:bg-lime-dark text-black font-mono text-xs font-bold uppercase px-3 py-1.5 cursor-pointer shadow-[2px_2px_0_0_#000] active:translate-y-[1px] disabled:opacity-50"
+                  data-testid={`yield-optimizer-yes-${entry.tag}`}
+                >
+                  {assigning === entry.tag ? "Assigning..." : "Yes, Assign Meals"}
+                </button>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })}
+
+      {/* Success details of assigned meals */}
+      {assignedResult && (
+        <div
+          className="border-4 border-black bg-emerald-100 p-4 shadow-[4px_4px_0_0_#000]"
+          data-testid="yield-optimizer-success"
+        >
+          <p className="font-mono text-xs font-bold text-emerald-900 mb-1">
+            🎉 Successfully assigned {assignedResult.count} excess {assignedResult.tag} meals to General attendees:
+          </p>
+          <p className="font-mono text-[10px] text-emerald-800 leading-relaxed">
+            {assignedResult.names.join(", ")}
+          </p>
+        </div>
+      )}
+
+      {/* Bluetooth IoT Temperature Logging Section */}
+      {contract && (
+        <div
+          className="border-4 border-black bg-purple-100 p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] rounded-none text-black font-mono mt-6"
+          data-testid="caterer-temp-logging-section"
+        >
+          <div className="flex items-center gap-2 border-b-2 border-black pb-2 mb-4">
+            <Bluetooth className="h-5 w-5 text-black animate-pulse" />
+            <h3 className="font-display text-sm font-black uppercase text-black">
+              Catering Food Safety & IoT Telemetry
+            </h3>
+          </div>
+
+          <div className="space-y-4">
+            {/* Shipment Status & Stripe Payment block display */}
+            {contract.shipment_status === "PENDING" && (
+              <div className="border-2 border-black bg-yellow-50 p-3 shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-2" data-testid="status-box-pending">
+                <Thermometer className="h-5 w-5 text-yellow-600 animate-bounce" />
+                <div>
+                  <span className="font-black text-xs uppercase block text-yellow-800">Status: PENDING SYNC</span>
+                  <span className="text-[10px] text-zinc-600 font-bold">
+                    Caterer: {contract.caterer_name} | Waiting for arrival Bluetooth IoT data sync.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {contract.shipment_status === "SAFE" && (
+              <div className="border-2 border-black bg-emerald-50 p-3 shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-2" data-testid="status-box-safe">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <div>
+                  <span className="font-black text-xs uppercase block text-emerald-800">Status: SAFE (FDA Verified)</span>
+                  <span className="text-[10px] text-emerald-700 font-bold">
+                    Shipment ambient temp maintained under 40°F. Stripe payment authorized.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {contract.shipment_status === "CONDEMNED" && (
+              <div className="border-2 border-red-600 bg-red-100 p-3 shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-2 animate-pulse" data-testid="status-box-condemned">
+                <AlertOctagon className="h-6 w-6 text-red-600 shrink-0" />
+                <div>
+                  <span className="font-black text-xs uppercase block text-red-800">🚨 Status: CONDEMNED (FDA Danger Zone Breached)</span>
+                  <span className="text-[10px] text-red-700 font-bold">
+                    Temp exceeded 40°F for > 2 consecutive hours. Stripe payment BLOCKED. Throw the food in the trash.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Time series charts/log overview */}
+            {tempLogs.length > 0 && (
+              <div className="border-2 border-black bg-white p-3 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                <span className="font-black text-[10px] uppercase text-zinc-500 block mb-2">Transit Temperature logs</span>
+                <div className="max-h-24 overflow-y-auto space-y-1">
+                  {tempLogs.map((log) => (
+                    <div key={log.id} className="flex justify-between items-center text-[10px]">
+                      <span className="text-zinc-500">
+                        {new Date(log.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className={`font-bold ${log.temperature_fahrenheit > 40.0 ? "text-red-600" : "text-black"}`}>
+                        {log.temperature_fahrenheit.toFixed(1)}°F
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mock Bluetooth Syncer Tool */}
+            <div className="border-2 border-black border-dashed p-3 bg-zinc-50 flex flex-col sm:flex-row gap-2 justify-between items-center">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase">TempTale BLE IoT Logger</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSimulateSafeUpload}
+                  disabled={uploading}
+                  className="border-2 border-black bg-white hover:bg-zinc-100 px-3 py-1 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0_0_#000] cursor-pointer active:translate-y-0.5"
+                  data-testid="caterer-sync-safe-btn"
+                >
+                  Sync Safe Logs
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSimulateDangerUpload}
+                  disabled={uploading}
+                  className="border-2 border-black bg-black text-white hover:bg-zinc-800 px-3 py-1 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0_0_#000] cursor-pointer active:translate-y-0.5"
+                  data-testid="caterer-sync-danger-btn"
+                >
+                  Sync Danger Logs
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <details className="border-t border-gray-200 pt-3">
         <summary className="font-mono text-xs text-gray-500 cursor-pointer hover:text-gray-700">
@@ -188,6 +542,12 @@ function ForecastContent({
           <p><strong>Forecast meals</strong> = round(blended % × venue capacity).</p>
         </div>
       </details>
+
+      <CatererExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        eventId={forecast.event_id}
+      />
     </div>
   );
 }
