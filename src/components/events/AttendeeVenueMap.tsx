@@ -21,22 +21,32 @@ export interface AttendeeMapNode {
   height: number;
   rotation: number;
   accessibility_notes?: string | null;
+  required_ticket_tier_id?: string | null;
 }
 
 interface AttendeeVenueMapProps {
   nodes: AttendeeMapNode[];
   backgroundImageUrl?: string | null;
+  userTicketTierId?: string | null;
+  onSeatSelected?: (nodeId: string) => void;
+  assignedSeatNodeId?: string | null;
 }
 
 export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
   nodes,
   backgroundImageUrl,
+  userTicketTierId,
+  onSeatSelected,
+  assignedSeatNodeId,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [scale, setScale] = useState(1);
   const [isAccessibilityMode, setIsAccessibilityMode] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedSeatNodeId, setSelectedSeatNodeId] = useState<string | null>(
+    assignedSeatNodeId || null,
+  );
   const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const accessibilityNodes = getAccessibilityNodes(nodes);
@@ -45,15 +55,17 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
 
   const { user } = useAuth();
   const supabase = createClient();
-  const [queueNodes, setQueueNodes] = useState<Record<string, { id: string, status_color: 'green' | 'amber' | 'red' }>>({});
+  const [queueNodes, setQueueNodes] = useState<
+    Record<string, { id: string; status_color: "green" | "amber" | "red" }>
+  >({});
   const [selectedQueueNodeId, setSelectedQueueNodeId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchQueues = async () => {
-      const { data } = await supabase.from('queue_nodes').select('id, booth_id, status_color');
+      const { data } = await supabase.from("queue_nodes").select("id, booth_id, status_color");
       if (data) {
         const queueMap: Record<string, any> = {};
-        data.forEach(q => {
+        data.forEach((q) => {
           queueMap[q.booth_id] = { id: q.id, status_color: q.status_color };
         });
         setQueueNodes(queueMap);
@@ -61,13 +73,18 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
     };
     fetchQueues();
 
-    const channel = supabase.channel('venue-queues')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queue_nodes' }, (payload) => {
-        setQueueNodes(prev => ({
-          ...prev,
-          [payload.new.booth_id]: { id: payload.new.id, status_color: payload.new.status_color }
-        }));
-      })
+    const channel = supabase
+      .channel("venue-queues")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "queue_nodes" },
+        (payload) => {
+          setQueueNodes((prev) => ({
+            ...prev,
+            [payload.new.booth_id]: { id: payload.new.id, status_color: payload.new.status_color },
+          }));
+        },
+      )
       .subscribe();
 
     return () => {
@@ -160,6 +177,35 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
     window.addEventListener("mouseup", handleGlobalMouseUp);
     return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
   }, []);
+
+  const handleNodeClick = async (node: AttendeeMapNode) => {
+    const queueInfo = queueNodes[node.id];
+
+    // VIP Seating check
+    if (node.required_ticket_tier_id && node.required_ticket_tier_id !== userTicketTierId) {
+      import("sonner").then(({ toast }) => {
+        toast.error("This table requires a VIP Ticket [Click to Upgrade].");
+      });
+      return; // block selection
+    }
+
+    if (queueInfo) {
+      setSelectedQueueNodeId(queueInfo.id);
+    } else if (node.type === "table" || node.type === "booth") {
+      setSelectedSeatNodeId(node.id);
+
+      // Save the selected seat if they are RSVP'd
+      if (userTicketTierId !== undefined) {
+        import("sonner").then(({ toast }) => {
+          toast.success(`Seat selected at ${node.entity_name || node.type}!`);
+        });
+        // We can also trigger an optional onSeatSelected callback here
+        if (onSeatSelected) {
+          onSeatSelected(node.id);
+        }
+      }
+    }
+  };
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -267,10 +313,10 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
           {/* Queue Tracker Floating Modal */}
           {selectedQueueNodeId && user && (
             <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/40 pointer-events-auto">
-              <QueueTrackerCard 
-                nodeId={selectedQueueNodeId} 
-                userId={user.id} 
-                onClose={() => setSelectedQueueNodeId(null)} 
+              <QueueTrackerCard
+                nodeId={selectedQueueNodeId}
+                userId={user.id}
+                onClose={() => setSelectedQueueNodeId(null)}
               />
             </div>
           )}
@@ -309,11 +355,27 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
               : `${node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type] || node.type} map element.`;
 
             const queueInfo = queueNodes[node.id];
+            const isVip = !!node.required_ticket_tier_id;
+            const isSelected = selectedSeatNodeId === node.id;
+
             let dynamicColorClass = colors[node.type] || "bg-white";
+            if (isVip && !isAccessibilityMode && !matchesQuery) {
+              dynamicColorClass = "bg-amber-200 border-amber-600 ring-2 ring-yellow-400";
+            }
             if (queueInfo) {
-              if (queueInfo.status_color === 'red') dynamicColorClass = "bg-rose-500 text-white border-rose-700 ring-4 ring-rose-200 animate-pulse";
-              else if (queueInfo.status_color === 'amber') dynamicColorClass = "bg-amber-400 text-amber-900 border-amber-600 ring-2 ring-amber-200";
-              else if (queueInfo.status_color === 'green') dynamicColorClass = "bg-emerald-400 text-emerald-950 border-emerald-600 ring-2 ring-emerald-200";
+              if (queueInfo.status_color === "red")
+                dynamicColorClass =
+                  "bg-rose-500 text-white border-rose-700 ring-4 ring-rose-200 animate-pulse";
+              else if (queueInfo.status_color === "amber")
+                dynamicColorClass =
+                  "bg-amber-400 text-amber-900 border-amber-600 ring-2 ring-amber-200";
+              else if (queueInfo.status_color === "green")
+                dynamicColorClass =
+                  "bg-emerald-400 text-emerald-950 border-emerald-600 ring-2 ring-emerald-200";
+            }
+            if (isSelected) {
+              dynamicColorClass =
+                "bg-lime-300 text-lime-950 border-lime-600 ring-4 ring-lime-400 shadow-xl scale-105 z-50";
             }
 
             return (
@@ -322,11 +384,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                 role="img"
                 tabIndex={isAccessibilityMode && isAccessibilityInfrastructure ? 0 : -1}
                 aria-label={spatialDescription}
-                onClick={() => {
-                  if (queueInfo) {
-                    setSelectedQueueNodeId(queueInfo.id);
-                  }
-                }}
+                onClick={() => handleNodeClick(node)}
                 style={{
                   position: "absolute",
                   left: `${node.x_coord}%`,
@@ -334,9 +392,17 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                   width: `${node.width}%`,
                   height: `${node.height}%`,
                   transform: `rotate(${node.rotation}deg)`,
-                  zIndex: matchesQuery ? 50 : isAccessibilityInfrastructure ? 40 : queueInfo ? 30 : 10,
+                  zIndex: isSelected
+                    ? 60
+                    : matchesQuery
+                      ? 50
+                      : isAccessibilityInfrastructure
+                        ? 40
+                        : queueInfo
+                          ? 30
+                          : 10,
                 }}
-                className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] transition-colors duration-200 ${
+                className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] transition-colors duration-200 cursor-pointer hover:scale-105 ${
                   matchesQuery
                     ? "bg-red-500 text-white border-red-700 animate-pulse ring-4 ring-red-400 ring-offset-1"
                     : isAccessibilityMode && isAccessibilityInfrastructure
@@ -344,7 +410,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                       : isAccessibilityMode
                         ? "opacity-25 grayscale"
                         : dynamicColorClass
-                } ${queueInfo ? 'cursor-pointer hover:scale-105' : ''}`}
+                }`}
               >
                 <div className="flex flex-col items-center justify-center w-full h-full overflow-hidden">
                   <span className="font-mono text-[9px] md:text-[10px] font-black uppercase leading-tight truncate w-full px-0.5">
@@ -353,6 +419,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                   <span
                     className={`text-[7px] uppercase font-bold tracking-wider leading-none mt-0.5 ${matchesQuery || (isAccessibilityMode && isAccessibilityInfrastructure) ? "text-blue-100" : "text-gray-500"}`}
                   >
+                    {isVip ? "VIP " : ""}
                     {node.type}
                   </span>
                   {matchesQuery && <MapPin className="w-3 h-3 text-white mt-0.5 shrink-0" />}

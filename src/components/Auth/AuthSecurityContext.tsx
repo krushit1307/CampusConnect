@@ -33,15 +33,11 @@ export const useAuthSecurity = (): AuthSecurityContextType => {
   const token = useAuthSecurityStore((s) => s.token);
   const isLeaderTab = useAuthSecurityStore((s) => s.isLeaderTab);
   const mfaVerified = useAuthSecurityStore((s) => s.mfaVerified);
-  const sessionTimeoutWarning = useAuthSecurityStore(
-    (s) => s.sessionTimeoutWarning,
-  );
+  const sessionTimeoutWarning = useAuthSecurityStore((s) => s.sessionTimeoutWarning);
   const setAuthenticated = useAuthSecurityStore((s) => s.setAuthenticated);
   const setIsLeaderTab = useAuthSecurityStore((s) => s.setIsLeaderTab);
   const setMfaVerified = useAuthSecurityStore((s) => s.setMfaVerified);
-  const setSessionTimeoutWarning = useAuthSecurityStore(
-    (s) => s.setSessionTimeoutWarning,
-  );
+  const setSessionTimeoutWarning = useAuthSecurityStore((s) => s.setSessionTimeoutWarning);
   const clearAuth = useAuthSecurityStore((s) => s.clearAuth);
 
   const triggerLogout = () => {
@@ -82,9 +78,7 @@ export const useAuthSecurity = (): AuthSecurityContextType => {
 /**
  * Backward-compat wrapper. No Context. Just mounts the side-effects.
  */
-export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const setAuthenticated = useAuthSecurityStore((s) => s.setAuthenticated);
   const setIsLeaderTab = useAuthSecurityStore((s) => s.setIsLeaderTab);
   const clearAuth = useAuthSecurityStore((s) => s.clearAuth);
@@ -105,11 +99,10 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
     sessionManager.setCallbacks(handleLogout, handleTokenUpdate);
 
     // Initial auth check with Supabase
+    const supabase = createClient();
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        setIsAuthenticated(true);
-        setToken(session.access_token);
-        
+        setAuthenticated(session.access_token);
         try {
           const { publicKeyBase64, isNew } = await ensureKeyPair();
           if (isNew && publicKeyBase64) {
@@ -121,10 +114,6 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
         } catch (err) {
           console.error("Failed to setup decentralized ticketing keys:", err);
         }
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setAuthenticated(session.access_token);
       }
     });
 
@@ -133,9 +122,8 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
-        setIsAuthenticated(true);
-        setToken(session.access_token);
-        
+        setAuthenticated(session.access_token);
+
         // Ensure the user has a local cryptographic key pair for decentralized ticketing
         try {
           const { publicKeyBase64, isNew } = await ensureKeyPair();

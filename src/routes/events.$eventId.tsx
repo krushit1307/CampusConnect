@@ -718,7 +718,9 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
 
       const { data: nodesData, error: nodesError } = await supabase
         .from("map_nodes")
-        .select("id, entity_name, type, x_coord, y_coord, width, height, rotation")
+        .select(
+          "id, entity_name, type, x_coord, y_coord, width, height, rotation, required_ticket_tier_id",
+        )
         .eq("map_id", mapData.id);
 
       if (nodesError) throw nodesError;
@@ -734,6 +736,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
           width: Number(node.width),
           height: Number(node.height),
           rotation: node.rotation,
+          required_ticket_tier_id: node.required_ticket_tier_id,
         })),
       };
     },
@@ -2199,6 +2202,17 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 <AttendeeVenueMap
                   nodes={venueMapData.nodes}
                   backgroundImageUrl={venueMapData.map?.background_image_url}
+                  userTicketTierId={myRsvp?.ticket_tier_id}
+                  assignedSeatNodeId={myRsvp?.assigned_map_node_id}
+                  onSeatSelected={async (nodeId) => {
+                    if (myRsvpId) {
+                      const { error } = await supabase
+                        .from("event_rsvps")
+                        .update({ assigned_map_node_id: nodeId })
+                        .eq("id", myRsvpId);
+                      if (!error) refetchMyRsvp();
+                    }
+                  }}
                 />
               </div>
             ) : event.map_layout &&

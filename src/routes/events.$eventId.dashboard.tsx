@@ -18,6 +18,7 @@ import { HardwareProvisioningPanel } from "@/components/events/HardwareProvision
 
 import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroadcast";
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
+import { VIPSeatingDashboard } from "@/components/events/VIPSeatingDashboard";
 import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
@@ -662,6 +663,10 @@ export default function EventDashboard() {
 
           <div className="mb-8 border-2 border-black bg-white p-5 shadow-[4px_4px_0_0_#000]">
             <ManageTicketTiers eventId={eventId!} />
+          </div>
+
+          <div className="mb-8">
+            <VIPSeatingDashboard eventId={eventId!} />
           </div>
 
           <EventFinancesSection eventId={eventId!} />
