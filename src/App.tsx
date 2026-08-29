@@ -142,6 +142,7 @@ const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
 const PeerSupportRoute = lazy(() => import("./routes/peer-support"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
+const AdminRadarIncidentsRoute = lazy(() => import("./routes/admin.radar-incidents"));
 const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const ConstitutionReviewAdmin = lazy(() => import("./routes/admin.constitutions"));
 const FeedbackSafetyAdmin = lazy(() => import("./routes/admin.feedback-safety"));
@@ -570,6 +571,7 @@ const router = createBrowserRouter(
 
               <Route path="/admin/dlq" element={<AdminDlqPage />} />
               <Route path="/admin/emergency-broadcast" element={<AdminEmergencyBroadcast />} />
+              <Route path="/admin/radar-incidents" element={<AdminRadarIncidentsRoute />} />
               <Route path="/admin/badges" element={<AdminBadgesPage />} />
               <Route path="/admin/leadership-approvals" element={<AdminLeadershipApprovals />} />
 
