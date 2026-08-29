@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: TranscriptSummaryAccordion
---Issue: #3539 - Implement 'Real-Time Event Transcript Summarizer (TL;DR)'
---Description: Renders a beautiful, collapsible "TL;DR" accordion directly
---above the Video Player.Displays the 5 AI - generated bullet points for 
---fast consumption.Includes a "Regenerate" button for admins.
+//Issue: #3539 - Implement 'Real-Time Event Transcript Summarizer (TL;DR)'
+//Description: Renders a beautiful, collapsible "TL;DR" accordion directly
+//above the Video Player.Displays the 5 AI - generated bullet points for 
+//fast consumption.Includes a "Regenerate" button for admins.
 // =============================================================================
 
 import React, { useState } from 'react';

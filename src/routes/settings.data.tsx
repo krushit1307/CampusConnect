@@ -102,11 +102,12 @@ export default function SettingsDataPage() {
 
           <div className="border-2 border-black bg-red-50 p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
             <h2 className="font-display text-2xl font-bold uppercase text-red-600 mb-2 flex items-center gap-2">
-              <ShieldAlert className="h-6 w-6" /> Data Deletion
+              <ShieldAlert className="h-6 w-6" /> Data Privacy & Cryptographic Anonymization
             </h2>
             <p className="text-gray-700 font-mono text-sm mb-4">
-              Under GDPR/CCPA compliance, you have the right to request the complete deletion of your personal data.
-              Account data, profile images, and files are permanently deleted immediately upon confirmation.
+              Under GDPR/CCPA compliance, confirming deletion triggers our automated Cryptographic Anonymization Pipeline. 
+              Your profile is converted into an untraceable shell user (<code className="bg-red-200 px-1 font-bold text-red-900">Anonymous User</code>), 
+              all direct chat messages and uploaded photos are permanently purged, while event RSVPs and financial transactions are preserved strictly for aggregate statistics.
             </p>
             
             <button
@@ -114,7 +115,7 @@ export default function SettingsDataPage() {
               className="neu-border flex items-center gap-2 bg-red-600 text-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95"
             >
               <Trash2 className="h-4 w-4" />
-              Delete All My Data
+              Anonymize & Delete Account
             </button>
 
             <DeleteAccountModal

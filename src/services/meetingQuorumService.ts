@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import {
   DEFAULT_MAX_CHAIN_DEPTH,
   DEFAULT_MAX_PROXIES_PER_DELEGATE,

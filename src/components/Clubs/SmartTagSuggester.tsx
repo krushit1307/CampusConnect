@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { TaxonomyMapperModal } from "./TaxonomyMapperModal";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import X from "lucide-react/dist/esm/icons/x";
@@ -19,6 +20,8 @@ export const SmartTagSuggester: React.FC<SmartTagSuggesterProps> = ({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [newTagInput, setNewTagInput] = useState("");
+  const [pendingTag, setPendingTag] = useState<string | null>(null);
+  const [checkingTag, setCheckingTag] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Debounced tag recommendation fetch logic
@@ -42,7 +45,7 @@ export const SmartTagSuggester: React.FC<SmartTagSuggesterProps> = ({
         if (!error && data?.tags) {
           // Filter out tags that are already selected
           const filtered = (data.tags as string[]).filter(
-            (tag) => !selectedTags.some((selected) => selected.toLowerCase() === tag.toLowerCase())
+            (tag) => !selectedTags.some((selected) => selected.toLowerCase() === tag.toLowerCase()),
           );
           setSuggestions(filtered);
         }
@@ -60,14 +63,45 @@ export const SmartTagSuggester: React.FC<SmartTagSuggesterProps> = ({
     };
   }, [missionText, selectedTags, supabase.functions]);
 
-  const handleApplyTag = (tag: string) => {
+  const handleApplyTag = async (tag: string) => {
     const formatted = tag.trim();
     if (!formatted) return;
 
     if (!selectedTags.some((t) => t.toLowerCase() === formatted.toLowerCase())) {
-      onChange([...selectedTags, formatted]);
-      setSuggestions((prev) => prev.filter((t) => t.toLowerCase() !== formatted.toLowerCase()));
+      setCheckingTag(true);
+      // Check if it exists in standard taxonomy or custom mappings
+      const { data: stdData } = await supabase
+        .from("standard_taxonomy")
+        .select("id")
+        .ilike("name", formatted)
+        .maybeSingle();
+
+      if (stdData) {
+        commitTag(formatted);
+        setCheckingTag(false);
+        return;
+      }
+
+      const { data: mapData } = await supabase
+        .from("custom_tag_mappings")
+        .select("id")
+        .ilike("custom_tag", formatted)
+        .maybeSingle();
+
+      setCheckingTag(false);
+
+      if (mapData) {
+        commitTag(formatted);
+      } else {
+        setPendingTag(formatted);
+      }
     }
+  };
+
+  const commitTag = (formatted: string) => {
+    onChange([...selectedTags, formatted]);
+    setSuggestions((prev) => prev.filter((t) => t.toLowerCase() !== formatted.toLowerCase()));
+    setPendingTag(null);
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
@@ -92,7 +126,8 @@ export const SmartTagSuggester: React.FC<SmartTagSuggesterProps> = ({
           Club Search Tags
         </label>
         <p className="font-mono text-[10px] text-gray-500 mb-2">
-          Help students discover your club by applying relevant tags. Press Enter to add custom tags.
+          Help students discover your club by applying relevant tags. Press Enter to add custom
+          tags.
         </p>
 
         {/* Selected Tags list */}
@@ -153,7 +188,11 @@ export const SmartTagSuggester: React.FC<SmartTagSuggesterProps> = ({
             <span className="font-mono text-[11px] font-bold uppercase text-black">
               Suggested Tags
             </span>
-            {loading && <span className="font-mono text-[9px] text-gray-500 animate-pulse">(analyzing...)</span>}
+            {loading && (
+              <span className="font-mono text-[9px] text-gray-500 animate-pulse">
+                (analyzing...)
+              </span>
+            )}
           </div>
 
           {!loading && suggestions.length > 0 && (
@@ -172,6 +211,13 @@ export const SmartTagSuggester: React.FC<SmartTagSuggesterProps> = ({
             </div>
           )}
         </div>
+      )}
+      {pendingTag && (
+        <TaxonomyMapperModal
+          customTag={pendingTag}
+          onMap={() => commitTag(pendingTag)}
+          onCancel={() => setPendingTag(null)}
+        />
       )}
     </div>
   );

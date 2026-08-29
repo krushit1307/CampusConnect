@@ -56,6 +56,7 @@ serve(async (req: Request) => {
         `
         id, event_id, club_id, user_id, attendee_name, event_title, event_date, certificate_type, role_title, tenure_start, tenure_end, verification_hash,
         merkle_root, merkle_path, anchor_day, anchor_tx_hash, anchor_block, issued_at, certificate_url,
+        is_revoked, revocation_reason, revoked_at, revoked_by,
         events (title, event_date, start_date, clubs (name)),
         clubs (name),
         profiles (first_name, last_name, full_name)
@@ -77,6 +78,59 @@ serve(async (req: Request) => {
 
     const cert = rows?.[0] ?? null;
     if (!cert) {
+      let seriesQuery = supabase
+        .from("verified_certificates")
+        .select(
+          "id, series_id, series_name, user_name, completion_date, verification_hash, pdf_url, issued_at, is_revoked, revocation_reason",
+        )
+        .limit(1);
+
+      if (leafHash) {
+        seriesQuery = seriesQuery.eq("verification_hash", leafHash);
+      } else if (certId) {
+        seriesQuery = seriesQuery.eq("id", certId);
+      }
+
+      const { data: seriesCertificate, error: seriesError } = await seriesQuery.maybeSingle();
+      if (seriesError) throw new Error(`Database error: ${seriesError.message}`);
+
+      if (seriesCertificate) {
+        const isRevoked = Boolean(seriesCertificate.is_revoked);
+        return new Response(
+          JSON.stringify({
+            valid: !isRevoked,
+            status: isRevoked ? "revoked" : "verified",
+            message: isRevoked
+              ? `REVOKED. This credential has been invalidated by the issuing organization due to: ${seriesCertificate.revocation_reason || "An issuer-reported integrity concern."}`
+              : "Certificate is authentic and verified.",
+            revocationReason: seriesCertificate.revocation_reason,
+            certificate: {
+              id: seriesCertificate.id,
+              certificateType: "attendance",
+              verificationHash: seriesCertificate.verification_hash,
+              issuedAt: seriesCertificate.issued_at,
+              certificateUrl: seriesCertificate.pdf_url,
+              event: seriesCertificate.series_name,
+              eventDate: seriesCertificate.completion_date,
+              roleTitle: null,
+              tenureStart: null,
+              tenureEnd: null,
+              club: null,
+              holder: seriesCertificate.user_name,
+            },
+            proof: {
+              merkleRoot: null,
+              merklePathLength: 0,
+              anchorDay: null,
+              anchorTxHash: null,
+              anchorBlock: null,
+              onChain: null,
+            },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       return new Response(
         JSON.stringify({
           valid: false,
@@ -87,11 +141,49 @@ serve(async (req: Request) => {
       );
     }
 
+    const legacyRevoked = Boolean(cert.is_revoked) || cert.certificate_url === "revoked";
+    if (legacyRevoked) {
+      return new Response(
+        JSON.stringify({
+          valid: false,
+          status: "revoked",
+          message: "REVOKED. This credential has been invalidated by the issuing organization.",
+          revocationReason:
+            cert.revocation_reason || "The issuing organization has withdrawn this credential.",
+          certificate: {
+            id: cert.id,
+            certificateType: cert.certificate_type || "attendance",
+            verificationHash: cert.verification_hash,
+            issuedAt: cert.issued_at,
+            certificateUrl: null,
+            event: cert.event_title || "Event certificate",
+            eventDate: cert.event_date || cert.issued_at,
+            roleTitle: cert.role_title ?? null,
+            tenureStart: cert.tenure_start ?? null,
+            tenureEnd: cert.tenure_end ?? null,
+            club: null,
+            holder: cert.attendee_name || "Student",
+          },
+          proof: {
+            merkleRoot: cert.merkle_root,
+            merklePathLength: 0,
+            anchorDay: cert.anchor_day,
+            anchorTxHash: cert.anchor_tx_hash,
+            anchorBlock: cert.anchor_block,
+            onChain: null,
+          },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // 2. Recompute canonical leaf hash to prove database record integrity
     const entityId = cert.event_id || cert.club_id;
     const expectedLeaf = computeCertificateLeafHash(entityId, cert.user_id, cert.id);
     const recordIntact =
-      !!cert.verification_hash && (expectedLeaf.toLowerCase() === cert.verification_hash.toLowerCase() || cert.verification_hash.length > 0);
+      !!cert.verification_hash &&
+      (expectedLeaf.toLowerCase() === cert.verification_hash.toLowerCase() ||
+        cert.verification_hash.length > 0);
 
     // 3. Merkle proof membership check
     const merklePath = cert.merkle_path as {
@@ -139,13 +231,14 @@ serve(async (req: Request) => {
     const isPending = cert.certificate_url === "pending";
     const isValid = !isPending && (recordIntact || Boolean(cert.certificate_url));
 
-    const status = !recordIntact && cert.verification_hash
-      ? "tampered"
-      : isPending
-        ? "pending"
-        : cert.merkle_root && membershipValid
-          ? "verified"
-          : "valid";
+    const status =
+      !recordIntact && cert.verification_hash
+        ? "tampered"
+        : isPending
+          ? "pending"
+          : cert.merkle_root && membershipValid
+            ? "verified"
+            : "valid";
 
     return new Response(
       JSON.stringify({

@@ -1,12 +1,4 @@
-import format from "date-fns/format";
-import formatDistanceToNow from "date-fns/formatDistanceToNow";
-import parseISO from "date-fns/parseISO";
-import fnsIsLeapYear from "date-fns/isLeapYear";
-import differenceInCalendarDays from "date-fns/differenceInCalendarDays";
-import fnsIsSameDay from "date-fns/isSameDay";
-import fnsIsToday from "date-fns/isToday";
-import fnsIsYesterday from "date-fns/isYesterday";
-import fnsIsTomorrow from "date-fns/isTomorrow";
+import { format, formatDistanceToNow, parseISO, isLeapYear as fnsIsLeapYear, differenceInCalendarDays, isSameDay as fnsIsSameDay, isToday as fnsIsToday, isYesterday as fnsIsYesterday, isTomorrow as fnsIsTomorrow } from "date-fns";
 
 export interface FormatEventDateOptions {
   pattern?: string;

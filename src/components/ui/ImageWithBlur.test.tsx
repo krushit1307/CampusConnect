@@ -72,4 +72,27 @@ describe("ImageWithBlur Component", () => {
       "LKO2?_%g~q_3t7t7Rjwb_3%M%MWB",
     );
   });
+
+  it("generates responsive srcset and applies sizes for Supabase public images", () => {
+    const supabaseSrc =
+      "https://example.supabase.co/storage/v1/object/public/event-banners/banner.png";
+    render(
+      <ImageWithBlur
+        src={supabaseSrc}
+        alt="Supabase Event"
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        responsiveWidths={[300, 600, 1200]}
+      />,
+    );
+
+    const imgElement = screen.getByAltText("Supabase Event");
+    expect(imgElement).toBeInTheDocument();
+    expect(imgElement).toHaveAttribute("srcset");
+    expect(imgElement.getAttribute("srcset")).toContain("300w");
+    expect(imgElement.getAttribute("srcset")).toContain("600w");
+    expect(imgElement.getAttribute("srcset")).toContain("1200w");
+    expect(imgElement.getAttribute("sizes")).toBe(
+      "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw",
+    );
+  });
 });
