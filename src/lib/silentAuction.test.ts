@@ -5,9 +5,17 @@ import {
   formatAuctionTimeRemaining,
   ANTI_SNIPING_THRESHOLD_MS,
   ANTI_SNIPING_EXTENSION_MS,
+  formatAuctionCents,
 } from "./silentAuction";
 
 describe("Silent Auction Bidding Module - Senior Engine (#3021)", () => {
+  describe("Auction currency formatting", () => {
+    it("formats bid amounts from cents as USD", () => {
+      expect(formatAuctionCents(11000)).toBe("$110.00");
+      expect(formatAuctionCents(10999)).toBe("$109.99");
+    });
+  });
+
   describe("Senior Bid Validation Engine", () => {
     it("rejects bids lower than or equal to current highest bid", () => {
       const currentHighest = 50;

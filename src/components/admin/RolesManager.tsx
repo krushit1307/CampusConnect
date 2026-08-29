@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: RolesManager
---Issue: #2896 - Implement Role - Based Access Control(RBAC) UI for Club Executives
---Description: Dashboard for the Club President to create, edit, and delete
-    --custom roles.Integrates with the PermissionsMatrix to toggle specific
---capabilities for each role.
+//Issue: #2896 - Implement Role - Based Access Control(RBAC) UI for Club Executives
+//Description: Dashboard for the Club President to create, edit, and delete
+    //custom roles.Integrates with the PermissionsMatrix to toggle specific
+//capabilities for each role.
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';

@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: SpeakerBioFetcher
---Issue: #3339 - Implement 'Automated Speaker Bio Fetching'
---Description: An input group for the Event Draft Wizard.Allows the organizer
---to paste a LinkedIn URL and click "Fetch Bio" to auto - populate the speaker's 
---name, photo, and professional summary via AI.
+//Issue: #3339 - Implement 'Automated Speaker Bio Fetching'
+//Description: An input group for the Event Draft Wizard.Allows the organizer
+//to paste a LinkedIn URL and click "Fetch Bio" to auto - populate the speaker's 
+//name, photo, and professional summary via AI.
 // =============================================================================
 
 import React, { useState } from 'react';

@@ -93,7 +93,10 @@ export default function EventFestivalRoadmapRoute() {
         </div>
 
         {/* Festival Roadmap Component */}
-        <InteractiveFestivalRoadmap festivalId={event?.id} festivalTitle={event?.title} />
+        <InteractiveFestivalRoadmap
+          festivalId={event?.id}
+          festivalTitle={event?.title}
+        />
       </div>
     </SiteShell>
   );

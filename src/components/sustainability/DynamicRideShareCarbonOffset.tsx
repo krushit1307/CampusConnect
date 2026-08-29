@@ -28,7 +28,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { RideShareTrip, VehicleFuelType, GeoLocation } from "@/types/carbonOffset";
+import type {
+  RideShareTrip,
+  VehicleFuelType,
+  GeoLocation,
+} from "@/types/carbonOffset";
 import {
   CAMPUS_GEO_PRESETS,
   calculateHaversineDistanceMiles,
@@ -69,7 +73,7 @@ export const DynamicRideShareCarbonOffset: React.FC<DynamicRideShareCarbonOffset
       selectedOrigin.latitude,
       selectedOrigin.longitude,
       selectedDest.latitude,
-      selectedDest.longitude,
+      selectedDest.longitude
     );
   }, [selectedOrigin, selectedDest]);
 
@@ -217,9 +221,7 @@ export const DynamicRideShareCarbonOffset: React.FC<DynamicRideShareCarbonOffset
             <div className="mt-1 font-mono text-xl font-black text-zinc-900 dark:text-white">
               {globalSummary.equivalents.smartphonesCharged.toLocaleString()}
             </div>
-            <span className="font-mono text-[10px] text-zinc-500">
-              Full smartphone battery cycles
-            </span>
+            <span className="font-mono text-[10px] text-zinc-500">Full smartphone battery cycles</span>
           </div>
 
           <div className="neu-border bg-zinc-50 p-3.5 dark:bg-zinc-800/80">
@@ -364,13 +366,11 @@ export const DynamicRideShareCarbonOffset: React.FC<DynamicRideShareCarbonOffset
                   >
                     {logSuccess ? (
                       <>
-                        <CheckCircle2 className="h-4 w-4 text-emerald-800" /> Offset Verified &
-                        Recorded!
+                        <CheckCircle2 className="h-4 w-4 text-emerald-800" /> Offset Verified & Recorded!
                       </>
                     ) : (
                       <>
-                        <Plus className="h-4 w-4" />{" "}
-                        {isLogging ? "Recording..." : "Record Verified Carpool Offset"}
+                        <Plus className="h-4 w-4" /> {isLogging ? "Recording..." : "Record Verified Carpool Offset"}
                       </>
                     )}
                   </Button>
@@ -402,9 +402,7 @@ export const DynamicRideShareCarbonOffset: React.FC<DynamicRideShareCarbonOffset
                   <div className="mt-4 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-700 text-xs font-mono">
                     <div className="flex justify-between">
                       <span className="text-zinc-500">Haversine Distance:</span>
-                      <span className="font-bold text-zinc-900 dark:text-white">
-                        {activeDistance} miles
-                      </span>
+                      <span className="font-bold text-zinc-900 dark:text-white">{activeDistance} miles</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-zinc-500">Vehicle Multiplier:</span>
@@ -429,39 +427,21 @@ export const DynamicRideShareCarbonOffset: React.FC<DynamicRideShareCarbonOffset
                 <thead className="border-b-2 border-black bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800">
                   <tr>
                     <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Rank</th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Club Organization
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Total Carpools
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Riders Shared
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Total CO₂ Saved
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white text-center">
-                      Ecosystem Badge
-                    </th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Club Organization</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Total Carpools</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Riders Shared</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Total CO₂ Saved</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white text-center">Ecosystem Badge</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                   {leaderboard.map((entry, idx) => (
                     <tr key={entry.clubId} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
                       <td className="p-3 font-black text-zinc-900 dark:text-white">#{idx + 1}</td>
-                      <td className="p-3 font-bold text-zinc-900 dark:text-white">
-                        {entry.clubName}
-                      </td>
-                      <td className="p-3 font-semibold text-zinc-700 dark:text-zinc-300">
-                        {entry.totalTrips} trips
-                      </td>
-                      <td className="p-3 font-semibold text-blue-600 dark:text-blue-400">
-                        {entry.totalRidersShared} students
-                      </td>
-                      <td className="p-3 font-black text-emerald-600 dark:text-emerald-400">
-                        {entry.totalCo2SavedKg} kg
-                      </td>
+                      <td className="p-3 font-bold text-zinc-900 dark:text-white">{entry.clubName}</td>
+                      <td className="p-3 font-semibold text-zinc-700 dark:text-zinc-300">{entry.totalTrips} trips</td>
+                      <td className="p-3 font-semibold text-blue-600 dark:text-blue-400">{entry.totalRidersShared} students</td>
+                      <td className="p-3 font-black text-emerald-600 dark:text-emerald-400">{entry.totalCo2SavedKg} kg</td>
                       <td className="p-3 text-center">
                         <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
                           <Trees className="h-3 w-3" /> {entry.sustainabilityTier}
@@ -482,24 +462,12 @@ export const DynamicRideShareCarbonOffset: React.FC<DynamicRideShareCarbonOffset
               <table className="w-full text-left font-mono text-xs">
                 <thead className="border-b-2 border-black bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800">
                   <tr>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Trip ID
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Driver
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Route
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Distance
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      Riders
-                    </th>
-                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">
-                      CO₂ Prevented
-                    </th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Trip ID</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Driver</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Route</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Distance</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Riders</th>
+                    <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">CO₂ Prevented</th>
                     <th className="p-3 font-black uppercase text-zinc-900 dark:text-white">Date</th>
                   </tr>
                 </thead>
@@ -507,18 +475,14 @@ export const DynamicRideShareCarbonOffset: React.FC<DynamicRideShareCarbonOffset
                   {trips.map((trip) => (
                     <tr key={trip.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
                       <td className="p-3 font-bold text-zinc-500">{trip.id}</td>
-                      <td className="p-3 font-bold text-zinc-900 dark:text-white">
-                        {trip.driverName}
-                      </td>
+                      <td className="p-3 font-bold text-zinc-900 dark:text-white">{trip.driverName}</td>
                       <td className="p-3 text-zinc-700 dark:text-zinc-300">
                         {trip.origin.label} → {trip.destination.label}
                       </td>
                       <td className="p-3 font-semibold">{trip.distanceMiles} mi</td>
                       <td className="p-3 font-bold text-blue-600">{trip.riderCount}</td>
                       <td className="p-3 font-black text-emerald-600">+{trip.co2SavedKg} kg</td>
-                      <td className="p-3 text-zinc-500">
-                        {new Date(trip.completedAt).toLocaleDateString()}
-                      </td>
+                      <td className="p-3 text-zinc-500">{new Date(trip.completedAt).toLocaleDateString()}</td>
                     </tr>
                   ))}
                 </tbody>

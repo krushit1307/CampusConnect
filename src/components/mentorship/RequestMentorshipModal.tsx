@@ -1,8 +1,8 @@
 // =============================================================================
 // Component: RequestMentorshipModal
---Issue: #2963 - Build an 'Alumni Mentorship' Matching Module
---Description: Modal for students to send an introductory message to an
---alumni mentor.Enforces character limits and handles submission state.
+//Issue: #2963 - Build an 'Alumni Mentorship' Matching Module
+//Description: Modal for students to send an introductory message to an
+//alumni mentor.Enforces character limits and handles submission state.
 // =============================================================================
 
 import React, { useState } from 'react';

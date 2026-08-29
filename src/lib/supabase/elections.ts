@@ -275,6 +275,86 @@ export async function castVote(electionId: string, candidateId: string): Promise
   }
 }
 
+// ---------------------------------------------------------------------------
+// Anonymous Voting (Issue #3928 — Decentralized Club Voting)
+// ---------------------------------------------------------------------------
+
+export type AnonymousVoteReceipt = {
+  election_id: string;
+  receipt_hash: string;
+  created_at: string;
+};
+
+export type AnonymousResultRow = {
+  election_id: string;
+  candidate_id: string;
+  candidate_name: string;
+  vote_count: number;
+};
+
+/**
+ * Cast an anonymous vote via the cast_vote_anonymous RPC.
+ * Returns the receipt_hash — a sha256(user_id + election_id + salt) that
+ * proves the voter participated without revealing their identity.
+ * The actual ballot is stored in election_ballots (no user_id column).
+ */
+export async function castAnonymousVote(
+  electionId: string,
+  candidateId: string,
+): Promise<Result<string>> {
+  try {
+    const { data, error } = await supabase.rpc("cast_vote_anonymous", {
+      p_election_id: electionId,
+      p_candidate_id: candidateId,
+    });
+    if (error) throw error;
+    return { data: data as string, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+/**
+ * Verify that a receipt_hash belongs to a valid vote in this election.
+ * The voter can confirm their ballot was counted — but never which
+ * candidate they chose (the ballot table has no user_id).
+ */
+export async function verifyReceipt(
+  electionId: string,
+  receiptHash: string,
+): Promise<Result<boolean>> {
+  try {
+    const { data, error } = await supabase.rpc("verify_vote_receipt", {
+      p_election_id: electionId,
+      p_receipt_hash: receiptHash,
+    });
+    if (error) throw error;
+    return { data: data as boolean, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+/**
+ * Fetch anonymous aggregate results from the anonymous_election_results view.
+ * Returns EMPTY (not an error) until the election closes and end_time passes.
+ */
+export async function getAnonymousResults(
+  electionId: string,
+): Promise<Result<AnonymousResultRow[]>> {
+  try {
+    const { data, error } = await supabase
+      .from("anonymous_election_results")
+      .select("*")
+      .eq("election_id", electionId)
+      .order("vote_count", { ascending: false });
+    if (error) throw error;
+    return { data: data as AnonymousResultRow[], error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
 /**
  * Uploads a candidate's manifesto file to private storage, then records
  * it on the candidate row via the `set_candidate_manifesto` RPC (which
