@@ -9,6 +9,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import Calendar from "lucide-react/dist/esm/icons/calendar";
 import MapPin from "lucide-react/dist/esm/icons/map-pin";
@@ -176,10 +177,21 @@ export default function RecommendedCarousel({
                 <div className="h-full rounded-xl border-2 border-black shadow-[4px_4px_0_0_var(--color-ink)] bg-white overflow-hidden transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[0_0_0_0_var(--color-ink)] cursor-grab active:cursor-grabbing flex flex-col justify-between">
                   <div>
                     {event.banner_url ? (
-                      <img
+                      <OptimizedImage
                         src={event.banner_url}
                         alt={event.title}
+                        width={300}
+                        height={160}
+                        responsiveWidths={[300, 600]}
+                        sizes="(max-width: 640px) 300px, 300px"
                         className="h-40 w-full object-cover border-b-2 border-black"
+                        fallback={
+                          <img
+                            src={event.banner_url}
+                            alt={event.title}
+                            className="h-40 w-full object-cover border-b-2 border-black"
+                          />
+                        }
                       />
                     ) : (
                       <div className="h-40 w-full bg-peach flex items-center justify-center border-b-2 border-black font-display font-black text-white text-3xl uppercase tracking-wider p-4 text-center select-none">

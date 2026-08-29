@@ -1,9 +1,11 @@
 // src/components/EventCreationWizard/steps/DateLocationStepForm.tsx
+import { useState } from "react";
 import { useEventWizardStore } from "../../../store/useEventWizardStore";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import { Checkbox } from "../../ui/checkbox";
-
+import { LocationAutocomplete } from "../../LocationAutocomplete";
+import { useRestrictedDateCheck } from "../../../hooks/useRestrictedDateCheck";
 /**
  * Step 2: Date & Location.
  * Collects start/end date-times, physical/virtual location, and capacity.
@@ -12,9 +14,10 @@ export function DateLocationStepForm() {
   const formData = useEventWizardStore((s) => s.formData);
   const updateFormData = useEventWizardStore((s) => s.updateFormData);
   const validationErrors = useEventWizardStore((s) => s.validationErrors);
+  const [dismissedWarning, setDismissedWarning] = useState(false);
+  const { warningMessage } = useRestrictedDateCheck(formData.startDate, formData.endDate);
 
-  return (
-    <div className="space-y-6">
+  return (    <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="startDate">Start Date & Time *</Label>
@@ -45,18 +48,35 @@ export function DateLocationStepForm() {
         </div>
       </div>
 
+      {warningMessage && !dismissedWarning && (
+        <div className="rounded-md border-2 border-red-600 bg-red-50 p-4 dark:bg-red-950">
+          <p className="text-sm font-bold text-red-700 dark:text-red-300">{warningMessage}</p>
+          <button
+            type="button"
+            onClick={() => setDismissedWarning(true)}
+            className="mt-2 text-sm font-semibold underline text-red-700 dark:text-red-300"
+          >
+            Yes, I'm sure - continue anyway
+          </button>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="location">Location *</Label>
-        <Input
-          id="location"
+        <LocationAutocomplete
           value={formData.location}
-          onChange={(e) => updateFormData({ location: e.target.value })}
-          placeholder="e.g. Student Union, Room 101"
-          aria-invalid={!!validationErrors.location}
+          latitude={formData.latitude}
+          longitude={formData.longitude}
+          required
+          placeholder='Search for a venue, address, or type "Online"'
+          onChange={(location, coordinates) =>
+            updateFormData({
+              location,
+              latitude: coordinates?.latitude ?? null,
+              longitude: coordinates?.longitude ?? null,
+            })
+          }
+          error={validationErrors.location}
         />
-        {validationErrors.location && (
-          <p className="text-sm text-red-600 dark:text-red-400">{validationErrors.location}</p>
-        )}
       </div>
 
       <div className="flex items-center space-x-2">
@@ -96,6 +116,22 @@ export function DateLocationStepForm() {
         <Label htmlFor="isOutdoor" className="cursor-pointer">
           Outdoor Event
         </Label>
+      </div>
+
+      <div className="flex items-start space-x-2">
+        <Checkbox
+          id="hasPhotography"
+          checked={formData.hasPhotography}
+          onCheckedChange={(checked) => updateFormData({ hasPhotography: checked === true })}
+        />
+        <div className="space-y-1">
+          <Label htmlFor="hasPhotography" className="cursor-pointer">
+            Photography or filming planned
+          </Label>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Attendees will be asked for a required media-consent choice during RSVP.
+          </p>
+        </div>
       </div>
 
       {formData.isOutdoor && (

@@ -6,6 +6,8 @@ import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 import { DuesRosterPanel } from "@/components/Clubs/DuesRosterPanel";
+import { ContractWarningAlert } from "@/components/Clubs/ContractWarningAlert";
+import { VendorEscrowViewer } from "@/components/vendors/VendorEscrowViewer";
 
 export function ClubFinancesTab({ clubId }: { clubId: string }) {
   const supabase = createClient();
@@ -75,6 +77,9 @@ export function ClubFinancesTab({ clubId }: { clubId: string }) {
       <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2 flex items-center gap-2">
         <DollarSign /> Financial Dashboard
       </h2>
+      
+      <ContractWarningAlert clubId={clubId} />
+      <VendorEscrowViewer clubId={clubId} />
 
       {/* Membership dues: standing, arrears and the reminder due next. */}
       <DuesRosterPanel clubId={clubId} />

@@ -135,7 +135,15 @@ export async function fetchIncomingOffers(
         id,
         departure_time,
         pickup_neighborhood,
-        driver:profiles!carpool_vehicles_driver_user_id_fkey(full_name, avatar_url)
+        driver_user_id,
+        driver:profiles!carpool_vehicles_driver_user_id_fkey(
+          id,
+          full_name,
+          avatar_url,
+          carpool_driver_rating,
+          carpool_driver_rating_count,
+          is_carpool_driver_blocked
+        )
       )
     `,
     )
@@ -162,6 +170,39 @@ export async function acceptOffer(
     p_offer_id: offerId,
   });
   return { data: data as RpcResult, error };
+}
+
+export async function declineOffer(
+  offerId: string,
+): Promise<{ data: RpcResult | null; error: unknown }> {
+  const { data, error } = await supabase.rpc("decline_carpool_offer", {
+    p_offer_id: offerId,
+  });
+  return { data: data as RpcResult, error };
+}
+
+export async function submitDriverRating(
+  vehicleId: string,
+  rating: number,
+  feedback?: string,
+  safetyTags?: string[],
+): Promise<{
+  data: {
+    success: boolean;
+    message: string;
+    average_rating?: number;
+    total_ratings?: number;
+    is_blocked?: boolean;
+  } | null;
+  error: unknown;
+}> {
+  const { data, error } = await supabase.rpc("submit_carpool_driver_rating", {
+    p_vehicle_id: vehicleId,
+    p_rating: rating,
+    p_feedback: feedback || null,
+    p_safety_tags: safetyTags || [],
+  });
+  return { data: data as any, error };
 }
 
 export async function cancelVehicle(vehicleId: string): Promise<{ error: unknown }> {

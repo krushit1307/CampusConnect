@@ -1,9 +1,11 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import Lock from "lucide-react/dist/esm/icons/lock";
 import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import { useChatStore } from "@/store/useChatStore";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
+import { MentorshipCalendarUI } from "../mentorship/MentorshipCalendarUI";
+import { Calendar } from "lucide-react";
 
 interface ChatWindowProps {
   onSend: (e: React.FormEvent) => void;
@@ -18,6 +20,8 @@ export default function ChatWindow({ onSend, onTyping, onFocus, typingUsers }: C
   const loadingMessages = useChatStore((s) => s.loadingMessages);
   const recipientKeyError = useChatStore((s) => s.recipientKeyError);
   const currentUser = useChatStore((s) => s.currentUser);
+
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -53,9 +57,18 @@ export default function ChatWindow({ onSend, onTyping, onFocus, typingUsers }: C
             {activeRecipient.college || "No College Listed"}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 border border-black bg-cream px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
-          <Lock size={10} />
-          Session Secure
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 border border-black bg-cream px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
+            <Lock size={10} />
+            Session Secure
+          </div>
+          <button
+            onClick={() => setIsCalendarOpen(true)}
+            className="neu-border flex items-center gap-1.5 bg-indigo-500 px-3 py-1 font-mono text-[10px] font-bold uppercase text-white hover:-translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-transform"
+          >
+            <Calendar size={12} />
+            Schedule Meeting
+          </button>
         </div>
       </div>
 
@@ -102,6 +115,14 @@ export default function ChatWindow({ onSend, onTyping, onFocus, typingUsers }: C
           onTyping={onTyping}
           onFocus={onFocus}
           typingUsers={typingUsers}
+        />
+      )}
+
+      {isCalendarOpen && (
+        <MentorshipCalendarUI
+          recipientId={activeRecipient.id}
+          recipientName={activeRecipient.full_name || "Anonymous Student"}
+          onClose={() => setIsCalendarOpen(false)}
         />
       )}
     </div>

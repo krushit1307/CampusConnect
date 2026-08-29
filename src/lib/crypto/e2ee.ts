@@ -1,9 +1,9 @@
 // =============================================================================
 // Utility: End-to-End Encryption (E2EE) Engine
---Issue: #2905 - Implement 'End-to-End Encryption' for Sensitive Club Direct Messages
---Description: Wraps the native Web Crypto API to handle RSA - OAEP keypair
---generation, AES - GCM symmetric encryption for messages, and key wrapping.
---Ensures zero - knowledge architecture where the server only sees ciphertext.
+//Issue: #2905 - Implement 'End-to-End Encryption' for Sensitive Club Direct Messages
+//Description: Wraps the native Web Crypto API to handle RSA - OAEP keypair
+//generation, AES - GCM symmetric encryption for messages, and key wrapping.
+//Ensures zero - knowledge architecture where the server only sees ciphertext.
 // =============================================================================
 
 // Constants for crypto algorithms

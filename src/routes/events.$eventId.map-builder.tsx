@@ -112,6 +112,7 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     elevator: "bg-blue-200",
     ramp: "bg-blue-300",
     restroom: "bg-cyan-200",
+    Quiet_Space: "bg-violet-100",
   };
 
   const borders: Record<MapNodeType, string> = {
@@ -124,6 +125,7 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     elevator: "border-blue-800",
     ramp: "border-blue-900",
     restroom: "border-cyan-800",
+    Quiet_Space: "border-violet-700",
   };
 
   // Custom mouse resize handler
@@ -172,13 +174,20 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     >
       {/* Rotation Visual Indicator */}
       <div
-        className="w-full h-full flex flex-col items-center justify-center"
-        style={{ transform: `rotate(${element.rotation}deg)` }}
+        className="flex h-full w-full flex-col items-center justify-center overflow-hidden"
+        style={{ transform: `rotate(${-element.rotation}deg)` }}
       >
-        <span className="font-mono text-[10px] font-extrabold uppercase leading-none break-all p-1">
-          {element.label}
-        </span>
-        <span className="font-mono text-[8px] opacity-75 mt-0.5 uppercase tracking-wider leading-none">
+        <div className="flex items-center gap-1">
+          {element.requiredTicketTierId && (
+            <span title="VIP Table" className="text-yellow-500 drop-shadow-md">
+              ★
+            </span>
+          )}
+          <span className="truncate px-0.5 font-mono text-[9px] font-black uppercase leading-tight md:text-[10px]">
+            {element.label || `${element.type.toUpperCase()}`}
+          </span>
+        </div>
+        <span className="mt-0.5 text-[7px] font-bold uppercase leading-none tracking-wider text-gray-500">
           {element.type}
         </span>
       </div>
@@ -256,6 +265,9 @@ export default function CampusMapBuilder() {
 
   const [loading, setLoading] = useState(true);
   const [eventTitle, setEventTitle] = useState("");
+  const [ticketTiers, setTicketTiers] = useState<
+    { id: string; name: string; is_early_bird: boolean }[]
+  >([]);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Load layout from database (relational tables: venue_maps and map_nodes)
@@ -274,6 +286,12 @@ export default function CampusMapBuilder() {
         if (eventError) throw eventError;
         setEventTitle(eventData?.title || "Event Builder");
 
+        const { data: tiersData } = await supabase
+          .from("ticket_tiers")
+          .select("id, name, is_early_bird")
+          .eq("event_id", eventId);
+        if (tiersData) setTicketTiers(tiersData);
+
         // Fetch venue map details
         const { data: mapData, error: mapError } = await supabase
           .from("venue_maps")
@@ -288,7 +306,7 @@ export default function CampusMapBuilder() {
           const { data: nodesData, error: nodesError } = await supabase
             .from("map_nodes")
             .select(
-              "id, entity_name, type, x_coord, y_coord, width, height, rotation, accessibility_notes",
+              "id, entity_name, type, x_coord, y_coord, width, height, rotation, accessibility_notes, required_ticket_tier_id",
             )
             .eq("map_id", mapData.id);
 
@@ -305,6 +323,7 @@ export default function CampusMapBuilder() {
             height: Math.round((Number(node.height) / 100) * 600),
             rotation: node.rotation,
             accessibilityNotes: node.accessibility_notes || "",
+            requiredTicketTierId: node.required_ticket_tier_id || undefined,
           }));
 
           setElements(loadedElements);
@@ -504,6 +523,7 @@ export default function CampusMapBuilder() {
           height: (el.height / 600) * 100,
           rotation: el.rotation,
           accessibility_notes: el.accessibilityNotes || null,
+          required_ticket_tier_id: el.requiredTicketTierId || null,
         }));
 
         const { error: insertNodesError } = await supabase.from("map_nodes").insert(nodesToInsert);
@@ -639,6 +659,12 @@ export default function CampusMapBuilder() {
                       defaultWidth={60}
                       defaultHeight={60}
                     />
+                    <PaletteItem
+                      type="Quiet_Space"
+                      label="Quiet Room"
+                      defaultWidth={80}
+                      defaultHeight={60}
+                    />
                   </div>
                 </div>
 
@@ -699,6 +725,27 @@ export default function CampusMapBuilder() {
                             className="mt-1 w-full border-2 border-black bg-white p-1 text-xs"
                           />
                         </label>
+                      )}
+                      {(selectedElement.type === "table" || selectedElement.type === "booth") && (
+                        <div>
+                          <span className="font-bold">Required VIP Ticket:</span>
+                          <select
+                            value={selectedElement.requiredTicketTierId || ""}
+                            onChange={(e) =>
+                              updateElement(selectedElement.id, {
+                                requiredTicketTierId: e.target.value || undefined,
+                              })
+                            }
+                            className="w-full mt-1 border-2 border-black p-1 bg-white text-xs"
+                          >
+                            <option value="">None (General Admission)</option>
+                            {ticketTiers.map((tier) => (
+                              <option key={tier.id} value={tier.id}>
+                                {tier.name} {tier.is_early_bird ? "(Early Bird)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                       <div className="flex gap-2 pt-1">
                         <button

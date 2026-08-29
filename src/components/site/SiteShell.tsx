@@ -10,13 +10,19 @@ const JoyrideComponent =
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BugReportWidget } from "@/components/BugReportWidget";
+import { NoiseComplaintWidget } from "@/components/events/NoiseComplaintWidget";
 import { AutoBreadcrumbs } from "@/components/ui/AutoBreadcrumbs";
 import { LiveAnnouncer } from "@/components/events/LiveAnnouncer";
+import { StaleProfileNudgeModal } from "@/components/profile/StaleProfileNudgeModal";
+import { isProfileDataStale } from "@/services/profileFreshnessService";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
+  const [userMajor, setUserMajor] = useState<string | null>(null);
+  const [showStaleNudge, setShowStaleNudge] = useState<boolean>(false);
+  const [isConfirmingFreshness, setIsConfirmingFreshness] = useState<boolean>(false);
   const emailVerified = useEmailVerification();
   const [hasCompletedTour, setHasCompletedTour] = useState<boolean>(
     () => localStorage.getItem("hasCompletedTour") === "true",
@@ -35,8 +41,23 @@ export function SiteShell({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUser(user);
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("major, profile_last_updated_at")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          setUserMajor(profile.major || null);
+          const dismissedInSession = sessionStorage.getItem("stale_profile_nudge_dismissed");
+          if (!dismissedInSession && isProfileDataStale(profile.profile_last_updated_at)) {
+            setShowStaleNudge(true);
+          }
+        }
+      }
     });
 
     const {
@@ -47,6 +68,27 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, [supabase]);
+
+  const handleConfirmProfileFreshness = async () => {
+    if (!user) return;
+    setIsConfirmingFreshness(true);
+    try {
+      await supabase
+        .from("profiles")
+        .update({ profile_last_updated_at: new Date().toISOString() })
+        .eq("id", user.id);
+      setShowStaleNudge(false);
+      sessionStorage.setItem("stale_profile_nudge_dismissed", "true");
+    } finally {
+      setIsConfirmingFreshness(false);
+    }
+  };
+
+  const handleNavigateToUpdateProfile = () => {
+    setShowStaleNudge(false);
+    sessionStorage.setItem("stale_profile_nudge_dismissed", "true");
+    navigate("/settings");
+  };
 
   const handleJoyrideCallback = (data: Record<string, unknown>) => {
     const { status } = data as { status: string };
@@ -171,6 +213,18 @@ export function SiteShell({ children }: { children: ReactNode }) {
       </main>
       <Footer />
       <BugReportWidget />
+      <NoiseComplaintWidget />
+      <StaleProfileNudgeModal
+        isOpen={showStaleNudge}
+        onClose={() => {
+          setShowStaleNudge(false);
+          sessionStorage.setItem("stale_profile_nudge_dismissed", "true");
+        }}
+        onConfirmCurrent={handleConfirmProfileFreshness}
+        onUpdateProfile={handleNavigateToUpdateProfile}
+        major={userMajor}
+        isConfirming={isConfirmingFreshness}
+      />
     </div>
   );
 }

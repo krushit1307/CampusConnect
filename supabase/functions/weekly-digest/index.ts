@@ -241,7 +241,9 @@ serve(async (req) => {
 
     const { data: rawEvents, error: eventsError } = await supabase
       .from("events")
-      .select("id, title, event_date, location, club_id, clubs(name), event_tags(tag_path)")
+      .select(
+        "id, title, event_date, location, club_id, clubs(name), event_tags(tag_path, tags(status))",
+      )
       .gte("event_date", nowStr)
       .lte("event_date", next7DaysStr)
       .is("deleted_at", null)
@@ -259,7 +261,14 @@ serve(async (req) => {
         location: e.location ?? null,
         club_id: e.club_id ?? null,
         club_name: club?.name ?? null,
-        tag_paths: Array.isArray(e.event_tags) ? e.event_tags.map((t) => t.tag_path) : [],
+        tag_paths: Array.isArray(e.event_tags)
+          ? e.event_tags
+              .filter((t) => {
+                const tag = Array.isArray(t.tags) ? t.tags[0] : t.tags;
+                return tag?.status !== "archived";
+              })
+              .map((t) => t.tag_path)
+          : [],
       };
     });
 

@@ -1,8 +1,8 @@
 // =============================================================================
 // Component: PodiumCard
---Issue: #2971 - Develop a 'Cross-Club Leaderboard'(Gamification)
---Description: Renders the animated podium graphics for the Top 3 clubs.
---Includes distinct visual treatments for Gold, Silver, and Bronze positions.
+//Issue: #2971 - Develop a 'Cross-Club Leaderboard'(Gamification)
+//Description: Renders the animated podium graphics for the Top 3 clubs.
+//Includes distinct visual treatments for Gold, Silver, and Bronze positions.
 // =============================================================================
 
 import React from 'react';

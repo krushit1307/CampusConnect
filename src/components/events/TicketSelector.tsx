@@ -1,7 +1,7 @@
 // =============================================================================
 // Component: TicketSelector
 // Issue: #2902 - Implement 'Group Discounts' for Event Ticketing
-// Description: Interactive checkout cart UI. As the user increments the
+// Description: Interactive checkout cart UI. As the user increments the 
 // ticket quantity, it dynamically calculates and displays the discount.
 // Shows "Add X more to get Y% off!" prompts to encourage group purchases.
 // =============================================================================

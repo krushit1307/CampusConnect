@@ -8,6 +8,8 @@ import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { supabase } from "../lib/supabase/client";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+import { SponsorBountyAnalytics } from "../components/events/SponsorBountyAnalytics";
 
 interface Attendee {
   id: string;
@@ -225,88 +227,104 @@ export default function SponsorEventPortal() {
         </Button>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border rounded-lg shadow-sm mb-8">
-        <div className="p-4 border-b flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              placeholder="Search attendees..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex gap-4">
-            <select
-              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={majorFilter}
-              onChange={(e) => setMajorFilter(e.target.value)}
-            >
-              <option value="">All Majors</option>
-              {majors.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <select
-              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={gradYearFilter}
-              onChange={(e) => setGradYearFilter(e.target.value)}
-            >
-              <option value="">All Years</option>
-              {gradYears.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+      <Tabs defaultValue="attendees" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="attendees">Attendees & Resumes</TabsTrigger>
+          <TabsTrigger value="analytics">Bounty Analytics</TabsTrigger>
+        </TabsList>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-800 text-slate-500">
-              <tr>
-                <th className="px-6 py-4 font-semibold">Student Name</th>
-                <th className="px-6 py-4 font-semibold">Major</th>
-                <th className="px-6 py-4 font-semibold">Grad Year</th>
-                <th className="px-6 py-4 font-semibold text-right">Resume</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {filteredAttendees.length > 0 ? (
-                filteredAttendees.map((attendee) => (
-                  <tr key={attendee.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="px-6 py-4 font-medium">
-                      {attendee.first_name} {attendee.last_name}
-                    </td>
-                    <td className="px-6 py-4">{attendee.major || "—"}</td>
-                    <td className="px-6 py-4">{attendee.graduation_year || "—"}</td>
-                    <td className="px-6 py-4 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => previewResume(attendee.resume_path)}
-                        className="gap-2"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Preview
-                      </Button>
-                    </td>
+        <TabsContent value="attendees">
+          <div className="bg-white dark:bg-slate-900 border rounded-lg shadow-sm mb-8">
+            <div className="p-4 border-b flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Search attendees..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex gap-4">
+                <select
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={majorFilter}
+                  onChange={(e) => setMajorFilter(e.target.value)}
+                >
+                  <option value="">All Majors</option>
+                  {majors.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={gradYearFilter}
+                  onChange={(e) => setGradYearFilter(e.target.value)}
+                >
+                  <option value="">All Years</option>
+                  {gradYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-800 text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4 font-semibold">Student Name</th>
+                    <th className="px-6 py-4 font-semibold">Major</th>
+                    <th className="px-6 py-4 font-semibold">Grad Year</th>
+                    <th className="px-6 py-4 font-semibold text-right">Resume</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
-                    No attendees found matching your filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {filteredAttendees.length > 0 ? (
+                    filteredAttendees.map((attendee) => (
+                      <tr
+                        key={attendee.id}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      >
+                        <td className="px-6 py-4 font-medium">
+                          {attendee.first_name} {attendee.last_name}
+                        </td>
+                        <td className="px-6 py-4">{attendee.major || "—"}</td>
+                        <td className="px-6 py-4">{attendee.graduation_year || "—"}</td>
+                        <td className="px-6 py-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => previewResume(attendee.resume_path)}
+                            className="gap-2"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Preview
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                        No attendees found matching your filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <SponsorBountyAnalytics eventId={eventId || ""} />
+        </TabsContent>
+      </Tabs>
 
       {previewLoading && (
         <div className="flex items-center justify-center p-12 border rounded-lg border-dashed">
