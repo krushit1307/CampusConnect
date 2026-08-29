@@ -129,6 +129,7 @@ const ForgotPassword = lazy(() => import("./routes/forgot-password"));
 const ResetPassword = lazy(() => import("./routes/reset-password"));
 const Settings = lazy(() => import("./routes/settings"));
 const SettingsData = lazy(() => import("./routes/settings.data"));
+const VoiceRedactionRoute = lazy(() => import("./routes/privacy.voice-redaction"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
 const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
@@ -535,6 +536,7 @@ const router = createBrowserRouter(
               {/* Settings */}
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/data" element={<SettingsData />} />
+              <Route path="/privacy/voice-redaction" element={<VoiceRedactionRoute />} />
 
               {/* Facility */}
               <Route path="/facility-dashboard" element={<FacilityDashboard />} />
