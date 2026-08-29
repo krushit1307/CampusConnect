@@ -35,6 +35,12 @@ import { ComplianceCheckGuard } from "@/components/auth/ComplianceCheckGuard";
 import { ShadowbanEvasionCheck } from "@/components/Auth/ShadowbanEvasionCheck";
 import UnsubscribeRoute from "./routes/unsubscribe";
 import PollOverlayRoute from "./routes/overlay.poll.$poll_id";
+
+// --- NEW GEOFENCE IMPORTS ---
+import { useLocationTracker } from "./hooks/useLocationTracker";
+import { EmergencyTakeover } from "./components/EmergencyTakeover";
+// ----------------------------
+
 function RemoteLoadingScreen() {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-white">
@@ -187,7 +193,6 @@ const CampusWellnessHub = lazy(() => import("./pages/wellness/CampusWellnessHub"
 const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
 const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
 const AudioTourRoute = lazy(() => import("./routes/audio-tour"));
-const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id"));
 const ShuttleTrackerRoute = lazy(() => import("./routes/shuttle-tracker"));
 // ---------------------------------------------------------------------------
 const DynamicEarlyBirdAnalyticsRoute = lazy(
@@ -601,15 +606,14 @@ const router = createBrowserRouter(
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Route>
-              {/* Campus Shuttle Tracker */}
-              <Route path="/shuttle-tracker" element={<CampusShuttleTracker />} />
-              {/* Course Reviews */}
-              <Route path="/course-reviews" element={<CourseReviews />} />
-              {/* Campus Parking Spot Finder */}
-              <Route path="/parking" element={<CampusParkingSpotFinder />} />
-              {/* Library Book Finder */}
-              <Route path="/library" element={<LibraryBookFinder />} />
-
+            {/* Campus Shuttle Tracker */}
+            <Route path="/shuttle-tracker" element={<CampusShuttleTracker />} />
+            {/* Course Reviews */}
+            <Route path="/course-reviews" element={<CourseReviews />} />
+            {/* Campus Parking Spot Finder */}
+            <Route path="/parking" element={<CampusParkingSpotFinder />} />
+            {/* Library Book Finder */}
+            <Route path="/library" element={<LibraryBookFinder />} />
 
             <Route path="/shuttle" element={<ShuttleTrackerRoute />} />
           </Route>
@@ -684,6 +688,11 @@ function usePushNotifications() {
 
 export default function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
+
+  // --- INJECT GEOFENCE TRACKER ---
+  const { isInDanger } = useLocationTracker(true);
+  // -------------------------------
+
   // OBS/vMix load this route directly as a bare Browser Source, so the
   // app's floating chrome (theme toggle, banners, modals) must not render
   // on top of the transparent poll overlay.
@@ -754,6 +763,11 @@ export default function App() {
                     <>
                       <OfflineIndicator />
                       <EmergencyBroadcastOverlay />
+
+                      {/* --- INJECT RED SCREEN TAKEOVER --- */}
+                      <EmergencyTakeover isInDanger={isInDanger} />
+                      {/* ---------------------------------- */}
+
                       <LoginRecoveryModal />
                       {/* Floating Dark Mode Toggle */}
                       <div className="fixed bottom-4 right-4 z-[9999]">
