@@ -113,6 +113,7 @@ const ClubsLayout = lazy(() => import("./routes/clubs"));
 const ClubDiscoveryQuiz = lazy(() => import("./routes/clubs.fit"));
 const ClubDiscovery = lazy(() => import("./routes/clubs.discovery"));
 const ClubAudioPitches = lazy(() => import("./routes/clubs.audio-pitches"));
+const EquitySwapRoute = lazy(() => import("./routes/clubs.equity-swap"));
 const Dashboard = lazy(() => import("./routes/dashboard"));
 const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
 const DashboardRsvps = lazy(() => import("./routes/dashboard.rsvps"));
@@ -536,6 +537,7 @@ const router = createBrowserRouter(
               {/* Settings */}
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/data" element={<SettingsData />} />
+              <Route path="/clubs/equity-swap" element={<EquitySwapRoute />} />
               <Route path="/privacy/voice-redaction" element={<VoiceRedactionRoute />} />
 
               {/* Facility */}
