@@ -4,6 +4,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { DroneMaintenanceLedger } from "@/components/equipment/DroneMaintenanceLedger";
 import {
   Search,
   Calendar,
@@ -463,6 +464,14 @@ export default function EquipmentMarketplace() {
                 No active rental contracts recorded for your organization.
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {myClubId && (
+        <section className="bg-cream px-4 py-12 md:px-6 min-h-[300px] text-black border-t-2 border-black">
+          <div className="mx-auto max-w-7xl">
+            <DroneMaintenanceLedger myClubId={myClubId} />
           </div>
         </section>
       )}
