@@ -10,12 +10,17 @@ import React from "react";
 import { Sponsor, SponsorTier, useEventSponsors } from "../../hooks/useEventSponsors";
 import { SponsorLogoFallback } from "./SponsorLogoFallback";
 
+import { useHoverTelemetry } from "../../hooks/useHoverTelemetry";
+import { useAuthStore } from "../../store/useAuthStore";
+import { createClient } from "../../lib/supabase/client";
+
 interface SponsorGridProps {
   eventId: string;
   isEditMode?: boolean;
 }
 
 export const SponsorGrid: React.FC<SponsorGridProps> = ({ eventId, isEditMode = false }) => {
+  const user = useAuthStore((state) => state.user);
   const { sponsors, isLoading, deleteSponsor, updateSponsorTier } = useEventSponsors(eventId);
 
   // Group sponsors by tier for structured rendering
@@ -100,8 +105,10 @@ export const SponsorGrid: React.FC<SponsorGridProps> = ({ eventId, isEditMode = 
             <SponsorCard
               key={sponsor.id}
               sponsor={sponsor}
+              eventId={eventId}
               heightClass={config.height}
               isEditMode={isEditMode}
+              userId={user?.id}
               onDelete={() => deleteSponsor(sponsor.id)}
               onTierChange={(newTier) => updateSponsorTier(sponsor.id, newTier)}
             />
@@ -129,10 +136,12 @@ export const SponsorGrid: React.FC<SponsorGridProps> = ({ eventId, isEditMode = 
 };
 
 /**
- * Individual Sponsor Card Component
+ * Individual Sponsor Card Component with Viewability Tracker
  */
 interface SponsorCardProps {
+  userId?: string | null;
   sponsor: Sponsor;
+  eventId: string;
   heightClass: string;
   isEditMode: boolean;
   onDelete: () => void;
@@ -140,21 +149,88 @@ interface SponsorCardProps {
 }
 
 const SponsorCard: React.FC<SponsorCardProps> = ({
+  userId,
   sponsor,
+  eventId,
   heightClass,
   isEditMode,
   onDelete,
   onTierChange,
 }) => {
+  const { onMouseEnter, onMouseLeave, onClick } = useHoverTelemetry(sponsor.id, userId);
+  const [hasTrackedImpression, setHasTrackedImpression] = React.useState(false);
+  const cardRef = React.useRef<HTMLElement | null>(null);
+
   const CardWrapper = sponsor.website_url && !isEditMode ? "a" : "div";
   const wrapperProps =
     sponsor.website_url && !isEditMode
       ? { href: sponsor.website_url, target: "_blank", rel: "noopener noreferrer" }
       : {};
 
+  React.useEffect(() => {
+    if (isEditMode || hasTrackedImpression || !cardRef.current) return;
+
+    let timerId: NodeJS.Timeout | null = null;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.intersectionRatio === 1.0) {
+            // 100% of pixels visible in user's viewport, start 2000ms timer
+            if (!timerId) {
+              timerId = setTimeout(async () => {
+                try {
+                  const supabase = createClient();
+                  const { data, error } = await supabase.rpc("record_sponsor_logo_impression", {
+                    p_sponsor_id: sponsor.id,
+                    p_event_id: eventId,
+                    p_time_in_view_ms: 2000,
+                  });
+                  if (error) {
+                    console.error("Failed to record sponsor logo impression:", error);
+                  } else {
+                    console.log("Verified viewable impression recorded successfully:", data);
+                    setHasTrackedImpression(true);
+                  }
+                } catch (err) {
+                  console.error("Error verifying viewable impression:", err);
+                }
+              }, 2000);
+            }
+          } else {
+            // No longer 100% visible, cancel timer
+            if (timerId) {
+              clearTimeout(timerId);
+              timerId = null;
+            }
+          }
+        });
+      },
+      {
+        threshold: 1.0, // Strict 100% visibility requirement
+      },
+    );
+
+    observer.observe(cardRef.current);
+
+    return () => {
+      observer.disconnect();
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+    };
+  }, [sponsor.id, eventId, isEditMode, hasTrackedImpression]);
+
   return (
     <CardWrapper
       {...wrapperProps}
+      ref={cardRef as any}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onClick={(e) => {
+        onClick();
+        if (wrapperProps.onClick) wrapperProps.onClick(e as any);
+      }}
       className={`
         group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 
         rounded-xl p-6 flex items-center justify-center transition-all duration-300

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/client";
 import { useIdempotentPayment } from "@/hooks/useIdempotentPayment";
 import { useIdempotentPreorder } from "@/hooks/useIdempotentPreorder";
 import { useMerchCartStore } from "@/store/useMerchCartStore";

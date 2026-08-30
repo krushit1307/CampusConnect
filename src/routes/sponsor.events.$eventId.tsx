@@ -10,6 +10,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { SponsorBountyAnalytics } from "../components/events/SponsorBountyAnalytics";
+import { SponsorWebhookConfig } from "../components/sponsors/SponsorWebhookConfig";
 
 interface Attendee {
   id: string;
@@ -231,7 +232,12 @@ export default function SponsorEventPortal() {
         <TabsList className="mb-6">
           <TabsTrigger value="attendees">Attendees & Resumes</TabsTrigger>
           <TabsTrigger value="analytics">Bounty Analytics</TabsTrigger>
+          <TabsTrigger value="integrations">Developer / CRM Integrations</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="integrations">
+          <SponsorWebhookConfig eventId={eventId || ""} />
+        </TabsContent>
 
         <TabsContent value="attendees">
           <div className="bg-white dark:bg-slate-900 border rounded-lg shadow-sm mb-8">

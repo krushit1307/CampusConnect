@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: KanbanBoard
---Issue: #2978 - Build a 'Club Application & Tryout' Workflow
---Description: The main ATS interface for Club Executives.Features a 
---drag - and - drop Kanban board to manage applicant pipelines, a Blind Review
---toggle for bias prevention, and bulk action capabilities.
+//Issue: #2978 - Build a 'Club Application & Tryout' Workflow
+//Description: The main ATS interface for Club Executives.Features a 
+//drag - and - drop Kanban board to manage applicant pipelines, a Blind Review
+//toggle for bias prevention, and bulk action capabilities.
 // =============================================================================
 
 import React, { useState } from 'react';

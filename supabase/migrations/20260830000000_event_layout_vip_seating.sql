@@ -1,0 +1,1 @@
+ALTER TABLE public.map_nodes ADD COLUMN IF NOT EXISTS required_ticket_tier_id UUID REFERENCES public.ticket_tiers(id) ON DELETE SET NULL;

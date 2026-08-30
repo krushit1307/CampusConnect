@@ -14,10 +14,10 @@ export function createClubProfileQueryOptions(supabase: SupabaseClient, slug: st
         .from("clubs")
         .select(
           `
-          id, name, slug, description, github_repo_url, visibility, promo_video_url,
-          club_members (id, role, role_id, status, user_id, club_roles (id, title, permissions_level), profiles (full_name, avatar_url, handle)),
-          events (id, title, event_date)
-        `,
+id, name, slug, description, github_repo_url, visibility, promo_video_url, primary_color, secondary_color, widgets_config,
+          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle, bio)),
+          events (id, title, event_date),
+          club_tags (club_tag_labels (id, name))        `,
         )
         .eq("slug", slug)
         .eq("status", "approved")

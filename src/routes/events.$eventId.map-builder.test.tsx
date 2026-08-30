@@ -160,4 +160,28 @@ describe("CampusMapBuilder Component", () => {
       expect(screen.queryByText("TABLE #1")).not.toBeInTheDocument();
     });
   });
+
+  it("shows VIP configuration tools and dropdown for VIP tables", async () => {
+    // We just render the normal mock map which has 'table-1'
+    render(
+      <MemoryRouter initialEntries={["/events/event-123/builder"]}>
+        <Routes>
+          <Route path="/events/:eventId/builder" element={<CampusMapBuilder />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const tableElement = await screen.findByTestId("canvas-element-table-1");
+    expect(tableElement).toBeInTheDocument();
+
+    // Select the table
+    await act(async () => {
+      fireEvent.click(tableElement);
+    });
+
+    // Check if the dropdown for Required VIP Ticket is shown
+    await waitFor(() => {
+      expect(screen.getByText("Required VIP Ticket:")).toBeInTheDocument();
+    });
+  });
 });
