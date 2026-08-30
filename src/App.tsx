@@ -213,9 +213,10 @@ const DynamicEarlyBirdAnalyticsRoute = lazy(
 const AchievementsPage = lazy(() => import("@/pages/AchievementsPage"));
 const ProjectHubRoute = lazy(() => import("./routes/project-hub"));
 const EventFeedbackPage = lazy(() => import("@/pages/EventFeedbackPage"));
+const JuryReviewRoute = lazy(() => import("./routes/jury.review.$caseId"));
 
 // ---------------------------------------------------------------------------
-const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id"));// ---------------------------------------------------------------------------
+const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id")); // ---------------------------------------------------------------------------
 const ParkingSpotFinderRoute = lazy(() => import("./pages/ParkingSpotFinder"));
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 const EventBudgetManagerRoute = lazy(() => import("./pages/EventBudgetManager"));
@@ -628,6 +629,9 @@ const router = createBrowserRouter(
               {/* Event Feedback Analytics */}
               <Route path="/event-feedback" element={<EventFeedbackAnalytics />} />
 
+              {/* Jury Duty Content Moderation DAO (Issue #5129) */}
+              <Route path="/jury/review/:caseId" element={<JuryReviewRoute />} />
+
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Route>
@@ -666,10 +670,13 @@ const router = createBrowserRouter(
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/admin/restore" element={<AdminRestorePage />} />
-<Route path="/admin/dlq" element={<AdminDlqPage />} />
-<Route path="/admin/emergency-broadcast" element={<AdminEmergencyBroadcast />} />            <Route path="/admin/badges" element={<AdminBadgesPage />} />            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
-          <Route path="/attendance" element={<AttendanceTrackerRoute />} />
-            <Route path="/admin/badges" element={<AdminBadgesPage />} />            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
+            <Route path="/admin/dlq" element={<AdminDlqPage />} />
+            <Route path="/admin/emergency-broadcast" element={<AdminEmergencyBroadcast />} />{" "}
+            <Route path="/admin/badges" element={<AdminBadgesPage />} />{" "}
+            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
+            <Route path="/attendance" element={<AttendanceTrackerRoute />} />
+            <Route path="/admin/badges" element={<AdminBadgesPage />} />{" "}
+            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
             {/* Catch-all route for 404 errors */}
             <Route path="*" element={<NotFound />} />
             {/* Campus Shuttle Tracker */}
@@ -682,7 +689,7 @@ const router = createBrowserRouter(
             <Route path="/library" element={<LibraryBookFinder />} />
             <Route path="/study-groups" element={<StudyGroupFinderPage />} />
           </Route>
- feature/3022-club-hibernation-workflow
+          feature/3022-club-hibernation-workflow
           <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
           <Route
             path="/events/:eventId/kiosk"
@@ -727,7 +734,6 @@ const router = createBrowserRouter(
           <Route path="/event-budgets" element={<EventBudgetManagerRoute />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
-
         </Route>
       </Route>
     </>,
