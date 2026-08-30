@@ -162,6 +162,7 @@ const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
 const EventFloorplan = lazy(() => import("./routes/events.$eventId.floorplan"));
 const EventZoneCheckIn = lazy(() => import("./routes/events.$eventId.zones.$zoneId.check-in"));
 const LostFound = lazy(() => import("./routes/lost-found"));
+const StudyGroupFinderPage = lazy(() => import("./pages/StudyGroupFinder"));
 const Leaderboard = lazy(() => import("./routes/leaderboard"));
 const Recap = lazy(() => import("./routes/recap"));
 const NetworkPage = lazy(() => import("@/pages/NetworkPage"));
@@ -630,6 +631,7 @@ const router = createBrowserRouter(
             <Route path="/parking" element={<CampusParkingSpotFinder />} />
             {/* Library Book Finder */}
             <Route path="/library" element={<LibraryBookFinder />} />
+            <Route path="/study-groups" element={<StudyGroupFinderPage />} />
           </Route>
         </Route>
       </Route>
