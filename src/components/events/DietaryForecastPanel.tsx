@@ -17,7 +17,16 @@ import {
 } from "@/lib/dietaryForecast";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { CatererExportModal } from "./CatererExportModal";
+import Bluetooth from "lucide-react/dist/esm/icons/bluetooth";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import AlertOctagon from "lucide-react/dist/esm/icons/alert-octagon";
+import Thermometer from "lucide-react/dist/esm/icons/thermometer";
+
+import {
+  CatererTempLoggingService,
+  type CatererContract,
+  type CatererTempLog,
+} from "@/services/catererTempLoggingService";
 
 export interface DietaryForecastPanelProps {
   eventId: string;
