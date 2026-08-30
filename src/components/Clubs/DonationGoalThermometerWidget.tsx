@@ -18,6 +18,7 @@ import {
   formatDonationCurrency,
   addDonationToCampaign,
 } from "@/lib/donationGoalThermometer";
+import { visibleDonationLedger } from "@/lib/cryptoDustingFilter";
 import { cn } from "@/lib/utils";
 
 export interface DonationGoalThermometerWidgetProps {
@@ -38,9 +39,27 @@ export const MOCK_DONATION_CAMPAIGN: DonationCampaignSummary = {
   progressPercentage: 40,
   isGoalReached: false,
   recentDonors: [
-    { id: "don-1", campaignId: "camp-robotics-2026", donorName: "Alice Vance", amount: 50, createdAt: new Date().toISOString() },
-    { id: "don-2", campaignId: "camp-robotics-2026", donorName: "Dr. Robert Marcus", amount: 250, createdAt: new Date(Date.now() - 3600000).toISOString() },
-    { id: "don-3", campaignId: "camp-robotics-2026", donorName: "Elena Rostova", amount: 100, createdAt: new Date(Date.now() - 7200000).toISOString() },
+    {
+      id: "don-1",
+      campaignId: "camp-robotics-2026",
+      donorName: "Alice Vance",
+      amount: 50,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "don-2",
+      campaignId: "camp-robotics-2026",
+      donorName: "Dr. Robert Marcus",
+      amount: 250,
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+    },
+    {
+      id: "don-3",
+      campaignId: "camp-robotics-2026",
+      donorName: "Elena Rostova",
+      amount: 100,
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+    },
   ],
 };
 
@@ -87,12 +106,13 @@ export const DonationGoalThermometerWidget: React.FC<DonationGoalThermometerWidg
   };
 
   const clampedProgress = Math.min(100, Math.max(0, summary.progressPercentage));
+  const visibleDonors = visibleDonationLedger(summary.recentDonors);
 
   return (
     <div
       className={cn(
         "border-2 border-black rounded-xl bg-white font-mono shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden space-y-0",
-        className
+        className,
       )}
     >
       {/* Top Header Bar */}
@@ -103,7 +123,8 @@ export const DonationGoalThermometerWidget: React.FC<DonationGoalThermometerWidg
             <span>Real-Time "Donation Goal" Thermometer — {summary.title}</span>
           </div>
           <p className="text-xs font-sans text-gray-700 mt-1">
-            WebSocket-powered fundraising widget. Mercury tube animates in real-time as supporters complete Stripe donation checkouts.
+            WebSocket-powered fundraising widget. Mercury tube animates in real-time as supporters
+            complete Stripe donation checkouts.
           </p>
         </div>
 
@@ -118,9 +139,14 @@ export const DonationGoalThermometerWidget: React.FC<DonationGoalThermometerWidg
         <div className="p-3.5 bg-amber-300 border-b-2 border-black text-xs font-black text-amber-950 flex items-center justify-between animate-pulse">
           <div className="flex items-center gap-2">
             <PartyPopper className="w-5 h-5 text-rose-600 shrink-0" />
-            <span>🎉 FUNDRAISING GOAL REACHED! {formatDonationCurrency(summary.currentAmount)} RAISED! THANK YOU DONORS!</span>
+            <span>
+              🎉 FUNDRAISING GOAL REACHED! {formatDonationCurrency(summary.currentAmount)} RAISED!
+              THANK YOU DONORS!
+            </span>
           </div>
-          <span className="px-2 py-0.5 bg-black text-white rounded text-[10px] uppercase font-bold">100% UNLOCKED</span>
+          <span className="px-2 py-0.5 bg-black text-white rounded text-[10px] uppercase font-bold">
+            100% UNLOCKED
+          </span>
         </div>
       )}
 
@@ -136,13 +162,17 @@ export const DonationGoalThermometerWidget: React.FC<DonationGoalThermometerWidg
       <div className="p-5 bg-slate-50 border-b-2 border-black grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-3.5 border-2 border-black rounded-lg bg-white space-y-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
           <span className="text-[10px] font-bold text-gray-500 uppercase block">Total Raised</span>
-          <span className="text-2xl font-black text-rose-600">{formatDonationCurrency(summary.currentAmount)}</span>
+          <span className="text-2xl font-black text-rose-600">
+            {formatDonationCurrency(summary.currentAmount)}
+          </span>
           <span className="text-[11px] font-sans text-gray-600 block">Stripe verified gifts</span>
         </div>
 
         <div className="p-3.5 border-2 border-black rounded-lg bg-white space-y-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
           <span className="text-[10px] font-bold text-gray-500 uppercase block">Campaign Goal</span>
-          <span className="text-2xl font-black text-indigo-950">{formatDonationCurrency(summary.targetAmount)}</span>
+          <span className="text-2xl font-black text-indigo-950">
+            {formatDonationCurrency(summary.targetAmount)}
+          </span>
           <span className="text-[11px] font-sans text-gray-600 block">Target benchmark</span>
         </div>
 
@@ -150,13 +180,15 @@ export const DonationGoalThermometerWidget: React.FC<DonationGoalThermometerWidg
           <span className="text-[10px] font-bold uppercase text-rose-900 block">Goal Progress</span>
           <span className="text-2xl font-black text-rose-600">{summary.progressPercentage}%</span>
           <span className="text-[11px] font-sans text-rose-900 block font-medium">
-            {summary.isGoalReached ? "🎉 Target achieved!" : `${formatDonationCurrency(summary.targetAmount - summary.currentAmount)} remaining`}
+            {summary.isGoalReached
+              ? "🎉 Target achieved!"
+              : `${formatDonationCurrency(summary.targetAmount - summary.currentAmount)} remaining`}
           </span>
         </div>
 
         <div className="p-3.5 border-2 border-black rounded-lg bg-white space-y-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
           <span className="text-[10px] font-bold text-gray-500 uppercase block">Total Donors</span>
-          <span className="text-2xl font-black text-emerald-600">{summary.recentDonors.length}</span>
+          <span className="text-2xl font-black text-emerald-600">{visibleDonors.length}</span>
           <span className="text-[11px] font-sans text-gray-600 block">Unique supporters</span>
         </div>
       </div>
@@ -193,19 +225,27 @@ export const DonationGoalThermometerWidget: React.FC<DonationGoalThermometerWidg
             <div className="h-64 flex flex-col justify-between text-xs font-mono text-gray-700 py-2">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-rose-600 text-sm">100%</span>
-                <span className="text-[11px] text-gray-500">({formatDonationCurrency(summary.targetAmount)})</span>
+                <span className="text-[11px] text-gray-500">
+                  ({formatDonationCurrency(summary.targetAmount)})
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-gray-800">75%</span>
-                <span className="text-[11px] text-gray-500">({formatDonationCurrency(summary.targetAmount * 0.75)})</span>
+                <span className="text-[11px] text-gray-500">
+                  ({formatDonationCurrency(summary.targetAmount * 0.75)})
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-gray-800">50%</span>
-                <span className="text-[11px] text-gray-500">({formatDonationCurrency(summary.targetAmount * 0.5)})</span>
+                <span className="text-[11px] text-gray-500">
+                  ({formatDonationCurrency(summary.targetAmount * 0.5)})
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-gray-800">25%</span>
-                <span className="text-[11px] text-gray-500">({formatDonationCurrency(summary.targetAmount * 0.25)})</span>
+                <span className="text-[11px] text-gray-500">
+                  ({formatDonationCurrency(summary.targetAmount * 0.25)})
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-gray-500">0%</span>
@@ -224,7 +264,7 @@ export const DonationGoalThermometerWidget: React.FC<DonationGoalThermometerWidg
 
           {/* Scrolling Recent Donors Ticker */}
           <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-            {summary.recentDonors.map((don) => (
+            {visibleDonors.map((don) => (
               <div
                 key={don.id}
                 className="p-2.5 border-2 border-black rounded-lg bg-white flex items-center justify-between text-xs shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
@@ -247,7 +287,10 @@ export const DonationGoalThermometerWidget: React.FC<DonationGoalThermometerWidg
             </span>
 
             <div>
-              <label htmlFor="donor-name-input" className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+              <label
+                htmlFor="donor-name-input"
+                className="text-[10px] font-bold text-gray-500 uppercase block mb-1"
+              >
                 Your Name / Supporter Handle:
               </label>
               <input
