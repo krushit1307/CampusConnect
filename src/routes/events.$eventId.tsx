@@ -14,6 +14,9 @@ import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { AslAvatarPip } from "@/components/events/AslAvatarPip";
+import { AudioDescriptionSyncWidget } from "@/components/events/AudioDescriptionSyncWidget";
+import { EscrowDonationWidget } from "@/components/events/EscrowDonationWidget";
+import { SkillMatcherWidget } from "@/components/events/SkillMatcherWidget";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
 import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
@@ -3707,6 +3710,21 @@ export default function EventDetailsPage() {
             />
           </div>
         )}
+        <AudioDescriptionSyncWidget
+          eventId={eventId || ""}
+          audioDescriptionUrl={event?.audio_description_url || null}
+          videoElement={null}
+        />
+        <EscrowDonationWidget
+          clubId={event?.clubs?.name || ""}
+          clubWalletAddress="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+          userRole={user?.id === event?.created_by ? "club" : "donor"}
+        />
+        <SkillMatcherWidget
+          userRole={user?.id === event?.created_by ? "recruiter" : "student"}
+          sponsorId={event?.created_by || ""}
+          companyName={event?.clubs?.name || ""}
+        />
         <AslAvatarPip eventId={eventId || ""} />
       </SiteShell>
     </>
