@@ -76,3 +76,61 @@ export async function blockSupportUser(
     message: res?.message ?? "User blocked.",
   };
 }
+
+/**
+ * Matches a student in crisis with an available, online peer responder.
+ * Replaces the mock in CrisisAbTestBanner.tsx.
+ */
+export async function matchPeerResponder(): Promise<{ matched: boolean; roomId: string | null }> {
+  const supabase = createClient();
+
+  try {
+    // 1. Get the current authenticated student
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error("Auth error during matchmaking:", authError);
+      return { matched: false, roomId: null };
+    }
+
+    // 2. Query for an available, online responder
+    const { data: responders, error: responderError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("is_peer_responder", true)
+      .eq("is_online", true)
+      .limit(1); // Grabs the first available responder
+
+    if (responderError || !responders || responders.length === 0) {
+      console.log("No responders currently online.");
+      return { matched: false, roomId: null };
+    }
+
+    const assignedResponder = responders[0];
+
+    // 3. Create the secure anonymous support session
+    const { data: session, error: sessionError } = await supabase
+      .from("support_sessions")
+      .insert({
+        anonymous_student_id: user.id,
+        responder_id: assignedResponder.id,
+        status: "active",
+        started_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (sessionError || !session) {
+      console.error("Failed to create support session:", sessionError);
+      return { matched: false, roomId: null };
+    }
+
+    // 4. Return the new session ID to route the student into the chat
+    return { matched: true, roomId: session.id };
+  } catch (error) {
+    console.error("Unexpected error in matchPeerResponder:", error);
+    return { matched: false, roomId: null };
+  }
+}

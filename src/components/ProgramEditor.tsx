@@ -28,34 +28,38 @@ export const ProgramEditor: React.FC = ({ initialContent = '', onChange }) => {
   }
 
   return (
-    
-      
-         editor.chain().focus().toggleHeading({ level: 2 }).run()}
+    <div className="flex flex-col w-full h-full">
+      <div className="flex gap-2 p-2 border border-b-0 border-gray-300 rounded-t-md bg-gray-50">
+        <button
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           className={editor.isActive('heading', { level: 2 }) ? 'p-1 rounded bg-gray-200' : 'p-1 rounded hover:bg-gray-200'}
           type="button"
         >
-          
-        
-         editor.chain().focus().toggleBold().run()}
+          <Heading2 size={16} />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().toggleBold().run()}
           className={editor.isActive('bold') ? 'p-1 rounded bg-gray-200' : 'p-1 rounded hover:bg-gray-200'}
           type="button"
         >
-          
-        
-         editor.chain().focus().toggleItalic().run()}
+          <Bold size={16} />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().toggleItalic().run()}
           className={editor.isActive('italic') ? 'p-1 rounded bg-gray-200' : 'p-1 rounded hover:bg-gray-200'}
           type="button"
         >
-          
-        
-         editor.chain().focus().toggleBulletList().run()}
+          <Italic size={16} />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
           className={editor.isActive('bulletList') ? 'p-1 rounded bg-gray-200' : 'p-1 rounded hover:bg-gray-200'}
           type="button"
         >
-          
-        
-      
-      
-    
+          <List size={16} />
+        </button>
+      </div>
+      <EditorContent editor={editor} />
+    </div>
   );
 };

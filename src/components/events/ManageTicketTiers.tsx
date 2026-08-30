@@ -4,15 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Plus, Trash2, Key, Copy } from "lucide-react";
+import { Plus, Trash2, Percent, Hash, Sparkles } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { createSecretTier, CreateSecretTierResult } from "@/lib/secretTiers";
+import {
+  calculateDynamicTierCapacity,
+  validateTierCapacityConfig,
+} from "@/lib/dynamicEarlyBirdThresholds";
 
 interface TicketTier {
   id?: string;
   name: string;
   price: number;
   capacity: number | null;
+  capacity_percentage: number | null;
+  capacity_type: "fixed" | "percentage";
+  is_dynamic_capacity?: boolean;
   start_date: string;
   end_date: string;
   is_secret?: boolean;
@@ -23,6 +29,7 @@ interface TicketTier {
 
 export function ManageTicketTiers({ eventId }: { eventId: string }) {
   const [tiers, setTiers] = useState<TicketTier[]>([]);
+  const [venueCapacity, setVenueCapacity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tierToDelete, setTierToDelete] = useState<string | null>(null);
@@ -37,25 +44,46 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
   const supabase = createClient();
 
   useEffect(() => {
-    const fetchTiers = async () => {
+    const fetchTiersAndEvent = async () => {
       setLoading(true);
       try {
+        // Fetch event venue capacity
+        const { data: eventData } = await supabase
+          .from("events")
+          .select("venue_capacity, max_attendees")
+          .eq("id", eventId)
+          .maybeSingle();
+
+        const vCap = eventData?.venue_capacity ?? eventData?.max_attendees ?? null;
+        setVenueCapacity(vCap);
+
         const { data, error } = await supabase
           .from("ticket_tiers")
-          .select("id, name, price, capacity, start_date, end_date")
+          .select(
+            "id, name, price, capacity, capacity_percentage, is_dynamic_capacity, start_date, end_date",
+          )
           .eq("event_id", eventId)
           .order("start_date", { ascending: true, nullsFirst: false });
 
         if (error) throw error;
         setTiers(
-          (data || []).map((t) => ({
-            id: t.id,
-            name: t.name,
-            price: t.price / 100, // convert cents to dollars
-            capacity: t.capacity,
-            start_date: t.start_date ? t.start_date.slice(0, 16) : "", // format for datetime-local
-            end_date: t.end_date ? t.end_date.slice(0, 16) : "",
-          })),
+          (data || []).map((t) => {
+            const hasPct =
+              t.capacity_percentage !== null &&
+              t.capacity_percentage !== undefined &&
+              Number(t.capacity_percentage) > 0;
+            return {
+              id: t.id,
+              name: t.name,
+              price: t.price / 100, // convert cents to dollars
+              capacity: t.capacity,
+              capacity_percentage: t.capacity_percentage ? Number(t.capacity_percentage) : null,
+              capacity_type: hasPct ? "percentage" : "fixed",
+              is_dynamic_capacity: t.is_dynamic_capacity ?? hasPct,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "", // format for datetime-local
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+            };
+          }),
         );
       } catch (err) {
         console.error(err);
@@ -63,7 +91,7 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
         setLoading(false);
       }
     };
-    fetchTiers();
+    fetchTiersAndEvent();
   }, [eventId]);
 
   const validateTiers = () => {
@@ -77,10 +105,16 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
         toast.error(`Tier ${i + 1} cannot have a negative price.`);
         return false;
       }
-      if (tier.capacity !== null && tier.capacity <= 0) {
-        toast.error(`Tier ${i + 1} capacity must be greater than 0 if specified.`);
+
+      const configValidation = validateTierCapacityConfig({
+        capacity: tier.capacity_type === "fixed" ? tier.capacity : null,
+        capacity_percentage: tier.capacity_type === "percentage" ? tier.capacity_percentage : null,
+      });
+      if (!configValidation.isValid) {
+        toast.error(`Tier ${i + 1}: ${configValidation.error}`);
         return false;
       }
+
       if (
         tier.start_date &&
         tier.end_date &&
@@ -111,15 +145,27 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
     setSaving(true);
     try {
       // Upsert tiers
-      const payload = tiers.map((t) => ({
-        ...(t.id ? { id: t.id } : {}),
-        event_id: eventId,
-        name: t.name,
-        price: Math.round(t.price * 100), // convert dollars to cents
-        capacity: t.capacity,
-        start_date: t.start_date ? new Date(t.start_date).toISOString() : null,
-        end_date: t.end_date ? new Date(t.end_date).toISOString() : null,
-      }));
+      const payload = tiers.map((t) => {
+        const isPct =
+          t.capacity_type === "percentage" &&
+          t.capacity_percentage !== null &&
+          t.capacity_percentage > 0;
+        let calculatedCap = t.capacity;
+        if (isPct && venueCapacity && venueCapacity > 0) {
+          calculatedCap = calculateDynamicTierCapacity(venueCapacity, t.capacity_percentage!);
+        }
+        return {
+          ...(t.id ? { id: t.id } : {}),
+          event_id: eventId,
+          name: t.name,
+          price: Math.round(t.price * 100), // convert dollars to cents
+          capacity: calculatedCap,
+          capacity_percentage: isPct ? t.capacity_percentage : null,
+          is_dynamic_capacity: isPct,
+          start_date: t.start_date ? new Date(t.start_date).toISOString() : null,
+          end_date: t.end_date ? new Date(t.end_date).toISOString() : null,
+        };
+      });
 
       const { data, error } = await supabase.from("ticket_tiers").upsert(payload).select("id");
       if (error) throw error;
@@ -162,7 +208,306 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
   };
 
   const addTier = () => {
-    setTiers([...tiers, { name: "", price: 0, capacity: null, start_date: "", end_date: "" }]);
+    setTiers([
+      ...tiers,
+      {
+        name: "",
+        price: 0,
+        capacity: null,
+        capacity_percentage: null,
+        capacity_type: "fixed",
+        start_date: "",
+        end_date: "",
+      },
+    ]);
+  };
+
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
   };
 
   const handleCreateSecretTier = async () => {
@@ -249,31 +594,29 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h3 className="text-xl font-bold font-display uppercase">Dynamic Pricing Tiers</h3>
+          <h3 className="text-xl font-bold font-display uppercase">
+            Dynamic Pricing & Early Bird Tiers
+          </h3>
           <p className="text-sm text-black/60 font-mono mt-1">
-            Configure time or capacity-based ticket pricing.
+            Configure fixed or dynamic percentage-of-venue ticket allocations.
           </p>
+          {venueCapacity && venueCapacity > 0 && (
+            <div className="mt-2 inline-flex items-center gap-1.5 border border-black bg-blue-50 px-2.5 py-1 font-mono text-xs font-bold text-blue-900">
+              <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+              <span>Current Venue Capacity: {venueCapacity} attendees</span>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowSecretForm(!showSecretForm)}
-            className="border-2 border-black font-mono font-bold hover:bg-peach shadow-[2px_2px_0px_rgba(0,0,0,1)]"
-          >
-            <Key className="w-4 h-4 mr-2" />
-            {showSecretForm ? "Cancel Secret" : "Add Secret Tier"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={addTier}
-            className="border-2 border-black font-mono font-bold hover:bg-peach shadow-[2px_2px_0px_rgba(0,0,0,1)]"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Tier
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          onClick={addTier}
+          className="border-2 border-black font-mono font-bold hover:bg-peach shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Tier
+        </Button>
       </div>
 
       {/* Secret Tier Form */}
@@ -378,117 +721,153 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
         </div>
       ) : (
         <div className="space-y-4">
-          {tiers.map((tier, index) => (
-            <div
-              key={index}
-              className={`p-4 border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] relative group ${tier.is_secret ? "border-purple-500 bg-purple-50" : "border-black bg-white"}`}
-            >
-              <div className="absolute top-4 right-4 flex gap-2">
-                {tier.is_secret && tier.unlock_hash && (
+          {tiers.map((tier, index) => {
+            const isPercentage = tier.capacity_type === "percentage";
+            const calculatedDynamicCap =
+              isPercentage && tier.capacity_percentage && venueCapacity
+                ? calculateDynamicTierCapacity(venueCapacity, tier.capacity_percentage)
+                : null;
+
+            return (
+              <div
+                key={index}
+                className="p-4 border-2 border-black bg-white shadow-[4px_4px_0px_rgba(0,0,0,1)] relative group"
+              >
+                <div className="absolute top-4 right-4">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-purple-600 hover:text-purple-800 hover:bg-purple-100"
-                    onClick={() => copyUnlockUrl(tier.unlock_hash!)}
-                    title="Copy unlock URL"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleDelete(index)}
                   >
-                    <Copy className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" />
                   </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => handleDelete(index)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+                </div>
 
-              {tier.is_secret && (
-                <div className="mb-3 flex items-center gap-2 text-purple-700">
-                  <Key className="w-4 h-4" />
-                  <span className="text-xs font-mono font-bold uppercase">Secret Tier</span>
-                  {tier.uses_remaining !== undefined && (
-                    <span className="text-xs font-mono text-purple-600">
-                      ({tier.uses_remaining}/{tier.max_uses} uses remaining)
-                    </span>
-                  )}
-                </div>
-              )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pr-12">
+                  <div className="lg:col-span-2">
+                    <Label className="font-mono text-xs uppercase font-bold text-black/70">
+                      Tier Name
+                    </Label>
+                    <Input
+                      placeholder="e.g. Early Bird"
+                      value={tier.name}
+                      onChange={(e) => updateTier(index, "name", e.target.value)}
+                      className="mt-1 border-2 border-black"
+                    />
+                  </div>
+                  <div>
+                    <Label className="font-mono text-xs uppercase font-bold text-black/70">
+                      Price ($)
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={tier.price}
+                      onChange={(e) => updateTier(index, "price", parseFloat(e.target.value) || 0)}
+                      className="mt-1 border-2 border-black"
+                    />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-mono text-xs uppercase font-bold text-black/70">
+                        {isPercentage ? "Venue Allocation (%)" : "Fixed Capacity"}
+                      </Label>
+                      <div className="flex items-center gap-1 border border-black p-0.5 bg-gray-100 rounded text-[10px] font-mono font-bold">
+                        <button
+                          type="button"
+                          onClick={() => updateTier(index, "capacity_type", "fixed")}
+                          className={`px-1.5 py-0.5 rounded ${
+                            !isPercentage ? "bg-black text-white" : "text-black/60 hover:text-black"
+                          }`}
+                        >
+                          <Hash className="inline h-3 w-3 mr-0.5" /> Fixed
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateTier(index, "capacity_type", "percentage")}
+                          className={`px-1.5 py-0.5 rounded ${
+                            isPercentage ? "bg-black text-white" : "text-black/60 hover:text-black"
+                          }`}
+                        >
+                          <Percent className="inline h-3 w-3 mr-0.5" /> % Venue
+                        </button>
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pr-12">
-                <div className="lg:col-span-2">
-                  <Label className="font-mono text-xs uppercase font-bold text-black/70">
-                    Tier Name
-                  </Label>
-                  <Input
-                    placeholder="e.g. Early Bird"
-                    value={tier.name}
-                    onChange={(e) => updateTier(index, "name", e.target.value)}
-                    className="mt-1 border-2 border-black"
-                  />
+                    {isPercentage ? (
+                      <div>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="100"
+                          step="1"
+                          placeholder="e.g. 20 (for 20% of venue)"
+                          value={tier.capacity_percentage ?? ""}
+                          onChange={(e) =>
+                            updateTier(
+                              index,
+                              "capacity_percentage",
+                              e.target.value ? parseFloat(e.target.value) : null,
+                            )
+                          }
+                          className="mt-1 border-2 border-black"
+                        />
+                        {calculatedDynamicCap !== null && (
+                          <p className="mt-1 font-mono text-[11px] text-emerald-800 font-bold flex items-center gap-1">
+                            <Sparkles className="h-3 w-3" />
+                            {tier.capacity_percentage}% of {venueCapacity} venue ={" "}
+                            {calculatedDynamicCap} tickets
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="Unlimited"
+                        value={tier.capacity ?? ""}
+                        onChange={(e) =>
+                          updateTier(
+                            index,
+                            "capacity",
+                            e.target.value ? parseInt(e.target.value) : null,
+                          )
+                        }
+                        className="mt-1 border-2 border-black"
+                      />
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <Label className="font-mono text-xs uppercase font-bold text-black/70">
-                    Price ($)
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={tier.price}
-                    onChange={(e) => updateTier(index, "price", parseFloat(e.target.value))}
-                    className="mt-1 border-2 border-black"
-                  />
-                </div>
-                <div>
-                  <Label className="font-mono text-xs uppercase font-bold text-black/70">
-                    Capacity (Optional)
-                  </Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    placeholder="Unlimited"
-                    value={tier.capacity || ""}
-                    onChange={(e) =>
-                      updateTier(
-                        index,
-                        "capacity",
-                        e.target.value ? parseInt(e.target.value) : null,
-                      )
-                    }
-                    className="mt-1 border-2 border-black"
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <Label className="font-mono text-xs uppercase font-bold text-black/70">
+                      Start Date
+                    </Label>
+                    <Input
+                      type="datetime-local"
+                      value={tier.start_date}
+                      onChange={(e) => updateTier(index, "start_date", e.target.value)}
+                      className="mt-1 border-2 border-black"
+                    />
+                  </div>
+                  <div>
+                    <Label className="font-mono text-xs uppercase font-bold text-black/70">
+                      End Date
+                    </Label>
+                    <Input
+                      type="datetime-local"
+                      value={tier.end_date}
+                      onChange={(e) => updateTier(index, "end_date", e.target.value)}
+                      className="mt-1 border-2 border-black"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <Label className="font-mono text-xs uppercase font-bold text-black/70">
-                    Start Date
-                  </Label>
-                  <Input
-                    type="datetime-local"
-                    value={tier.start_date}
-                    onChange={(e) => updateTier(index, "start_date", e.target.value)}
-                    className="mt-1 border-2 border-black"
-                  />
-                </div>
-                <div>
-                  <Label className="font-mono text-xs uppercase font-bold text-black/70">
-                    End Date
-                  </Label>
-                  <Input
-                    type="datetime-local"
-                    value={tier.end_date}
-                    onChange={(e) => updateTier(index, "end_date", e.target.value)}
-                    className="mt-1 border-2 border-black"
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

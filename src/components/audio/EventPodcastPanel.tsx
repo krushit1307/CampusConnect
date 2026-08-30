@@ -5,9 +5,10 @@ import { Loader2, UploadCloud, Headphones, Play, Clock, Users, CheckCircle2 } fr
 import { useAudioStore } from "@/store/audioStore";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { DeepfakeAudioDetectorService } from "@/services/deepfakeAudioDetectorService";
 
-const ALLOWED_AUDIO_TYPES = ["audio/mpeg", "audio/mp4", "audio/x-m4a"];
-const ALLOWED_EXTENSIONS = [".mp3", ".m4a"];
+const ALLOWED_AUDIO_TYPES = ["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/wav", "audio/x-wav"];
+const ALLOWED_EXTENSIONS = [".mp3", ".m4a", ".wav"];
 const MAX_AUDIO_SIZE = 100 * 1024 * 1024; // 100MB
 
 interface EventPodcastPanelProps {
@@ -73,13 +74,31 @@ export function EventPodcastPanel({ eventId }: EventPodcastPanelProps) {
       const fileExtension = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
 
       if (!ALLOWED_AUDIO_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(fileExtension)) {
-        toast.error("Unsupported file type. Please upload .mp3 or .m4a files only.");
+        toast.error("Unsupported file type. Please upload .mp3, .m4a or .wav files only.");
         return;
       }
 
       if (file.size > MAX_AUDIO_SIZE) {
         toast.error("File is too large. Maximum size is 100MB.");
         return;
+      }
+
+      setUploading(true);
+      toast.info("Scanning audio for AI-generated voice cloning/deepfake artifacts...");
+      try {
+        const { valid, error } = await DeepfakeAudioDetectorService.validateAudioFile(file);
+        if (!valid) {
+          toast.error(error || "Upload blocked: Deepfake audio detected (Impersonation/Generative AI Fraud).");
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+          setUploading(false);
+          return;
+        }
+      } catch (err: any) {
+        console.error("Deepfake validation failed:", err);
+      } finally {
+        setUploading(false);
       }
 
       await uploadAudio(file);

@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: BulkActionsToolbar
---Issue: #2978 - Build a 'Club Application & Tryout' Workflow
---Description: Floating toolbar that appears when multiple applications are
---selected on the Kanban board.Allows executives to perform bulk status
---updates and trigger mass email notifications.
+//Issue: #2978 - Build a 'Club Application & Tryout' Workflow
+//Description: Floating toolbar that appears when multiple applications are
+//selected on the Kanban board.Allows executives to perform bulk status
+//updates and trigger mass email notifications.
 // =============================================================================
 
 import React from 'react';

@@ -12,8 +12,21 @@ describe("Button", () => {
 
     expect(button).toBeInTheDocument();
     expect(button).toHaveClass("inline-flex");
+    expect(button).toHaveClass("hover:no-underline");
     expect(button).toHaveClass("bg-primary");
     expect(button).toHaveClass("text-primary-foreground");
+  });
+
+  it("renders asChild link button with hover:no-underline", () => {
+    render(
+      <Button asChild>
+        <a href="/test">Link Button</a>
+      </Button>,
+    );
+
+    const link = screen.getByRole("link", { name: /link button/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveClass("hover:no-underline");
   });
 
   it("renders the destructive variant", () => {

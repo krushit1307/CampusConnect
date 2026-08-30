@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: LiveQAModerator
---Issue: #2898 - Develop a Real - Time 'Live Q&A' Module for Events
---Description: High - contrast, simplified dashboard optimized for an iPad 
---or presenter screen.Sorts questions purely by upvotes and provides
---quick actions to mark as answered or delete inappropriate content.
+//Issue: #2898 - Develop a Real - Time 'Live Q&A' Module for Events
+//Description: High - contrast, simplified dashboard optimized for an iPad 
+//or presenter screen.Sorts questions purely by upvotes and provides
+//quick actions to mark as answered or delete inappropriate content.
 // =============================================================================
 
 import React from 'react';

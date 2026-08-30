@@ -47,4 +47,12 @@ describe("image optimization helpers", () => {
     expect(srcSet).toContain("896w");
     expect(srcSet?.match(/896w/g)).toHaveLength(1);
   });
+
+  it("builds responsive srcset using DEFAULT_RESPONSIVE_WIDTHS when widths not provided", () => {
+    const srcSet = buildResponsiveImageSrcSet(supabaseImage);
+
+    expect(srcSet).toContain("300w");
+    expect(srcSet).toContain("600w");
+    expect(srcSet).toContain("1200w");
+  });
 });

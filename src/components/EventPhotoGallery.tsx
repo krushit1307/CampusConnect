@@ -10,6 +10,7 @@ import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import UserCheck from "lucide-react/dist/esm/icons/user-check";
 import UserX from "lucide-react/dist/esm/icons/user-x";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import { SwipeableLightbox } from "./SwipeableLightbox";
 import { FaceAutoTaggingService } from "@/services/faceAutoTaggingService";
 
@@ -34,7 +35,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_photos")
-        .select("id, url, user_id, created_at, profiles(full_name)")
+        .select("id, url, user_id, created_at, status, profiles(full_name)")
         .eq("event_id", eventId)
         .order("created_at", { ascending: false });
 
@@ -236,37 +237,56 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
               id: string;
               url: string;
               user_id: string;
+              status?: string;
               profiles: { full_name: string } | { full_name: string }[];
             }) => {
               const isTagged = taggedPhotoIds.has(photo.id);
+              const isQuarantined = photo.status === "quarantined";
 
               return (
                 <div
                   key={photo.id}
                   className="break-inside-avoid cursor-pointer group relative overflow-hidden neu-border"
-                  onClick={() => setSelectedPhoto(photo.url)}
+                  onClick={() => {
+                    if (!isQuarantined) {
+                      setSelectedPhoto(photo.url);
+                    }
+                  }}
                 >
                   <img
                     src={photo.url}
                     alt="Event memory"
-                    className="w-full h-auto object-cover transition-transform hover:scale-[1.02]"
+                    className={`w-full h-auto object-cover transition-transform hover:scale-[1.02] ${
+                      isQuarantined ? "blur-[20px] scale-110" : ""
+                    }`}
                     loading="lazy"
                   />
 
+                  {isQuarantined && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 pointer-events-none p-4 text-center">
+                      <AlertTriangle className="text-red-500 mb-2 drop-shadow-md" size={48} />
+                      <span className="text-white font-mono font-bold text-sm bg-black/60 px-2 py-1 uppercase rounded-sm">
+                        Content Under Review
+                      </span>
+                    </div>
+                  )}
+
                   {/* Auto-tag Badge */}
-                  {isTagged && (
+                  {isTagged && !isQuarantined && (
                     <div className="absolute top-2 left-2 z-10 neu-border bg-emerald-400 text-black px-2 py-1 font-mono text-[10px] font-bold uppercase flex items-center gap-1 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
                       <Sparkles size={12} className="text-amber-700" /> You're in this photo
                     </div>
                   )}
 
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2 pointer-events-none">
-                    <span className="text-white font-mono text-xs truncate drop-shadow-md">
-                      {Array.isArray(photo.profiles)
-                        ? photo.profiles[0]?.full_name
-                        : (photo.profiles as { full_name: string })?.full_name || "Anonymous"}
-                    </span>
-                  </div>
+                  {!isQuarantined && (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2 pointer-events-none">
+                      <span className="text-white font-mono text-xs truncate drop-shadow-md">
+                        {Array.isArray(photo.profiles)
+                          ? photo.profiles[0]?.full_name
+                          : (photo.profiles as { full_name: string })?.full_name || "Anonymous"}
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             }
@@ -283,10 +303,12 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
           return (
             <div className="relative">
               <SwipeableLightbox
-                images={(displayedPhotos || []).map((p: { url: string }) => ({
-                  url: p.url,
-                  caption: "Event memory",
-                }))}
+                images={(displayedPhotos || [])
+                  .filter((p: any) => p.status !== "quarantined")
+                  .map((p: { url: string }) => ({
+                    url: p.url,
+                    caption: "Event memory",
+                  }))}
                 initialIndex={selectedIdx >= 0 ? selectedIdx : 0}
                 onClose={() => setSelectedPhoto(null)}
               />

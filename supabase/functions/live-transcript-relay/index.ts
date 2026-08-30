@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
 import { corsHeaders } from "../_shared/validation.ts";
+import {
+  identifyHardwareEncoder,
+  injectHardwareCaptions,
+  type HardwareEncoderConfig,
+} from "../_shared/hardwareClosedCaptions.ts";
 
 export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -34,46 +39,78 @@ export async function handler(req: Request): Promise<Response> {
   // Accumulate the full transcript to save later
   let fullTranscript = "";
   let deepgramSocket: WebSocket | null = null;
+  let hardwareEncoder: HardwareEncoderConfig | null = null;
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const loadHardwareEncoder = async () => {
+    const { data } = await supabase
+      .from("event_hardware_encoders")
+      .select("encoder_type, rest_base_url, rtmp_url, channel_id")
+      .eq("event_id", eventId)
+      .eq("is_active", true)
+      .maybeSingle();
+    const encoderType = identifyHardwareEncoder(data?.encoder_type);
+    if (!data || !encoderType) {
+      hardwareEncoder = null;
+      return;
+    }
+    hardwareEncoder = {
+      encoder_type: encoderType,
+      rest_base_url: data.rest_base_url,
+      rtmp_url: data.rtmp_url,
+      channel_id: data.channel_id,
+      api_token: Deno.env.get("HARDWARE_ENCODER_API_TOKEN") || null,
+    };
+  };
 
   clientSocket.onopen = () => {
-    // Connect to Deepgram
-    deepgramSocket = new WebSocket(
-      "wss://api.deepgram.com/v1/listen?diarize=true&punctuate=true&model=nova-2",
-      ["token", deepgramApiKey],
-    );
+    void (async () => {
+      await loadHardwareEncoder();
+      // Connect to Deepgram
+      deepgramSocket = new WebSocket(
+        "wss://api.deepgram.com/v1/listen?diarize=true&punctuate=true&model=nova-2",
+        ["token", deepgramApiKey],
+      );
 
-    deepgramSocket.onopen = () => {
-      console.log(`[live-transcript-relay] Deepgram connected for event ${eventId}`);
-    };
+      deepgramSocket.onopen = () => {
+        console.log(`[live-transcript-relay] Deepgram connected for event ${eventId}`);
+      };
 
-    deepgramSocket.onmessage = (event) => {
-      // Send the JSON back to the client to render in the UI and broadcast to other peers
-      clientSocket.send(event.data);
+      deepgramSocket.onmessage = (event) => {
+        // Send the JSON back to the client to render in the UI and broadcast to other peers
+        clientSocket.send(event.data);
 
-      try {
-        const data = JSON.parse(event.data);
-        if (data.is_final && data.channel?.alternatives?.[0]?.transcript) {
-          const alt = data.channel.alternatives[0];
-          if (alt.transcript.trim().length > 0) {
-            // Simple string building for the final saved transcript
-            const speaker =
-              alt.words?.[0]?.speaker !== undefined ? `[Speaker ${alt.words[0].speaker}]` : "";
-            fullTranscript += `${speaker} ${alt.transcript}\n`;
+        try {
+          const data = JSON.parse(event.data);
+          if (hardwareEncoder) {
+            void injectHardwareCaptions(hardwareEncoder, data).catch((err) => {
+              console.error(`[live-transcript-relay] Hardware caption inject failed:`, err);
+            });
           }
+          if (data.is_final && data.channel?.alternatives?.[0]?.transcript) {
+            const alt = data.channel.alternatives[0];
+            if (alt.transcript.trim().length > 0) {
+              // Simple string building for the final saved transcript
+              const speaker =
+                alt.words?.[0]?.speaker !== undefined ? `[Speaker ${alt.words[0].speaker}]` : "";
+              fullTranscript += `${speaker} ${alt.transcript}\n`;
+            }
+          }
+        } catch (e) {
+          // ignore parsing errors for saving
         }
-      } catch (e) {
-        // ignore parsing errors for saving
-      }
-    };
+      };
 
-    deepgramSocket.onclose = () => {
-      console.log(`[live-transcript-relay] Deepgram closed for event ${eventId}`);
-      clientSocket.close();
-    };
+      deepgramSocket.onclose = () => {
+        console.log(`[live-transcript-relay] Deepgram closed for event ${eventId}`);
+        clientSocket.close();
+      };
 
-    deepgramSocket.onerror = (e) => {
-      console.error(`[live-transcript-relay] Deepgram error:`, e);
-    };
+      deepgramSocket.onerror = (e) => {
+        console.error(`[live-transcript-relay] Deepgram error:`, e);
+      };
+    })();
   };
 
   clientSocket.onmessage = (event) => {
@@ -93,8 +130,6 @@ export async function handler(req: Request): Promise<Response> {
     // Save transcript to event_resources
     if (fullTranscript.trim().length > 0) {
       try {
-        const supabase = createClient(supabaseUrl, serviceRoleKey);
-
         // Generate a filename
         const filename = `${eventId}/transcript-${Date.now()}.txt`;
         const fileContent = new TextEncoder().encode(fullTranscript);

@@ -8,7 +8,7 @@ import { AudioEngine } from "@/lib/audio/audioEngine";
 import { microInteractionTransition } from "@/lib/animations";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-none font-mono text-sm font-bold uppercase transition-all duration-120 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-white",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-none font-mono text-sm font-bold uppercase transition-all duration-120 hover:no-underline disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus:outline-none focus:ring-2 focus:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
   {
     variants: {
       variant: {

@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: LeadExportButton
---Issue: #3238 - Build a 'Sponsorship ROI Dashboard' for Corporate Partners
---Description: A prominent CTA that allows sponsors to download a CSV of
---attendees who explicitly opted -in to share their resume / contact info.
--- =============================================================================
+//Issue: #3238 - Build a 'Sponsorship ROI Dashboard' for Corporate Partners
+//Description: A prominent CTA that allows sponsors to download a CSV of
+//attendees who explicitly opted -in to share their resume / contact info.
+// =============================================================================
 
 import React, { useState } from 'react';
 
