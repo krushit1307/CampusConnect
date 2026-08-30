@@ -137,6 +137,16 @@ serve(async (req) => {
                 is_streak_bonus: consecutiveCount > 1,
                 description: streakMessage,
             });
+
+            // 5. Route the club's share of these points through the Student Union
+            // Bank so an active Point Loan (#4840) garnishes 50% for repayment.
+            if (targetClubId) {
+                await supabase.rpc('garnish_club_points', {
+                    p_club_id: targetClubId,
+                    p_event_id: eventId,
+                    p_gross_points: finalPoints,
+                });
+            }
         } else {
             // Standard points award for non-series events
             await supabase.from('ledger_transactions').insert({
@@ -149,8 +159,15 @@ serve(async (req) => {
                 is_streak_bonus: false,
                 description: `+${basePoints} Points Awarded!`,
             });
-        }
 
+            if (targetClubId) {
+                await supabase.rpc('garnish_club_points', {
+                    p_club_id: targetClubId,
+                    p_event_id: eventId,
+                    p_gross_points: basePoints,
+                });
+            }
+        }
         return new Response(
             JSON.stringify({
                 success: true,

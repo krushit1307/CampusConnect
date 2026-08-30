@@ -38,6 +38,24 @@ vi.mock("@/hooks/useDietaryForecast", () => ({
   useDietaryForecast: (...args: unknown[]) => mockUseDietaryForecast(...args),
 }));
 
+// Mock CatererTempLoggingService
+vi.mock("@/services/catererTempLoggingService", () => {
+  return {
+    CatererTempLoggingService: {
+      fetchContractForEvent: vi.fn().mockResolvedValue({
+        id: "contract-1",
+        event_id: "e1",
+        caterer_name: "Mock Catering Inc",
+        caterer_email: "chef@mock.com",
+        shipment_status: "PENDING",
+        stripe_payment_blocked: false,
+      }),
+      fetchTempLogs: vi.fn().mockResolvedValue([]),
+      uploadTempLogs: vi.fn(),
+    },
+  };
+});
+
 function makeForecast(overrides: Partial<DietaryForecast> = {}): DietaryForecast {
   return {
     ok: true,
@@ -228,5 +246,21 @@ describe("DietaryForecastPanel", () => {
 
     const successCard = await screen.findByTestId("yield-optimizer-success");
     expect(successCard.textContent).toContain("Alice Blue, Bob Green");
+  });
+
+  it("renders Caterer IoT Safety panel when a contract is found", async () => {
+    mockUseDietaryForecast.mockReturnValue({
+      forecast: makeForecast(), isLoading: false, error: null, refresh: vi.fn(),
+    });
+
+    render(<DietaryForecastPanel eventId="e1" />);
+
+    // Wait for the caterer panel to render
+    const safetySection = await screen.findByTestId("caterer-temp-logging-section");
+    expect(safetySection).toBeInTheDocument();
+    expect(screen.getByText(/Catering Food Safety & IoT Telemetry/i)).toBeInTheDocument();
+
+    // Verify PENDING state is visible
+    expect(screen.getByTestId("status-box-pending")).toBeInTheDocument();
   });
 });

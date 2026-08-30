@@ -3,6 +3,7 @@ import {
   checkUserRbacPermission,
   resolveTargetRbacRole,
   dispatchPhotoChaserToTaskSystem,
+  triggerAutomatedMissingPhotoFollowUp,
   claimPhotoChaserWithRbacCheck,
   UserRbacRole,
 } from "../missingPhotoTaskRbacService";
@@ -48,6 +49,17 @@ describe("Missing Photo Task Management & RBAC Service", () => {
       expect(task.status).toBe("pending");
     });
   });
+
+  describe("triggerAutomatedMissingPhotoFollowUp", () => {
+    it("triggers automated follow-up workflow and creates pending task", () => {
+      const task = triggerAutomatedMissingPhotoFollowUp("evt-tech", "Tech Expo", ["marketing_chair"]);
+
+      expect(task.id).toBe("task-photo-chaser-evt-tech");
+      expect(task.assignedRole).toBe("marketing_chair");
+      expect(task.bountyPoints).toBe(150);
+    });
+  });
+
 
   describe("claimPhotoChaserWithRbacCheck", () => {
     it("rejects bounty claim from unauthorized general_attendee role", async () => {

@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { isFlashSaleRealtimePayload, type ActiveFlashSale } from "@/lib/flashSale";
 import { evaluateEarlyBirdThreshold } from "@/lib/dynamicEarlyBirdThresholds";
-
+import { NDASignatureModal } from "@/components/events/NDASignatureModal";
 interface TicketTier {
   id: string;
   name: string;
@@ -24,19 +24,23 @@ interface TicketTier {
   sold_count?: number; // fetched separately
 }
 
-export function TicketPricingTimeline({
-  eventId,
-  isOrganizer,
-}: {
+interface TicketPricingTimelineProps {
   eventId: string;
   isOrganizer?: boolean;
-}) {
+}
+
+export function TicketPricingTimeline({ eventId, isOrganizer }: TicketPricingTimelineProps) {
   const [tiers, setTiers] = useState<TicketTier[]>([]);
   const [venueCapacity, setVenueCapacity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [preferredCurrency, setPreferredCurrency] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+
+  // Surge Pricing State
+  const [surgeActive, setSurgeActive] = useState(false);
+  const [surgeMultiplier, setSurgeMultiplier] = useState(1.0);
+
   const [isDynamic, setIsDynamic] = useState(false);
   const [dynamicPrice, setDynamicPrice] = useState<number | null>(null);
   const [ticketsUntilIncrease, setTicketsUntilIncrease] = useState<number | null>(null);
@@ -45,7 +49,9 @@ export function TicketPricingTimeline({
   const [friendEmails, setFriendEmails] = useState<string[]>(["", "", "", ""]);
   const [hasJson, setHasJson] = useState(false);
   const [selectedTierName, setSelectedTierName] = useState<string | null>(null);
-
+  const [requiresSignature, setRequiresSignature] = useState(false);
+  const [ndaSigned, setNdaSigned] = useState(false);
+  const [showNdaModal, setShowNdaModal] = useState(false);
   useEffect(() => {
     let cancelled = false;
 
@@ -103,14 +109,31 @@ export function TicketPricingTimeline({
         // Fetch event's dynamic pricing details and venue capacity
         const { data: eventData, error: eventError } = await supabase
           .from("events")
-          .select("base_price, surge_multiplier, venue_capacity, max_attendees, ticket_tiers")
+          .select(
+            "base_price, surge_multiplier, venue_capacity, max_attendees, ticket_tiers, requires_signature",
+          )
           .eq("id", eventId)
           .single();
 
         if (eventData) {
           setVenueCapacity(eventData.venue_capacity ?? eventData.max_attendees ?? null);
-        }
+          setRequiresSignature(!!(eventData as any).requires_signature);
 
+          if ((eventData as any).requires_signature) {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+            if (user) {
+              const { data: sig } = await supabase
+                .from("event_nda_signatures")
+                .select("status")
+                .eq("event_id", eventId)
+                .eq("user_id", user.id)
+                .maybeSingle();
+              setNdaSigned(sig?.status === "completed");
+            }
+          }
+        }
         const jsonTiers = (eventData as any)?.ticket_tiers;
         const hasJsonTiers = Array.isArray(jsonTiers) && jsonTiers.length > 0;
 
@@ -218,9 +241,51 @@ export function TicketPricingTimeline({
     };
   }, [eventId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSurgeStatus = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL || "http://localhost:54321"}/functions/v1/check-surge-status?eventId=${eventId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          },
+        );
+        if (response.ok) {
+          const result = await response.json();
+          if (!cancelled) {
+            setSurgeActive(result.isSurgeActive);
+            setSurgeMultiplier(result.multiplier);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch surge status", err);
+      }
+    };
+
+    fetchSurgeStatus();
+    // Poll every 15 seconds
+    const interval = setInterval(fetchSurgeStatus, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [eventId]);
+
   const handlePurchase = async () => {
-    setPurchasing(true);
-    const activeEmails = isGroupRsvp ? friendEmails.filter((e) => e.trim() !== "") : [];
+    if (requiresSignature && !ndaSigned) {
+      setShowNdaModal(true);
+      return;
+    }
+
+    setPurchasing(true);    const activeEmails = isGroupRsvp ? friendEmails.filter((e) => e.trim() !== "") : [];
     if (isGroupRsvp && activeEmails.length !== 4) {
       toast.error(
         "Please provide exactly 4 friend emails to receive the Buy 4, Get 1 Free discount!",
@@ -283,6 +348,10 @@ export function TicketPricingTimeline({
   const nextTier =
     activeIndex !== -1 && activeIndex + 1 < tiers.length ? tiers[activeIndex + 1] : null;
 
+  // Apply surge pricing to active tier display
+  const displayPrice = activeTier ? Math.round(activeTier.price * surgeMultiplier) : 0;
+  const isSurging = surgeActive && surgeMultiplier > 1.0;
+
   return (
     <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] relative overflow-hidden">
       <div className="flex items-center gap-2 mb-6">
@@ -292,6 +361,19 @@ export function TicketPricingTimeline({
         </h2>
       </div>
 
+      {isSurging && (
+        <div className="bg-yellow-400 border-2 border-black p-4 mb-6 flex items-center gap-3 font-mono text-sm animate-pulse shadow-[2px_2px_0_0_#000]">
+          <span className="text-xl">🚀</span>
+          <strong>HIGH DEMAND:</strong> Prices have temporarily surged. Secure your ticket now!
+        </div>
+      )}
+
+      {activeTier && activeTier.end_date && (
+        <div className="bg-peach/20 border-2 border-black p-3 mb-6 flex items-center gap-3 font-mono text-sm">
+          <Clock className="w-5 h-5 text-red-500 animate-pulse" />
+          <span>
+            ⏳ <strong>{activeTier.name}</strong> ends in{" "}
+            {formatDistanceToNow(new Date(activeTier.end_date))}!
       {isDynamic && ticketsUntilIncrease !== null && (
         <div className="bg-amber-100 border-2 border-black p-3 mb-6 flex items-center gap-3 font-mono text-sm text-amber-950">
           <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
@@ -333,6 +415,37 @@ export function TicketPricingTimeline({
         </div>
       )}
 
+      <div className="relative pt-8 pb-4">
+        {/* Timeline line */}
+        <div className="absolute top-12 left-0 right-0 h-1 bg-black z-0"></div>
+
+        <div className="flex justify-between relative z-10">
+          {tiers.map((tier, idx) => {
+            const state = getTierState(tier);
+            const isCurrent = idx === activeIndex;
+            const currentPriceDisplay = isCurrent
+              ? Math.round(tier.price * surgeMultiplier)
+              : tier.price;
+
+            return (
+              <div key={tier.id} className="flex flex-col items-center flex-1">
+                <div
+                  className={`text-lg font-black font-display mb-2 ${isCurrent && isSurging ? "text-red-600" : ""}`}
+                >
+                  ${(currentPriceDisplay / 100).toFixed(2)} USD
+                </div>
+
+                {/* Node */}
+                <div
+                  className={`w-6 h-6 rounded-full border-2 border-black flex items-center justify-center transition-colors
+                  ${
+                    state === "ended" || state === "sold_out"
+                      ? "bg-black"
+                      : isCurrent
+                        ? isSurging
+                          ? "bg-yellow-400 scale-125 animate-bounce"
+                          : "bg-lime scale-125"
+                        : "bg-white"
       {flashSale ? (
         <div className="my-6 border-4 border-black bg-red-600 p-4 font-mono text-white shadow-[4px_4px_0_0_#000]">
           <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider">
@@ -545,10 +658,10 @@ export function TicketPricingTimeline({
             ) : null;
           })() : activeTier ? (
             <p className="font-mono text-sm text-black/70">
-              Current Tier: <strong>{activeTier.name}</strong> at $
-              {(activeTier.price / 100).toFixed(2)} USD
+              Current Tier: <strong>{activeTier.name}</strong> at ${(displayPrice / 100).toFixed(2)}{" "}
+              USD
               <CurrencyEstimate
-                amountUsd={activeTier.price / 100}
+                amountUsd={displayPrice / 100}
                 preferredCurrency={preferredCurrency}
               />
               {activeTier.capacity !== null && (
@@ -572,6 +685,9 @@ export function TicketPricingTimeline({
         >
           {purchasing
             ? "Processing..."
+            : activeTier
+              ? `Buy Ticket for $${(displayPrice / 100).toFixed(2)} USD`
+              : "Unavailable"}
             : flashSale
               ? `Buy Ticket for $${(flashSale.sale_price_cents / 100).toFixed(2)} USD`
               : isDynamic && dynamicPrice !== null
@@ -583,6 +699,17 @@ export function TicketPricingTimeline({
                     : "Unavailable"}
         </Button>
       </div>
-    </div>
+
+      {showNdaModal && (
+        <NDASignatureModal
+          eventId={eventId}
+          onClose={() => setShowNdaModal(false)}
+          onSigned={() => {
+            setNdaSigned(true);
+            setShowNdaModal(false);
+            handlePurchase();
+          }}
+        />
+      )}    </div>
   );
 }

@@ -114,6 +114,7 @@ export default function ClubsIndex() {
       const { data, error } = await (supabase as any)
         .from("club_tag_labels")
         .select("name")
+        .eq("status", "active")
         .order("name");
       if (error) throw error;
       return (data || []).map((row: any) => row.name);

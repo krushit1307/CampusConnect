@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Accessibility,
   ZoomIn,
@@ -26,8 +27,16 @@ import {
   createAccessibilityRouteSegments,
   getAccessibilityNodes,
   getSpatialDescription,
+  mapFeatureToNodeType,
   type MapNodeType,
 } from "@/lib/accessibilityMap";
+import {
+  SENSORY_ALERT_MESSAGE,
+  buildQuietRoomPolyline,
+  estimateZonePoint,
+  isQuietSpaceNode,
+  nodeCenter,
+} from "@/lib/quietRoomLocator";
 
 export interface AttendeeMapNode {
   id: string;
@@ -39,11 +48,15 @@ export interface AttendeeMapNode {
   height: number;
   rotation: number;
   accessibility_notes?: string | null;
+  required_ticket_tier_id?: string | null;
 }
 
 interface AttendeeVenueMapProps {
   nodes: AttendeeMapNode[];
   backgroundImageUrl?: string | null;
+  userTicketTierId?: string | null;
+  onSeatSelected?: (nodeId: string) => void;
+  assignedSeatNodeId?: string | null;
   venueId?: string | null;
   eventId?: string | null;
 }
@@ -51,6 +64,9 @@ interface AttendeeVenueMapProps {
 export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
   nodes,
   backgroundImageUrl,
+  userTicketTierId,
+  onSeatSelected,
+  assignedSeatNodeId,
   venueId,
   eventId,
 }) => {
@@ -59,11 +75,92 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
   const [isAccessibilityMode, setIsAccessibilityMode] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedSeatNodeId, setSelectedSeatNodeId] = useState<string | null>(
+    assignedSeatNodeId || null,
+  );
+  const [sensoryAlert, setSensoryAlert] = useState(false);
+  const [quietPolyline, setQuietPolyline] = useState<string | null>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+
+  const [searchParams] = useSearchParams();
+  const routeToQuietRoom = searchParams.get("quietRoute") === "1";
 
   const { user } = useAuth();
   const supabase = createClient();
+
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase
+      .channel(`event-noise-${eventId}`)
+      .on("broadcast", { event: "sensory_alert" }, () => {
+        setSensoryAlert(true);
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [eventId, supabase]);
+
+  useEffect(() => {
+    if (!routeToQuietRoom && !sensoryAlert) {
+      setQuietPolyline(null);
+      return;
+    }
+
+    let cancelled = false;
+    const plotRoute = async () => {
+      try {
+        const quietNode = nodes.find(isQuietSpaceNode);
+        if (!quietNode) return;
+
+        let checkedInZoneId: string | null = null;
+        const zones: Array<{
+          id: string;
+          name: string;
+          x_ft: number;
+          y_ft: number;
+          width_ft: number;
+          height_ft: number;
+        }> = [];
+
+        if (eventId) {
+          const { data: zoneRows } = await supabase
+            .from("event_layout_zones")
+            .select("id, name, x_ft, y_ft, width_ft, height_ft")
+            .eq("event_id", eventId);
+          zones.push(...((zoneRows || []) as typeof zones));
+
+          if (user?.id && zones.length > 0) {
+            const { data: checkin } = await supabase
+              .from("event_zone_checkins")
+              .select("zone_id")
+              .eq("event_id", eventId)
+              .order("scanned_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            checkedInZoneId = checkin?.zone_id || null;
+          }
+        }
+
+        if (cancelled) return;
+        const from = estimateZonePoint(zones, checkedInZoneId);
+        const to = nodeCenter(quietNode);
+        setQuietPolyline(buildQuietRoomPolyline(from, to));
+        mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch {
+        const quietNode = nodes.find(isQuietSpaceNode);
+        if (!quietNode || cancelled) return;
+        setQuietPolyline(buildQuietRoomPolyline({ x: 50, y: 50 }, nodeCenter(quietNode)));
+      }
+    };
+
+    void plotRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeToQuietRoom, sensoryAlert, nodes, eventId, supabase, user?.id]);
 
   // Report dialog form states
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
@@ -217,6 +314,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
     elevator: "bg-blue-200 border-blue-800",
     ramp: "bg-blue-300 border-blue-900",
     restroom: "bg-cyan-200 border-cyan-800",
+    Quiet_Space: "bg-violet-200 border-violet-700",
   };
 
   // Zoom controls
@@ -292,8 +390,45 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
     return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
   }, []);
 
+  const handleNodeClick = async (node: AttendeeMapNode) => {
+    const queueInfo = queueNodes[node.id];
+
+    // VIP Seating check
+    if (node.required_ticket_tier_id && node.required_ticket_tier_id !== userTicketTierId) {
+      import("sonner").then(({ toast }) => {
+        toast.error("This table requires a VIP Ticket [Click to Upgrade].");
+      });
+      return; // block selection
+    }
+
+    if (queueInfo) {
+      setSelectedQueueNodeId(queueInfo.id);
+    } else if (node.type === "table" || node.type === "booth") {
+      setSelectedSeatNodeId(node.id);
+
+      // Save the selected seat if they are RSVP'd
+      if (userTicketTierId !== undefined) {
+        import("sonner").then(({ toast }) => {
+          toast.success(`Seat selected at ${node.entity_name || node.type}!`);
+        });
+        // We can also trigger an optional onSeatSelected callback here
+        if (onSeatSelected) {
+          onSeatSelected(node.id);
+        }
+      }
+    }
+  };
+
   return (
-    <div className="w-full flex flex-col gap-4">
+    <div ref={mapSectionRef} className="w-full flex flex-col gap-4">
+      {(sensoryAlert || routeToQuietRoom) && (
+        <a
+          href={`?quietRoute=1`}
+          className="border-2 border-violet-900 bg-violet-50 p-4 text-violet-950 shadow-[3px_3px_0_0_#6d28d9] font-mono text-xs font-bold"
+        >
+          {SENSORY_ALERT_MESSAGE}
+        </a>
+      )}
       {/* Accessibility Warning Banner */}
       {reports.length > 0 && (
         <div className="border-2 border-red-900 bg-red-50 p-4 text-black shadow-[3px_3px_0_0_#ef4444] font-mono text-xs flex flex-col gap-2">
@@ -491,6 +626,25 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
             </svg>
           )}
 
+          {quietPolyline && (
+            <svg
+              aria-label="Route to Quiet Room"
+              className="pointer-events-none absolute inset-0 z-[6] h-full w-full"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              <polyline
+                points={quietPolyline}
+                fill="none"
+                stroke="#6d28d9"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+          )}
+
           {/* Render nodes dynamically with relative percentages */}
           {nodes.map((node) => {
             const matchesQuery =
@@ -502,7 +656,13 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
               : `${node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type] || node.type} map element.`;
 
             const queueInfo = queueNodes[node.id];
+            const isVip = !!node.required_ticket_tier_id;
+            const isSelected = selectedSeatNodeId === node.id;
+
             let dynamicColorClass = colors[node.type] || "bg-white";
+            if (isVip && !isAccessibilityMode && !matchesQuery) {
+              dynamicColorClass = "bg-amber-200 border-amber-600 ring-2 ring-yellow-400";
+            }
             if (queueInfo) {
               if (queueInfo.status_color === "red")
                 dynamicColorClass =
@@ -514,6 +674,10 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                 dynamicColorClass =
                   "bg-emerald-400 text-emerald-950 border-emerald-600 ring-2 ring-emerald-200";
             }
+            if (isSelected) {
+              dynamicColorClass =
+                "bg-lime-300 text-lime-950 border-lime-600 ring-4 ring-lime-400 shadow-xl scale-105 z-50";
+            }
 
             return (
               <div
@@ -521,11 +685,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                 role="img"
                 tabIndex={isAccessibilityMode && isAccessibilityInfrastructure ? 0 : -1}
                 aria-label={spatialDescription}
-                onClick={() => {
-                  if (queueInfo) {
-                    setSelectedQueueNodeId(queueInfo.id);
-                  }
-                }}
+                onClick={() => handleNodeClick(node)}
                 style={{
                   position: "absolute",
                   left: `${node.x_coord}%`,
@@ -533,6 +693,15 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                   width: `${node.width}%`,
                   height: `${node.height}%`,
                   transform: `rotate(${node.rotation}deg)`,
+                  zIndex: isSelected
+                    ? 60
+                    : matchesQuery
+                      ? 50
+                      : isAccessibilityInfrastructure
+                        ? 40
+                        : queueInfo
+                          ? 30
+                          : 10,
                   zIndex: matchesQuery
                     ? 50
                     : isAccessibilityInfrastructure
@@ -541,7 +710,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                         ? 30
                         : 10,
                 }}
-                className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] transition-colors duration-200 ${
+                className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] transition-colors duration-200 cursor-pointer hover:scale-105 ${
                   matchesQuery
                     ? "bg-red-500 text-white border-red-700 animate-pulse ring-4 ring-red-400 ring-offset-1"
                     : isAccessibilityMode && isAccessibilityInfrastructure
@@ -549,6 +718,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                       : isAccessibilityMode
                         ? "opacity-25 grayscale"
                         : dynamicColorClass
+                }`}
                 } ${queueInfo ? "cursor-pointer hover:scale-105" : ""}`}
               >
                 <div className="flex flex-col items-center justify-center w-full h-full overflow-hidden">
@@ -558,6 +728,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                   <span
                     className={`text-[7px] uppercase font-bold tracking-wider leading-none mt-0.5 ${matchesQuery || (isAccessibilityMode && isAccessibilityInfrastructure) ? "text-blue-100" : "text-gray-500"}`}
                   >
+                    {isVip ? "VIP " : ""}
                     {node.type}
                   </span>
                   {matchesQuery && <MapPin className="w-3 h-3 text-white mt-0.5 shrink-0" />}
@@ -606,17 +777,24 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                 className="mt-3 grid gap-2 sm:grid-cols-2"
                 aria-label="Accessibility infrastructure"
               >
-                {accessibilityNodes.map((node) => (
-                  <li
-                    key={node.id}
-                    className="border-2 border-blue-900 bg-white p-2 font-mono text-xs"
-                  >
-                    <span className="font-black uppercase">
-                      {node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type]}
-                    </span>
-                    <span className="mt-1 block">{getSpatialDescription(node, entrance)}</span>
-                  </li>
-                ))}
+                {accessibilityNodes
+                  .filter((node) => {
+                    const brokenNodeTypes = brokenFeatures
+                      .map((feature: string) => mapFeatureToNodeType(feature))
+                      .filter(Boolean);
+                    return !brokenNodeTypes.includes(node.type);
+                  })
+                  .map((node) => (
+                    <li
+                      key={node.id}
+                      className="border-2 border-blue-900 bg-white p-2 font-mono text-xs"
+                    >
+                      <span className="font-black uppercase">
+                        {node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type]}
+                      </span>
+                      <span className="mt-1 block">{getSpatialDescription(node, entrance)}</span>
+                    </li>
+                  ))}
               </ul>
             </>
           )}

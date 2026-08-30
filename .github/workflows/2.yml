@@ -5,7 +5,7 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
   pull_request_target:
-    types: [unlabeled, labeled, synchronize, ready_for_review]
+    types: [opened, unlabeled, labeled, synchronize, ready_for_review]
 
 permissions:
   pull-requests: write

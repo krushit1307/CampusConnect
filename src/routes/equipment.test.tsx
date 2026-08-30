@@ -49,7 +49,16 @@ vi.mock("@/lib/supabase/client", () => ({
                       name: "PA System",
                       category: "Audio",
                       condition: "good",
-                      daily_rental_rate: 3500, // $35.00
+                      daily_rental_rate: 3500,
+                      owner_club_id: "club-2",
+                      clubs: { id: "club-2", name: "Music Club" },
+                    },
+                    {
+                      id: "item-drone",
+                      name: "Camera Drone",
+                      category: "drones",
+                      condition: "excellent",
+                      daily_rental_rate: 5000,
                       owner_club_id: "club-2",
                       clubs: { id: "club-2", name: "Music Club" },
                     },
@@ -81,6 +90,15 @@ vi.mock("@/hooks/useReactQueryReplacement", () => ({
             category: "Audio",
             condition: "good",
             daily_rental_rate: 3500,
+            owner_club_id: "club-2",
+            clubs: { id: "club-2", name: "Music Club" },
+          },
+          {
+            id: "item-drone",
+            name: "Camera Drone",
+            category: "drones",
+            condition: "excellent",
+            daily_rental_rate: 5000,
             owner_club_id: "club-2",
             clubs: { id: "club-2", name: "Music Club" },
           },
@@ -188,5 +206,43 @@ describe("P2P Equipment Rental Marketplace UI (#3549)", () => {
     await waitFor(() => {
       expect(mockApproveRent).toHaveBeenCalledWith({ p_rental_id: "rental-2" });
     });
+  });
+
+  it("displays airspace error and blocks booking for restricted drones", async () => {
+    // Mock restricted fetch response
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          restricted: true,
+          reason:
+            "Airspace Restricted: A Temporary Flight Restriction is active on this date. Drones cannot be flown. Booking denied for legal compliance.",
+        }),
+    } as any);
+
+    render(
+      <BrowserRouter>
+        <EquipmentMarketplace />
+      </BrowserRouter>,
+    );
+
+    // Verify Drone item renders
+    expect(await screen.findByText("Camera Drone")).toBeInTheDocument();
+
+    // Rent drone
+    const rentBtns = screen.getAllByRole("button", { name: "Rent Gear" });
+    // Rent Gear button for drone should be the second button in the list of rent buttons
+    fireEvent.click(rentBtns[1]);
+
+    // Verify airspace warning is visible
+    expect(
+      await screen.findByText(/Airspace Restricted: A Temporary Flight Restriction/i),
+    ).toBeInTheDocument();
+
+    // Verify button is disabled
+    const authBtn = screen.getByRole("button", { name: "Authorize & Rent" });
+    expect(authBtn).toBeDisabled();
+
+    fetchSpy.mockRestore();
   });
 });

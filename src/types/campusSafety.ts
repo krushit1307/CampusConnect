@@ -99,6 +99,20 @@ export interface SafeRouteSegment {
   segment_penalty: number;
 }
 
+export type DroneDispatchStatus = 'DISPATCHED' | 'EN_ROUTE' | 'ON_SCENE' | 'CANCELLED' | 'FAILED';
+
+export interface DroneDispatchRecord {
+  id: string;
+  safety_check_response_id: string;
+  student_user_id: string;
+  target_latitude: number;
+  target_longitude: number;
+  status: DroneDispatchStatus;
+  drone_api_dispatch_id?: string | null;
+  hls_playback_url?: string | null;
+  dispatched_at: string;
+  updated_at: string;
+}
 export interface SafeRouteComparison {
   route_type: 'safest_safe_corridor' | 'standard_shortest';
   waypoints: GeoLocationPoint[];

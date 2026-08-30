@@ -1,0 +1,51 @@
+import { useState, useEffect } from 'react';
+// TODO: Update this import path to match where your Supabase client is initialized
+import { supabase } from '../lib/supabase'; 
+
+export const useLocationTracker = (isTrackingEnabled: boolean) => {
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isInDanger, setIsInDanger] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isTrackingEnabled) return;
+
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by this device.');
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      async (position) => {
+        const currentLat = position.coords.latitude;
+        const currentLng = position.coords.longitude;
+        
+        setLocation({ lat: currentLat, lng: currentLng });
+        
+        // Ping the database function we just wrote!
+        const { data: inDangerZone, error: rpcError } = await supabase.rpc(
+          'check_active_threats',
+          { user_lat: currentLat, user_lng: currentLng }
+        );
+
+        if (rpcError) {
+          console.error("Error checking threat status:", rpcError);
+          return;
+        }
+
+        setIsInDanger(inDangerZone);
+      },
+      (err) => {
+        setError(err.message);
+      },
+      {
+        enableHighAccuracy: true, 
+        maximumAge: 0,
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [isTrackingEnabled]);
+
+  return { location, isInDanger, error };
+};

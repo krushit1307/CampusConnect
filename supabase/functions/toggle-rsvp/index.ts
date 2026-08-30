@@ -323,40 +323,8 @@ serve(async (req: Request) => {
       }
 
       // 1.5 Pre-flight Prerequisite Verification
-      const { data: eventData, error: eventErr } = await supabase.from("events");
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-
-      feature / double - booking - penalty - 4045;
-      feature / double - booking - penalty - 4045;
-      feature / double - booking - penalty - 4045;
-      main;
-
-      feature / design - marketplace - 4049 / design - marketplace - 4049;
-      main;
-
-      feature / membership - trial - period - 4406;
-      main;
-
-      main;
-
-      feature / rsvp - prereq - blocker - 3946;
-      feature / rsvp - prereq - blocker - 3946;
-      feature / rsvp - prereq - blocker - 3946;
-      main;
-
-      feature / geofenced - checkin - 4035;
-      feature / geofenced - checkin - 4035;
-      main;
-
-      feature / assistant - persistence - 2044;
-      main
-
+      const { data: eventData, error: eventErr } = await supabase
+        .from("events")
         .select("prerequisite_event_id, title, has_photography, is_high_demand")
         .eq("id", eventId)
         .single();
@@ -435,9 +403,6 @@ serve(async (req: Request) => {
           );
         }
       }
-
-      main;
-      main;
       if (eventData?.has_photography && noMediaConsent == null) {
         return respond(
           { error: "Media consent choice is required for this photography event." },
@@ -456,73 +421,7 @@ serve(async (req: Request) => {
             {
               error: `You must attend the prerequisite event before registering for this event.`,
             },
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-
-            //  feature/double-booking-penalty-4045
-            //  feature/double-booking-penalty-4045
-            //  feature/double-booking-penalty-4045
-            //  main
-
-            //  feature/design-marketplace-4049
-            //  feature/design-marketplace-4049
-            //  main
-
-            //  feature/membership-trial-period-4406
-            //  main
-            //  HEAD
-
-            //  main
-
-            //  feature/rsvp-prereq-blocker-3946
-            //  feature/rsvp-prereq-blocker-3946
-            //  feature/rsvp-prereq-blocker-3946
-            //  main
-
-            //  feature/geofenced-checkin-4035
-            //  feature/geofenced-checkin-4035
-            //  main
-
-            //  feature/assistant-persistence-2044
-            //  main
-            //  HEAD
-
-            //  main
-            //  feature/waitlist-churn-predictor
-            //  feature/waitlist-churn-predictor
-
-            //  feature/club-lifecycle-monitor-3610
-            //  feature/club-lifecycle-monitor-3610
-            //  feature/club-lifecycle-monitor-3610
-
-            //  main
-            //  feature/vendor-contract-nudges
-            //  main
-            //             403
-
-            //  main
-            //  feature/double-booking-penalty-4045
-            //  feature/double-booking-penalty-4045
-            //  feature/double-booking-penalty-4045
-
-            //  feature/design-marketplace-4049
-            //  feature/design-marketplace-4049
-            //  main
-
-            //  feature/membership-trial-period-4406
-            //  main
-            //  upstream/main
-
-            //  upstream/main
-
-            //  main
-            //  main
-            //             403,
+            403,
           );
         }
       }

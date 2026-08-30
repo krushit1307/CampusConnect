@@ -23,21 +23,7 @@ import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackgro
 import LazyHydrate from "@/components/LazyHydrate";
 import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
- feature/double-booking-penalty-4045
- feature/double-booking-penalty-4045
-
- feature/design-marketplace-4049
- feature/design-marketplace-4049
- main
-
- feature/membership-trial-period-4406
- main
-
-
-
- main
 import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
- upstream/main
 import { ClubTransparencyLedger } from "@/components/Clubs/ClubTransparencyLedger";
 import { ClubKnowledgeBaseSection } from "@/components/Clubs/ClubKnowledgeBaseSection";
 import {
@@ -790,85 +776,16 @@ export default function ClubProfile() {
           </div>
         </section>
         <ClubTransparencyLedger clubId={club.id} />
- feature/double-booking-penalty-4045
- feature/double-booking-penalty-4045
- feature/double-booking-penalty-4045
-
- feature/design-marketplace-4049
- feature/design-marketplace-4049
- main
-
- feature/membership-trial-period-4406
- main
-
- HEAD
-
-        HEAD
- main
         <section className="px-4 py-12 md:px-6">
           <div className="mx-auto max-w-6xl">
             <CrowdfundingCampaignSection clubId={club.id} />
           </div>
         </section>
- feature/club-vitality-monitor-3949
- feature/club-vitality-monitor-3949
- feature/club-vitality-monitor-3949
- feature/club-vitality-monitor-3949
- feature/club-vitality-monitor-3949
- feature/club-vitality-monitor-3949
- feature/club-vitality-monitor-3949
- feature/club-vitality-monitor-3949
- feature/club-vitality-monitor-3949
-
- feature/election-coi-detector-3952
- feature/election-coi-detector-3952
- feature/election-coi-detector-3952
- feature/election-coi-detector-3952
- feature/election-coi-detector-3952
- feature/election-coi-detector-3952
- feature/election-coi-detector-3952
- feature/election-coi-detector-3952
- main
-
- feature/rsvp-prereq-blocker-3946
- feature/rsvp-prereq-blocker-3946
- feature/rsvp-prereq-blocker-3946
- main
-
- feature/geofenced-checkin-4035
- feature/geofenced-checkin-4035
- main
-
- feature/assistant-persistence-2044
- main
-
-
-
- feature/double-booking-penalty-4045
- feature/double-booking-penalty-4045
- feature/double-booking-penalty-4045
- main
-
- feature/membership-trial-period-4406
-
- feature/design-marketplace-4049
- feature/design-marketplace-4049
-
- /membership-trial-period-4406
- main
- main
-
-        feature/rsvp-prereq-blocker-3946 feature/rsvp-prereq-blocker-3946
-        feature/rsvp-prereq-blocker-3946 feature/geofenced-checkin-4035
-        feature/geofenced-checkin-4035 main feature/assistant-persistence-2044 main
- main
         <section className="px-4 py-6 md:px-6">
           <div className="mx-auto max-w-6xl">
             <ClubKnowledgeBaseSection clubId={club.id} />
           </div>
         </section>
-        main
- main
         <section className="px-4 py-12 md:px-6 bg-gray-50 border-t-2 border-black">
           <div className="mx-auto max-w-6xl">
             <div className="mb-6 flex items-center justify-between">

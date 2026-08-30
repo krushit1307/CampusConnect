@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronLeft, Mail, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import { NewsletterEditor } from "@/components/Editor/NewsletterEditor";
 import { NewsletterService } from "@/services/newsletterService";
 import type { NewsletterDesign } from "@/types/newsletter";
@@ -82,7 +82,11 @@ export default function ClubNewsletterRoute() {
           disabled={generating}
           className="neu-border flex items-center gap-2 bg-lime px-4 py-3 font-bold uppercase hover:bg-peach disabled:opacity-50"
         >
-          {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {generating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
           Generate Weekly Newsletter
         </button>
       ) : (

@@ -21,6 +21,10 @@ interface TicketTier {
   is_dynamic_capacity?: boolean;
   start_date: string;
   end_date: string;
+  is_secret?: boolean;
+  unlock_hash?: string;
+  max_uses?: number;
+  uses_remaining?: number;
 }
 
 export function ManageTicketTiers({ eventId }: { eventId: string }) {
@@ -29,6 +33,14 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tierToDelete, setTierToDelete] = useState<string | null>(null);
+  const [showSecretForm, setShowSecretForm] = useState(false);
+  const [secretFormData, setSecretFormData] = useState({
+    name: "",
+    price: 0,
+    capacity: null as number | null,
+    max_uses: 5,
+    expires_at: "",
+  });
   const supabase = createClient();
 
   useEffect(() => {
@@ -210,6 +222,366 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
     ]);
   };
 
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
   const updateTier = (index: number, field: keyof TicketTier, value: any) => {
     const newTiers = [...tiers];
     newTiers[index] = { ...newTiers[index], [field]: value };
@@ -246,6 +618,102 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
           Add Tier
         </Button>
       </div>
+
+      {/* Secret Tier Form */}
+      {showSecretForm && (
+        <div className="p-4 border-2 border-dashed border-purple-500 bg-purple-50 rounded-lg">
+          <h4 className="font-bold font-mono text-purple-900 mb-4">🔐 Create Secret Tier</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="font-mono text-xs uppercase font-bold text-purple-900/70">
+                Secret Tier Name
+              </Label>
+              <Input
+                placeholder="e.g. VIP Early Bird"
+                value={secretFormData.name}
+                onChange={(e) => setSecretFormData({ ...secretFormData, name: e.target.value })}
+                className="mt-1 border-2 border-purple-500"
+              />
+            </div>
+            <div>
+              <Label className="font-mono text-xs uppercase font-bold text-purple-900/70">
+                Price ($)
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={secretFormData.price}
+                onChange={(e) =>
+                  setSecretFormData({ ...secretFormData, price: parseFloat(e.target.value) })
+                }
+                className="mt-1 border-2 border-purple-500"
+              />
+            </div>
+            <div>
+              <Label className="font-mono text-xs uppercase font-bold text-purple-900/70">
+                Capacity (Optional)
+              </Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Unlimited"
+                value={secretFormData.capacity || ""}
+                onChange={(e) =>
+                  setSecretFormData({
+                    ...secretFormData,
+                    capacity: e.target.value ? parseInt(e.target.value) : null,
+                  })
+                }
+                className="mt-1 border-2 border-purple-500"
+              />
+            </div>
+            <div>
+              <Label className="font-mono text-xs uppercase font-bold text-purple-900/70">
+                Max Uses
+              </Label>
+              <Input
+                type="number"
+                min="1"
+                value={secretFormData.max_uses}
+                onChange={(e) =>
+                  setSecretFormData({ ...secretFormData, max_uses: parseInt(e.target.value) })
+                }
+                className="mt-1 border-2 border-purple-500"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="font-mono text-xs uppercase font-bold text-purple-900/70">
+                Expiration Date (Optional)
+              </Label>
+              <Input
+                type="datetime-local"
+                value={secretFormData.expires_at}
+                onChange={(e) =>
+                  setSecretFormData({ ...secretFormData, expires_at: e.target.value })
+                }
+                className="mt-1 border-2 border-purple-500"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <Button
+              onClick={handleCreateSecretTier}
+              disabled={saving}
+              className="bg-purple-600 text-white hover:bg-purple-700 font-mono font-bold"
+            >
+              {saving ? "Creating..." : "Create Secret Tier"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowSecretForm(false)}
+              className="border-2 border-purple-500 font-mono"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {tiers.length === 0 ? (
         <div className="text-center p-8 border-2 border-dashed border-black/20 bg-gray-50 text-black/50 font-mono">

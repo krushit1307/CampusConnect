@@ -7,6 +7,7 @@ import { EventBasicDetails } from "./EventBasicDetails";
 import { LocationInput } from "./LocationInput";
 import { DateRangePicker } from "./DateRangePicker";
 import { TicketTiers } from "./TicketTiers";
+import { EventTagInput } from "./EventTagInput"; // <-- NEW IMPORT
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "../ui/card";
 import Save from "lucide-react/dist/esm/icons/save";
@@ -32,6 +33,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, defaultValues, o
       description: "",
       location: "",
       tickets: [],
+      tags: [], // <-- Initialize tags array
       ...defaultValues,
     },
     mode: "onChange",
@@ -61,6 +63,7 @@ export const EventForm: React.FC<EventFormProps> = ({ onSubmit, defaultValues, o
           </CardHeader>
           <CardContent className="space-y-6">
             <EventBasicDetails />
+            <EventTagInput /> {/* <-- INJECTED TAG INTERCEPTOR */}
             <LocationInput />
             <DateRangePicker />
           </CardContent>

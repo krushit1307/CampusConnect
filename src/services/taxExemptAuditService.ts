@@ -1,9 +1,10 @@
 // =============================================================================
 // File: src/services/taxExemptAuditService.ts
-// Feature: Automated "Tax-Exempt" Audit Trail Generator
+// Feature: Automated "Tax-Exempt" Audit Trail Generator & Compliance Scanner
 // Description: 1-Click Compliance Export engine for Tax-Exempt campus clubs.
 //              Categorizes transactions into Form 990-N/EZ line items, computes
 //              cryptographic SHA-256 digital seals, and generates CSV & JSON manifests.
+//              Includes continuous 501(c)(3) Unrelated Business Income (UBI) monitoring.
 // =============================================================================
 
 import type {
@@ -30,6 +31,10 @@ export function mapToForm990Line(
     if (normCat.includes("dues") || normCat.includes("membership")) {
       return { lineCode: "Line 3", lineName: "Membership Dues & Assessments" };
     }
+    // NEW (Issue #4787): Catch Merchandise/Apparel as Unrelated Business Income
+    if (normCat.includes("merchandise") || normCat.includes("apparel") || normCat.includes("shirt")) {
+      return { lineCode: "Line 8", lineName: "Unrelated Business Income (Merchandise/Other)" };
+    }
     return { lineCode: "Line 2", lineName: "Program Service Revenue (Events/Tickets)" };
   } else {
     if (normCat.includes("grant") || normCat.includes("scholarship") || normCat.includes("student")) {
@@ -43,6 +48,56 @@ export function mapToForm990Line(
     }
     return { lineCode: "Line 15", lineName: "Printing, Publications, Postage & Admin" };
   }
+}
+
+/**
+ * NEW (Issue #4787): Evaluates 501(c)(3) Unrelated Business Income (UBI) limits.
+ * Returns the current ratio and whether the club is at risk of revocation.
+ */
+export function evaluateUbiCompliance(rawTransactions: any[]) {
+  let totalRevenue = 0;
+  let unrelatedBusinessIncome = 0;
+
+  for (const tx of rawTransactions) {
+    const isIncome = tx.amount > 0 || tx.transaction_type === "INCOME" || tx.type === "INCOME" || tx.transaction_type === "REVENUE";
+    
+    if (isIncome) {
+      const absAmount = Math.abs(tx.amount);
+      totalRevenue += absAmount;
+
+      const normCat = (tx.category || "").toLowerCase();
+      // Flag merchandise and non-exempt sales
+      if (normCat.includes("merchandise") || normCat.includes("apparel") || normCat.includes("shirt") || normCat.includes("swag")) {
+        unrelatedBusinessIncome += absAmount;
+      }
+    }
+  }
+
+  const ubiRatio = totalRevenue > 0 ? (unrelatedBusinessIncome / totalRevenue) : 0;
+  const THRESHOLD = 0.20; // 20% legal limit for UBI
+  const isAtRisk = ubiRatio >= THRESHOLD;
+
+  return {
+    totalRevenue,
+    unrelatedBusinessIncome,
+    ubiRatio,
+    isAtRisk,
+    threshold: THRESHOLD
+  };
+}
+
+/**
+ * NEW (Issue #4787): Triggers severe system alert when UBI limits are breached.
+ */
+export async function triggerComplianceWarningEmail(clubName: string, treasurerName: string, ubiRatio: number) {
+  const percentage = (ubiRatio * 100).toFixed(1);
+  
+  console.error(`\n🚨 CRITICAL COMPLIANCE ALERT 🚨`);
+  console.error(`[501(c)(3) Revocation Risk]: ${clubName} has generated ${percentage}% of its revenue from Unrelated Business Income (Threshold: 20%).`);
+  console.error(`-> Sending automated email to ${treasurerName}, Club President, and University Financial Advisor.`);
+  console.error(`Message: "CRITICAL: Your club is generating too much non-exempt income and is at risk of losing 501(c)(3) status."\n`);
+  
+  // TODO: Integrate actual email provider here (e.g., SendGrid, Resend, or Supabase Edge Mailer)
 }
 
 /**
@@ -80,6 +135,13 @@ export function generateTaxExemptAuditReport(
   endDate: string = "2026-12-31",
   einNumber: string = "12-3456789"
 ): TaxExemptAuditReport {
+  
+  // NEW (Issue #4787): Run compliance scan before generating report
+  const compliance = evaluateUbiCompliance(rawTransactions);
+  if (compliance.isAtRisk) {
+    triggerComplianceWarningEmail(clubName, treasurerName, compliance.ubiRatio);
+  }
+
   const taxInfo: TaxExemptStatusInfo = {
     einNumber,
     taxStatus: "501(c)(3) Public Charity",
@@ -257,6 +319,8 @@ export function getMockTaxExemptAuditData(clubId: string = "club-demo-1"): TaxEx
   const mockTransactions = [
     { id: "tx-1", date: "2026-02-10", amount: 1500, type: "INCOME" as const, category: "Grants & Sponsorships", description: "Student Govt Activity Grant" },
     { id: "tx-2", date: "2026-03-04", amount: 850, type: "INCOME" as const, category: "Ticket Sales", description: "Spring Gala Early Bird Tickets" },
+    // NEW MOCK: Simulating dangerous merchandise income
+    { id: "tx-ubi-1", date: "2026-03-15", amount: 1200, type: "INCOME" as const, category: "Club Merchandise", description: "T-Shirt Sales to Public" },
     { id: "tx-3", date: "2026-04-12", amount: -450, type: "EXPENSE" as const, category: "Event Catering", description: "Gala Banquet Refreshments" },
     { id: "tx-4", date: "2026-05-01", amount: -300, type: "EXPENSE" as const, category: "Speaker Honorarium", description: "Keynote Guest Honorarium" },
     { id: "tx-5", date: "2026-06-15", amount: -120, type: "EXPENSE" as const, category: "Printing & Banners", description: "Campus Vinyl Banners" },

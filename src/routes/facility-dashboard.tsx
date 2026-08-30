@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Navigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -10,6 +10,16 @@ import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
 import Calendar from "lucide-react/dist/esm/icons/calendar";
 import Users from "lucide-react/dist/esm/icons/users";
 import Flame from "lucide-react/dist/esm/icons/flame";
+import Thermometer from "lucide-react/dist/esm/icons/thermometer";
+import Activity from "lucide-react/dist/esm/icons/activity";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+
+import {
+  ThermalOvercrowdingService,
+  type ThermostatReading,
+  type ThermalAlert,
+} from "@/services/thermalOvercrowdingService";
 
 interface Venue {
   id: string;
@@ -48,6 +58,72 @@ export default function FacilityDashboard() {
   const [role, setRole] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [selectedVenueId, setSelectedVenueId] = useState<string>("");
+
+  const [telemetry, setTelemetry] = useState<ThermostatReading[]>([]);
+  const [alerts, setAlerts] = useState<ThermalAlert[]>([]);
+  const [simTemp, setSimTemp] = useState<string>("72");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadThermalData = useCallback(async () => {
+    if (!selectedVenueId) return;
+    const tel = await ThermalOvercrowdingService.fetchTelemetry(selectedVenueId);
+    setTelemetry(tel);
+    const al = await ThermalOvercrowdingService.fetchActiveAlerts(selectedVenueId);
+    setAlerts(al);
+  }, [selectedVenueId]);
+
+  useEffect(() => {
+    void loadThermalData();
+  }, [selectedVenueId, loadThermalData]);
+
+  useEffect(() => {
+    if (!selectedVenueId) return;
+    const channel = supabase
+      .channel(`thermal-realtime-${selectedVenueId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "thermostat_telemetry", filter: `venue_id=eq.${selectedVenueId}` },
+        () => { void loadThermalData(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "thermal_alerts", filter: `venue_id=eq.${selectedVenueId}` },
+        () => { void loadThermalData(); }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [selectedVenueId, loadThermalData, supabase]);
+
+  const handleIngest = async (tempVal: number) => {
+    if (!selectedVenueId) return;
+    setRefreshing(true);
+    const res = await ThermalOvercrowdingService.ingestReading(selectedVenueId, tempVal);
+    setRefreshing(false);
+    if (res.success) {
+      toast.success(`Telemetry recorded: ${tempVal}°F. Delta T: ${res.delta_t}°F.`);
+      if (res.alert_triggered) {
+        toast.error("WARNING: Overcrowding Alert Triggered! Campus Police dispatched.");
+      }
+      void loadThermalData();
+    } else {
+      toast.error("Failed to record telemetry.");
+    }
+  };
+
+  const handleResolveAlert = async (alertId: string) => {
+    setRefreshing(true);
+    const ok = await ThermalOvercrowdingService.resolveAlert(alertId);
+    setRefreshing(false);
+    if (ok) {
+      toast.success("Thermal alert resolved. HVAC cooling systems normalized.");
+      void loadThermalData();
+    } else {
+      toast.error("Failed to resolve alert.");
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -301,6 +377,142 @@ export default function FacilityDashboard() {
               No critical physical accessibility accommodations requested for today's events at this venue.
             </p>
           )}
+        </section>
+
+        {/* Environmental Control & Thermal Overcrowding Telemetry */}
+        <section className="border-4 border-black bg-cyan-100 p-6 shadow-[8px_8px_0_0_#000] mb-8 font-mono text-black">
+          <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-4">
+            <div className="flex items-center gap-2">
+              <Thermometer className="h-6 w-6 text-black" />
+              <h2 className="font-display text-xl font-black uppercase text-black">HVAC & Thermostat Telemetry</h2>
+            </div>
+            <button
+              onClick={() => void loadThermalData()}
+              className="border-2 border-black bg-white p-1 shadow-[2px_2px_0_0_#000] active:translate-y-0.5 hover:bg-zinc-50"
+              title="Refresh Telemetry"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+
+          {/* Active Thermal Overcrowding Security Alerts */}
+          {alerts.length > 0 && (
+            <div className="border-4 border-red-600 bg-red-100 p-4 shadow-[4px_4px_0_0_#000] mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-8 w-8 text-red-600 animate-bounce shrink-0" />
+                <div>
+                  <h3 className="font-black text-red-600 uppercase text-sm">🚨 Thermal Overcrowding Alert Active</h3>
+                  <p className="text-xs text-black font-bold">
+                    University HVAC reports an extreme ambient spike of {alerts[0].temp_spike.toFixed(1)}°F. Campus Police notified of high-density biological mass.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleResolveAlert(alerts[0].id)}
+                disabled={refreshing}
+                className="shrink-0 border-2 border-black bg-black text-white px-4 py-2 text-xs font-black uppercase shadow-[2px_2px_0_0_#000] active:translate-y-0.5 hover:bg-zinc-800"
+              >
+                Resolve & Reset HVAC
+              </button>
+            </div>
+          )}
+
+          {/* Grid: Environmental metrics & Simulation */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Metric Displays */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Current temperature */}
+                <div className="border-2 border-black bg-white p-3 shadow-[3px_3px_0_0_#000]">
+                  <span className="text-[10px] font-black uppercase text-zinc-500">Current Temp</span>
+                  <div className="text-2xl font-black text-black">
+                    {telemetry[0] ? `${telemetry[0].temperature_fahrenheit.toFixed(1)}°F` : "70.0°F"}
+                  </div>
+                  <span className="text-[9px] font-bold text-zinc-400 block mt-1">
+                    HVAC Normal Setpoint: 70°F - 74°F
+                  </span>
+                </div>
+
+                {/* Rate of Change Delta T */}
+                <div className="border-2 border-black bg-white p-3 shadow-[3px_3px_0_0_#000]">
+                  <span className="text-[10px] font-black uppercase text-zinc-500">20-Min Rate of Change (ΔT)</span>
+                  <div className={`text-2xl font-black ${(telemetry[0]?.temperature_fahrenheit - (telemetry[telemetry.length - 1]?.temperature_fahrenheit || 70)) >= 10 ? "text-red-600 animate-pulse" : "text-black"}`}>
+                    {telemetry.length > 0
+                      ? `+${(telemetry[0].temperature_fahrenheit - telemetry[telemetry.length - 1].temperature_fahrenheit).toFixed(1)}°F`
+                      : "+0.0°F"}
+                  </div>
+                  <span className="text-[9px] font-bold text-zinc-400 block mt-1">
+                    Anomalous Limit: +10.0°F
+                  </span>
+                </div>
+              </div>
+
+              {/* Log History */}
+              <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0_0_#000]">
+                <h4 className="font-bold text-xs uppercase text-black border-b border-black/10 pb-2 mb-2 flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5" /> Recent Readings
+                </h4>
+                {telemetry.length === 0 ? (
+                  <p className="text-xs italic text-zinc-500">No telemetry log entries found.</p>
+                ) : (
+                  <div className="max-h-32 overflow-y-auto space-y-1.5 pr-2">
+                    {telemetry.map((t) => (
+                      <div key={t.id} className="flex items-center justify-between text-xs font-mono">
+                        <span className="text-zinc-600">
+                          {new Date(t.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </span>
+                        <span className="font-black text-black">{t.temperature_fahrenheit.toFixed(1)}°F</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Simulation controls */}
+            <div className="border-2 border-black bg-yellow-50 p-4 shadow-[4px_4px_0_0_#000] flex flex-col justify-between">
+              <div>
+                <h3 className="font-bold text-sm uppercase text-black border-b border-black/10 pb-2 mb-3">
+                  Simulation & Testing Bench
+                </h3>
+                <p className="text-xs text-zinc-600 mb-4">
+                  Simulate external facilities API integrations (Siemens/Johnson Controls) to test the mathematical thermal spike alarm loop.
+                </p>
+
+                <div className="flex gap-2 items-end mb-4">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-black uppercase text-zinc-500 mb-1">
+                      Inject Temperature (°F)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={simTemp}
+                      onChange={(e) => setSimTemp(e.target.value)}
+                      className="border-2 border-black bg-white px-2 py-1 text-sm font-mono outline-none w-full text-black"
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleIngest(parseFloat(simTemp))}
+                    disabled={refreshing || isNaN(parseFloat(simTemp))}
+                    className="border-2 border-black bg-white px-4 py-1.5 text-xs font-bold uppercase shadow-[2px_2px_0_0_#000] active:translate-y-0.5 hover:bg-zinc-100"
+                  >
+                    Ingest Temp
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t border-black/10 pt-3">
+                <button
+                  onClick={handleTriggerSpike}
+                  disabled={refreshing}
+                  className="w-full border-2 border-black bg-black text-cream font-bold py-2 text-xs font-mono uppercase shadow-[3px_3px_0_0_#000] active:translate-y-0.5 hover:bg-zinc-800"
+                >
+                  🔥 Trigger 12°F Spike (Simulation)
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Today's Events Grid */}
