@@ -97,6 +97,7 @@ export class SponsorCurrencyConverterService {
 
   /**
    * Calculate live converted price based on base USD price and target currency
+   * DEPRECATED: Use convertPriceWithPpp() instead for accurate global pricing
    */
   public convertPrice(basePriceUsd: number, targetCurrency: string): { convertedPrice: number; formattedText: string } {
     const rateData = liveExchangeRates[targetCurrency] || liveExchangeRates['USD'];
@@ -118,6 +119,41 @@ export class SponsorCurrencyConverterService {
     };
   }
 
+  /**
+   * PPP-adjusted price conversion (recommended for international pricing)
+   * Applies Purchasing Power Parity before currency conversion
+   */
+  public convertPriceWithPpp(
+    basePriceUsd: number,
+    targetCurrency: string,
+    countryCode: string,
+    pppAdjuster: any // Import SponsorPppAdjusterService type
+  ): { convertedPrice: number; formattedText: string; pppIndex: number; adjustmentRatio: string } {
+    // Step 1: Apply PPP adjustment
+    const pppResult = pppAdjuster.calculatePppAdjustedPrice(basePriceUsd, countryCode);
+    const pppAdjustedPrice = pppResult.adjustedPrice;
+
+    // Step 2: Convert adjusted price to local currency
+    const rateData = liveExchangeRates[targetCurrency] || liveExchangeRates['USD'];
+    const converted = pppAdjustedPrice * rateData.multiplier;
+
+    // Formatting based on currency convention
+    let formattedText: string;
+    if (targetCurrency === 'JPY') {
+      formattedText = `${rateData.symbol}${Math.round(converted).toLocaleString()}`;
+    } else if (targetCurrency === 'EUR') {
+      formattedText = `${rateData.symbol}${Math.round(converted)}`;
+    } else {
+      formattedText = `${rateData.symbol}${converted.toFixed(2)}`;
+    }
+
+    return {
+      convertedPrice: Math.round(converted * 100) / 100,
+      formattedText,
+      pppIndex: pppResult.pppIndex,
+      adjustmentRatio: pppResult.adjustmentRatio,
+    };
+  }
   /**
    * Generates dynamic SVG Badge Overlay injected on top of the Sponsor's rendered logo asset
    */

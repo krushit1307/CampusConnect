@@ -4,7 +4,7 @@ import {
   LocalizedSponsorLogoRenderConfig,
 } from '../../types/sponsorCurrencyConverter';
 import { sponsorCurrencyConverterService } from '../../services/sponsorCurrencyConverterService';
-
+import { sponsorPppAdjusterService } from '../../services/sponsorPppAdjusterService';
 export const SponsorLogoGeotargetedDisplay: React.FC = () => {
   const sponsors = sponsorCurrencyConverterService.getSponsors();
   const [selectedCountry, setSelectedCountry] = useState<string>('DE');
