@@ -25,6 +25,7 @@ import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
+import { ImpeachmentVoteModal } from "@/components/Clubs/ImpeachmentVoteModal";
 import { ClubRolesManager } from "@/components/Clubs/ClubRolesManager";
 import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
 import { ClubBudgetDashboard } from "@/components/Clubs/ClubBudgetDashboard";
@@ -83,18 +84,18 @@ export default function ClubManageRoute() {
       : initialTab === "meetings"
         ? "meetings"
         : initialTab === "members"
-        ? "members"
-        : initialTab === "roles"
-          ? "roles"
-          : initialTab === "events"
-            ? "events"
-            : initialTab === "merchandise"
-              ? "merchandise"
-              : initialTab === "developer"
-                ? "developer"
-                : initialTab === "finances"
-                  ? "finances"
-                  : "settings",
+          ? "members"
+          : initialTab === "roles"
+            ? "roles"
+            : initialTab === "events"
+              ? "events"
+              : initialTab === "merchandise"
+                ? "merchandise"
+                : initialTab === "developer"
+                  ? "developer"
+                  : initialTab === "finances"
+                    ? "finances"
+                    : "settings",
   );
 
   // Form State
@@ -109,6 +110,9 @@ export default function ClubManageRoute() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [impeachmentTarget, setImpeachmentTarget] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const [serverClub, setServerClub] = useState<Club | null>(null);
 
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
@@ -475,7 +479,7 @@ export default function ClubManageRoute() {
         <ClubAdminWarningBanner
           clubId={club.id}
           clubSlug={club.slug}
-          currentStatus={club.lifecycle_status || 'active'}
+          currentStatus={club.lifecycle_status || "active"}
           warningIssuedAt={club.warning_issued_at}
         />
 
@@ -819,7 +823,30 @@ export default function ClubManageRoute() {
                       onAssignRole={(memberId, roleId) =>
                         updateMemberMutation.mutate({ memberId, updates: { role_id: roleId } })
                       }
+                      onImpeach={(memberId) => {
+                        const mem = club.club_members.find((m: any) => m.id === memberId);
+                        const name = Array.isArray(mem?.profiles)
+                          ? mem?.profiles[0]?.full_name
+                          : mem?.profiles?.full_name;
+                        setImpeachmentTarget({ id: memberId, name: name || "Member" });
+                      }}
                     />
+
+                    {impeachmentTarget && (
+                      <ImpeachmentVoteModal
+                        clubId={club.id}
+                        targetUserId={
+                          club.club_members.find((m: any) => m.id === impeachmentTarget.id)
+                            ?.user_id || ""
+                        }
+                        targetUserName={impeachmentTarget.name}
+                        isOpen={!!impeachmentTarget}
+                        onClose={() => setImpeachmentTarget(null)}
+                        onSuccess={() => {
+                          setImpeachmentTarget(null);
+                        }}
+                      />
+                    )}
                   </div>
                 );
               })()}

@@ -60,6 +60,7 @@ interface ClubMembersTableProps {
   onReject: (memberId: string) => void;
   onToggleRole?: (memberId: string, currentRole: string) => void;
   onAssignRole?: (memberId: string, roleId: string) => void;
+  onImpeach?: (memberId: string) => void;
 }
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
@@ -346,6 +347,7 @@ export function ClubMembersTable({
                       member={member}
                       onToggleRole={onToggleRole}
                       onKick={onReject}
+                      onImpeach={onImpeach}
                     >
                       <tr className="border-b border-black/10 last:border-b-0 hover:bg-gray-50">
                         <td className="p-3">
