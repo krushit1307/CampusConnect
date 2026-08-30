@@ -135,6 +135,7 @@ const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
 const LostFound = lazy(() => import("./routes/lost-found"));
+const StudyGroupFinder = lazy(() => import("./pages/StudyGroupFinder"));
 const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
@@ -321,6 +322,7 @@ const router = createBrowserRouter(
             <Route path="challenge" element={<ChallengeArena />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="/feed" element={<Feed />} />
+            <Route path="/study-groups" element={<StudyGroupFinder />} />
             <Route path="/lost-found" element={<LostFound />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
