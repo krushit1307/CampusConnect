@@ -25,6 +25,8 @@ import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
+import { ImpeachmentVoteModal } from "@/components/Clubs/ImpeachmentVoteModal";
+import { DonorChurnDashboard } from "@/components/finance/DonorChurnDashboard";
 import { ClubRolesManager } from "@/components/Clubs/ClubRolesManager";
 import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
 import { ClubBudgetDashboard } from "@/components/Clubs/ClubBudgetDashboard";
@@ -83,18 +85,18 @@ export default function ClubManageRoute() {
       : initialTab === "meetings"
         ? "meetings"
         : initialTab === "members"
-        ? "members"
-        : initialTab === "roles"
-          ? "roles"
-          : initialTab === "events"
-            ? "events"
-            : initialTab === "merchandise"
-              ? "merchandise"
-              : initialTab === "developer"
-                ? "developer"
-                : initialTab === "finances"
-                  ? "finances"
-                  : "settings",
+          ? "members"
+          : initialTab === "roles"
+            ? "roles"
+            : initialTab === "events"
+              ? "events"
+              : initialTab === "merchandise"
+                ? "merchandise"
+                : initialTab === "developer"
+                  ? "developer"
+                  : initialTab === "finances"
+                    ? "finances"
+                    : "settings",
   );
 
   // Form State
@@ -475,7 +477,7 @@ export default function ClubManageRoute() {
         <ClubAdminWarningBanner
           clubId={club.id}
           clubSlug={club.slug}
-          currentStatus={club.lifecycle_status || 'active'}
+          currentStatus={club.lifecycle_status || "active"}
           warningIssuedAt={club.warning_issued_at}
         />
 
@@ -878,7 +880,12 @@ export default function ClubManageRoute() {
               </div>
             )}
             {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
-            {activeTab === "finances" && <ClubBudgetDashboard clubId={club.id} />}
+            {activeTab === "finances" && (
+              <div className="space-y-8">
+                <ClubBudgetDashboard clubId={club.id} />
+                <DonorChurnDashboard clubId={club.id} />
+              </div>
+            )}
             {activeTab === "meetings" && <QuorumPanel clubId={club.id} />}
             {activeTab === "merchandise" && <ManageMerch clubId={club.id} />}
             {activeTab === "funding" && <FundingRequestBuilder clubId={club.id} />}
