@@ -39,25 +39,3 @@ model RSVP {
 
   @@unique([eventId, userId])
 }
-
-model LostAndFoundItem {
-  id              String   @id @default(uuid())
-  type            String   // 'LOST' or 'FOUND'
-  reporterId      String
-  imageUrl        String
-  description     String?
-  imageEmbedding  Unsupported("vector(512)")?
-  status          String   @default("OPEN") // OPEN, RESOLVED
-  createdAt       DateTime @default(now())
-}
-
-model ClubMessage {
-  id              String   @id @default(uuid())
-  clubId          String
-  senderId        String
-  ciphertext      String   @db.Text
-  iv              String
-  createdAt       DateTime @default(now())
-
-  @@index([clubId, createdAt])
-}
