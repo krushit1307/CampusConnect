@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS public.guest_network_credentials (
 
 -- Enable RLS
 ALTER TABLE public.guest_network_credentials ENABLE ROW LEVEL SECURITY;
-
+-- Add column:
+ALTER TABLE public.guest_network_credentials ADD COLUMN mac_session_id UUID REFERENCES public.mac_session_mapping(id);
 -- RLS Policies
 DROP POLICY IF EXISTS "Users can view guest credentials" ON public.guest_network_credentials;
 CREATE POLICY "Users can view guest credentials"
