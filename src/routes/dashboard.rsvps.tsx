@@ -17,6 +17,7 @@ export default function DashboardRsvps() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const {
@@ -200,6 +201,23 @@ export default function DashboardRsvps() {
         >
           Past ({pastRsvps.length})
         </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => setViewMode("list")}
+          className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all ${
+            viewMode === "list" ? "bg-black text-white" : "bg-white text-black"
+          }`}
+        >
+          List
+        </button>
+        <button
+          onClick={() => setViewMode("calendar")}
+          className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all ${
+            viewMode === "calendar" ? "bg-black text-white" : "bg-white text-black"
+          }`}
+        >
+          Calendar
+        </button>
       </div>
 
       <AnimatePresence mode="sync">
@@ -251,6 +269,18 @@ export default function DashboardRsvps() {
               Browse events →
             </Link>
           </motion.section>
+        ) : viewMode === "calendar" ? (
+          <motion.div
+            key="rsvps-calendar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <ScheduleVisualizer
+              events={displayedEvents}
+              onCancelRsvp={(id) => toggleRsvp.mutate({ eventId: id, hasRsvpd: true })}
+            />
+          </motion.div>
         ) : (
           <motion.div
             key={`rsvps-loaded-grid-${activeTab}`}

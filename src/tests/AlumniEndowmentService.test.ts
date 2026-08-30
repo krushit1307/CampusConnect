@@ -1,3 +1,4 @@
+import { describe, test, expect, beforeEach } from 'vitest';
 import { AlumniEndowmentService } from '../../backend/src/services/AlumniEndowmentService';
 import { AlumniDonationRecord, EndowmentAllocation } from '../../src/types/alumniEndowment';
 

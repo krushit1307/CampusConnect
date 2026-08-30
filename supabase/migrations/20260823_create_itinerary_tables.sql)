@@ -1,0 +1,50 @@
+-- 1. Create the sub_sessions table
+CREATE TABLE public.sub_sessions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
+    room VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- Index for faster querying by event (crucial for loading the 50-session timeline)
+CREATE INDEX idx_sub_sessions_event_id ON public.sub_sessions(event_id);
+
+
+-- 2. Create the user_itinerary table (The "Bookmarks")
+CREATE TABLE public.user_itinerary (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    sub_session_id UUID NOT NULL REFERENCES public.sub_sessions(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    
+    -- Prevent a user from bookmarking the exact same session twice
+    UNIQUE(user_id, sub_session_id)
+);
+
+-- Index for fetching a specific user's complete schedule quickly
+CREATE INDEX idx_user_itinerary_user_id ON public.user_itinerary(user_id);
+
+-- Enable RLS
+ALTER TABLE public.sub_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_itinerary ENABLE ROW LEVEL SECURITY;
+
+-- Sub-sessions are public to read, but only admins can edit (assuming a standard setup)
+CREATE POLICY "Sub-sessions are viewable by everyone" 
+ON public.sub_sessions FOR SELECT 
+USING (true);
+
+-- Users can only manage their own itinerary records
+CREATE POLICY "Users can view own itinerary" 
+ON public.user_itinerary FOR SELECT 
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own itinerary" 
+ON public.user_itinerary FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own itinerary" 
+ON public.user_itinerary FOR DELETE 
+USING (auth.uid() = user_id);

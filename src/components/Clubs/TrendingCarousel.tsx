@@ -36,6 +36,8 @@ export default function TrendingCarousel({ clubs }: TrendingCarouselProps) {
                   alt={club.name}
                   width={600}
                   height={160}
+                  responsiveWidths={[280, 560, 840]}
+                  sizes="(max-width: 640px) 280px, 280px"
                   className="h-40 w-full object-cover border-b-2 border-black"
                   fallback={
                     <img
