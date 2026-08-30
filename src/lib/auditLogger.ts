@@ -48,7 +48,33 @@ export function formatAuditSummary(log: AuditLogEntry): string {
 
   return `${actorName} ${actionVerb} ${tableName}${entityTitle}`;
 }
+export async function auditLog(
+  userId: string,
+  eventType: string,
+  metadata?: Record<string, any>,
+  ipAddress?: string
+): Promise<void> {
+  const supabase = createClient(
+    process.env.VITE_SUPABASE_URL!,
+    process.env.VITE_SUPABASE_SERVICE_ROLE_KEY!
+  );
 
+  try {
+    await supabase
+      .from('phishing_simulation_audit_log')
+      .insert([
+        {
+          user_id: userId,
+          event_type: eventType,
+          ip_address: ipAddress || null,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+          metadata: metadata || {},
+        },
+      ]);
+  } catch (err) {
+    console.error('Audit log error:', err);
+  }
+}
 /**
  * Computes the differences between old_data and new_data for UPDATE actions.
  * Returns an array of changed fields with their old and new values.
