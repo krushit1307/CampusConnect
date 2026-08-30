@@ -1,56 +1,71 @@
-import FingerprintJS from "@fingerprintjs/fingerprintjs";
+// Browser Fingerprinting Utility
+// Generates a highly unique device signature using Canvas, WebGL, Screen Resolution, Fonts, and User-Agent.
 
-/**
- * Device Fingerprint Utility
- * Generates a stable, unique visitor ID based on browser hardware characteristics.
- * WARNING: This bypasses incognito mode. Use strictly for fraud-prevention endpoints
- * and ensure compliance with GDPR/CCPA via explicit Privacy Policy disclosure.
- */
-class FingerprintService {
-  private static instance: FingerprintService;
-  private fpPromise: Promise<any> | null = null;
+export async function getDeviceFingerprint(): Promise<string> {
+  if (typeof window === "undefined") return "server-side";
 
-  private constructor() {}
+  // Check localStorage first for caching
+  const cached = window.localStorage.getItem("device_fingerprint");
+  if (cached) return cached;
 
-  public static getInstance(): FingerprintService {
-    if (!FingerprintService.instance) {
-      FingerprintService.instance = new FingerprintService();
+  const components: string[] = [];
+
+  // 1. User Agent & Language
+  components.push(navigator.userAgent || "unknown-ua");
+  components.push(navigator.language || "unknown-lang");
+
+  // 2. Screen Resolution & Color Depth
+  components.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
+
+  // 3. Timezone Offset
+  components.push(new Date().getTimezoneOffset().toString());
+
+  // 4. Canvas Fingerprinting (2D Render test)
+  try {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      canvas.width = 200;
+      canvas.height = 50;
+      ctx.textBaseline = "top";
+      ctx.font = "14px 'Arial', sans-serif";
+      ctx.fillStyle = "#f60";
+      ctx.fillRect(125, 1, 62, 20);
+      ctx.fillStyle = "#069";
+      ctx.fillText("CampusConnect, robot trap! 🙂", 2, 2);
+      ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+      ctx.fillText("CampusConnect, robot trap! 🙂", 4, 17);
+      components.push(canvas.toDataURL());
     }
-    return FingerprintService.instance;
+  } catch (e) {
+    components.push("no-canvas");
   }
 
-  /**
-   * Initializes the FingerprintJS agent.
-   * Should be called once on application mount.
-   */
-  public async init(): Promise<void> {
-    if (!this.fpPromise) {
-      this.fpPromise = FingerprintJS.load({
-        monitoring: false, // Disable continuous monitoring for privacy
-      });
+  // 5. WebGL Fingerprinting (3D Shader test)
+  try {
+    const canvas = document.createElement("canvas");
+    const gl =
+      canvas.getContext("webgl") ||
+      (canvas.getContext("experimental-webgl") as WebGLRenderingContext);
+    if (gl) {
+      components.push(gl.getParameter(gl.RENDERER) || "");
+      components.push(gl.getParameter(gl.VENDOR) || "");
+      components.push(gl.getParameter(gl.SHADING_LANGUAGE_VERSION) || "");
     }
-    await this.fpPromise;
+  } catch (e) {
+    components.push("no-webgl");
   }
 
-  /**
-   * Retrieves the unique visitor ID.
-   * @returns A promise resolving to the hashed visitor ID string.
-   */
-  public async getVisitorId(): Promise<string> {
-    if (!this.fpPromise) {
-      await this.init();
-    }
-    const fp = await this.fpPromise!;
-    const result = await fp.get();
-    return result.visitorId;
+  // Hash components using a fast murmur/Fowler-Noll-Vo style string hashing
+  const str = components.join("||");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = (hash << 5) - hash + chr;
+    hash |= 0; // Convert to 32bit integer
   }
 
-  /**
-   * Clears the cached promise to force re-initialization (useful for testing).
-   */
-  public reset(): void {
-    this.fpPromise = null;
-  }
+  const fingerprint = "cc_fp_" + Math.abs(hash).toString(16);
+  window.localStorage.setItem("device_fingerprint", fingerprint);
+  return fingerprint;
 }
-
-export const fingerprintService = FingerprintService.getInstance();

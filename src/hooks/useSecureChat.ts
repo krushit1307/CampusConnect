@@ -1,9 +1,9 @@
 // =============================================================================
 // Hook: useSecureChat
---Issue: #2905 - Implement 'End-to-End Encryption' for Sensitive Club Direct Messages
---Description: Manages the E2EE lifecycle for a secure channel.Handles 
---fetching the wrapped AES key, unwrapping it with the user's private key, 
---and encrypting / decrypting messages on the fly.
+//Issue: #2905 - Implement 'End-to-End Encryption' for Sensitive Club Direct Messages
+//Description: Manages the E2EE lifecycle for a secure channel.Handles 
+//fetching the wrapped AES key, unwrapping it with the user's private key, 
+//and encrypting / decrypting messages on the fly.
     // =============================================================================
 
     import { useState, useEffect, useCallback, useRef } from 'react';

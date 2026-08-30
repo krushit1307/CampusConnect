@@ -251,3 +251,98 @@ describe("addToCalendar — downloadIcsFile", () => {
     expect(Blob).not.toHaveBeenCalled();
   });
 });
+
+describe("addToCalendar — sanitizeCalendarDescription", () => {
+  it("strips Markdown formatting", () => {
+    const description = "**Bold text**\n*Italic text*\n# Heading\n- bullet\n[Link](https://example.com)\n\`code\`";
+    const result = sanitizeCalendarDescription(description);
+    expect(result).toContain("Bold text");
+    expect(result).toContain("Italic text");
+    expect(result).toContain("Heading");
+    expect(result).toContain("bullet");
+    expect(result).toContain("Link");
+    expect(result).toContain("code");
+    // Should NOT contain Markdown syntax
+    expect(result).not.toContain("**");
+    expect(result).not.toContain("*");
+    expect(result).not.toContain("#");
+    expect(result).not.toContain("[Link](https://example.com)");
+    expect(result).not.toContain("\`code\`");
+  });
+
+  it("strips HTML tags", () => {
+    const description = "<div>Hello</div><br><p>World</p>";
+    const result = sanitizeCalendarDescription(description);
+    expect(result).toContain("Hello");
+    expect(result).toContain("World");
+    // Should NOT contain HTML tags
+    expect(result).not.toContain("<div>");
+    expect(result).not.toContain("</div>");
+    expect(result).not.toContain("<br>");
+    expect(result).not.toContain("<p>");
+    expect(result).not.toContain("</p>");
+  });
+
+  it("handles mixed Markdown and HTML", () => {
+    const description = "**Bold** and *italic* with `code`, [link](https://example.com), # heading, - bullet, <div>html</div>";
+    const result = sanitizeCalendarDescription(description);
+    expect(result).toContain("Bold");
+    expect(result).toContain("italic");
+    expect(result).toContain("code");
+    expect(result).toContain("link");
+    expect(result).toContain("heading");
+    expect(result).toContain("bullet");
+    expect(result).not.toContain("<div>");
+    expect(result).not.toContain("**");
+    expect(result).not.toContain("*italic* as markdown");
+  });
+
+  it("preserves plain-text URLs", () => {
+    const description = "Check out https://example.com for more info";
+    const result = sanitizeCalendarDescription(description);
+    expect(result).toContain("https://example.com");
+  });
+
+  it("preserves normal punctuation", () => {
+    const description = "Hello, world! This is a test (with parens).";
+    const result = sanitizeCalendarDescription(description);
+    expect(result).toContain("Hello,");
+    expect(result).toContain("world!");
+    expect(result).toContain("This is a test");
+    expect(result).toContain("(with parens).");
+  });
+
+  it("preserves CampusConnect link via buildDescriptionWithLink", () => {
+    const event = {
+      id: "evt-123",
+      title: "Test Event",
+      description: "**Bold description**",
+      event_date: "2026-08-15T19:30:00.000Z",
+      start_date: "2026-08-15T19:30:00.000Z",
+      end_date: "2026-08-15T22:00:00.000Z",
+      location: "Room 101",
+      eventUrl: "/events/evt-123",
+    };
+    const url = getGoogleCalendarUrl(event);
+    expect(url).not.toBeNull();
+    // The sanitized description + CampusConnect link should be in details
+    expect(url).toMatch(/details=.*View\+on\+CampusConnect/);
+    expect(url).toContain("campusconnect.app%2Fevents%2Fevt-123");
+    // The raw Markdown should NOT appear in the URL
+    expect(url).not.toMatch(/\*\*/);
+  });
+
+  it("RFC 5545 escaping is preserved after sanitization", () => {
+    const description = "Line 1\nLine 2; with semicolon, and comma";
+    const sanitized = sanitizeCalendarDescription(description);
+    // After sanitization, escapeIcsText should still work
+    const escaped = sanitized
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r?\n/g, "\\n");
+    expect(escaped).toContain("Line 1\\n");
+    expect(escaped).toContain("Line 2\\;");
+    expect(escaped).toContain("and\\, comma");
+  });
+});

@@ -1,6 +1,6 @@
 // src/lib/eventWizardSchema.ts
 import { z } from "zod";
-
+import { getRequiredPermits } from "../utils/eventComplianceChecker";
 /**
  * Step 1: Basic Info
  * Title, description, category, and tags.
@@ -27,9 +27,12 @@ export const dateLocationStepBaseSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   location: z.string().min(3, "Location is required").max(200, "Location is too long"),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
   isVirtual: z.boolean().default(false),
   meetingUrl: z.string().url("Please enter a valid meeting URL").optional().or(z.literal("")),
   isOutdoor: z.boolean().default(false),
+  hasPhotography: z.boolean().default(false),
   backupIndoorVenue: z.string().optional(),
   capacity: z
     .number()
@@ -148,6 +151,7 @@ export const customizationsStepSchema = z.object({
   isFeatured: z.boolean().default(false),
   allowWaitlist: z.boolean().default(true),
   sendReminderEmails: z.boolean().default(true),
+  isLiveAlbumActive: z.boolean().default(false),
 });
 export type CustomizationsStepData = z.infer<typeof customizationsStepSchema>;
 
@@ -171,9 +175,12 @@ export const eventWizardMasterSchema = z
     startDate: dateLocationStepBaseSchema.shape.startDate,
     endDate: dateLocationStepBaseSchema.shape.endDate,
     location: dateLocationStepBaseSchema.shape.location,
+    latitude: dateLocationStepBaseSchema.shape.latitude,
+    longitude: dateLocationStepBaseSchema.shape.longitude,
     isVirtual: dateLocationStepBaseSchema.shape.isVirtual,
     meetingUrl: dateLocationStepBaseSchema.shape.meetingUrl,
     isOutdoor: dateLocationStepBaseSchema.shape.isOutdoor,
+    hasPhotography: dateLocationStepBaseSchema.shape.hasPhotography,
     backupIndoorVenue: dateLocationStepBaseSchema.shape.backupIndoorVenue,
     capacity: dateLocationStepBaseSchema.shape.capacity,
     // Ticketing
@@ -186,7 +193,29 @@ export const eventWizardMasterSchema = z
     isFeatured: customizationsStepSchema.shape.isFeatured,
     allowWaitlist: customizationsStepSchema.shape.allowWaitlist,
     sendReminderEmails: customizationsStepSchema.shape.sendReminderEmails,
-  })
+    isLiveAlbumActive: customizationsStepSchema.shape.isLiveAlbumActive,
+    // Compliance: URL to the uploaded permit PDF, required only when
+    // getRequiredPermits() flags this event (see refine below).
+    compliancePermitUrl: z.string().optional().or(z.literal("")),
+  })  
+  // Cross-field refinement: events that trip the compliance heuristics
+  // (capacity > 100 or a food-related category/tag) must have a permit
+  // PDF uploaded before they can be submitted.
+  .refine(
+    (data) => {
+      const required = getRequiredPermits({
+        capacity: data.capacity,
+        category: data.category,
+        tags: data.tags,
+      });
+      if (required.length > 0 && !data.compliancePermitUrl) return false;
+      return true;
+    },
+    {
+      message: "Please upload the required permit(s) before submitting this event",
+      path: ["compliancePermitUrl"],
+    },
+  )
   // Cross-field refinement: end date > start date.
   .refine(
     (data) => {
@@ -262,9 +291,12 @@ export const DEFAULT_EVENT_WIZARD_DATA: EventWizardFormData = {
   startDate: "",
   endDate: "",
   location: "",
+  latitude: null,
+  longitude: null,
   isVirtual: false,
   meetingUrl: "",
   isOutdoor: false,
+  hasPhotography: false,
   backupIndoorVenue: "",
   capacity: 50,
   isPaid: false,
@@ -275,4 +307,6 @@ export const DEFAULT_EVENT_WIZARD_DATA: EventWizardFormData = {
   isFeatured: false,
   allowWaitlist: true,
   sendReminderEmails: true,
+  isLiveAlbumActive: false,
+  compliancePermitUrl: "",
 };

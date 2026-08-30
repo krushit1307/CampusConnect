@@ -12,6 +12,8 @@ import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 import XCircle from "lucide-react/dist/esm/icons/x-circle";
 import { toast } from "sonner";
 import { AssetRegisterPanel } from "@/components/Clubs/AssetRegisterPanel";
+import { VendorEscrowViewer } from "@/components/vendors/VendorEscrowViewer";
+import { Vendor1099MiscPanel } from "@/components/vendors/Vendor1099MiscPanel";
 
 interface ClubBudgetDashboardProps {
   clubId: string;
@@ -332,6 +334,10 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
           </div>
         )}
       </div>
+
+      {/* Vendor bid escrow: ledger → Stripe vault → vendor release. */}
+      <VendorEscrowViewer clubId={clubId} />
+      <Vendor1099MiscPanel clubId={clubId} />
 
       {/* Capital kit: book values, replacement timeline and the funding gap. */}
       <AssetRegisterPanel clubId={clubId} />

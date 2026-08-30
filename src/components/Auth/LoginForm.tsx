@@ -84,6 +84,14 @@ export const LoginForm: React.FC = () => {
       <Button type="submit" className="w-full" disabled={isSubmitting || isFpLoading}>
         {isSubmitting ? "Logging in..." : "Login"}
       </Button>
+      <div className="text-right">
+        <a
+          href="/forgot-password"
+          className="text-xs font-mono font-bold text-blue-700 underline underline-offset-2 hover:text-blue-800"
+        >
+          Reset Password
+        </a>
+      </div>
     </form>
   );
 };

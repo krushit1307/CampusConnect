@@ -109,7 +109,22 @@ export function parseAcademicCalendarIcs(ics: string): ParsedCampusCalendarEvent
     });
   };
 
-  for (const line of unfoldIcsLines(ics)) {
+  for (const line of   return events;
+}
+
+export type RestrictedDateCategory = "MIDTERMS" | "FINALS" | "READING_DAYS";
+
+/**
+ * Narrower classification than classifyCalendarEvent(), used to decide which
+ * synced events also belong in the `restricted_dates` table (#3890).
+ */
+export function classifyRestrictedCategory(title: string): RestrictedDateCategory | null {
+  const normalized = title.toLowerCase();
+  if (/final/.test(normalized)) return "FINALS";
+  if (/midterm/.test(normalized)) return "MIDTERMS";
+  if (/(reading day|reading week|dead week)/.test(normalized)) return "READING_DAYS";
+  return null;
+}unfoldIcsLines(ics)) {
     const name = propertyName(line);
     if (name === "BEGIN" && propertyValue(line).toUpperCase() === "VEVENT") {
       current = {};

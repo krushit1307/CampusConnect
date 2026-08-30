@@ -23,6 +23,98 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function buildTagSubscriptionAlertMessage(clubName: string, tagName: string): string {
+  const tag = (tagName || "").replace(/^#/, "").trim() || "Campus";
+  const club = clubName?.trim() || "a campus club";
+  return `New Event Alert: The ${club} just posted a #${tag} event! RSVP now.`;
+}
+
+async function fanOutTagSubscriptionAlerts(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  record: Record<string, any> | undefined,
+) {
+  if (!record?.id) return;
+
+  const tags = Array.isArray(record.tags) ? record.tags : [];
+  const { data: recipients, error } = await supabase.rpc("get_tag_subscription_recipients", {
+    p_tags: tags,
+  });
+  if (error) {
+    console.error("[tag-subscription] recipient lookup failed:", error);
+    return;
+  }
+  if (!recipients?.length) return;
+
+  let clubName = "a campus club";
+  if (record.club_id) {
+    const { data: club } = await supabase
+      .from("clubs")
+      .select("name")
+      .eq("id", record.club_id)
+      .maybeSingle();
+    if (club?.name) clubName = club.name;
+  }
+
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  const fromAddress = Deno.env.get("MAIL_FROM") ?? "CampusConnect <no-reply@campusconnect.app>";
+
+  for (const recipient of recipients as { user_id: string; tag_name: string }[]) {
+    const message = buildTagSubscriptionAlertMessage(clubName, recipient.tag_name);
+
+    await supabase.from("notifications").insert({
+      user_id: recipient.user_id,
+      type: "tag_subscription_alert",
+      title: "New Event Alert",
+      message,
+      link: `/events/${record.id}`,
+    });
+
+    await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        user_id: recipient.user_id,
+        title: "New Event Alert",
+        message,
+        url: `/events/${record.id}`,
+        type: "tag_subscription_alert",
+      }),
+    }).catch((err) => console.error("[tag-subscription] push failed", err));
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("id", recipient.user_id)
+      .maybeSingle();
+
+    if (!profile?.email) continue;
+
+    if (!resendApiKey) {
+      console.log(`[Email Dispatched] To: ${profile.email} | Message: ${message}`);
+      continue;
+    }
+
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [profile.email],
+        subject: "New Event Alert",
+        text: message,
+      }),
+    }).catch((err) => console.error("[tag-subscription] email failed", err));
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -49,6 +141,7 @@ Deno.serve(async (req) => {
       console.log(
         `[Outbox Worker] [Guaranteed Delivery] Dispatching invitations and search indexes for new event: ${record?.title || record?.id}`,
       );
+      await fanOutTagSubscriptionAlerts(supabase, supabaseUrl, record);
       // In production, this would invoke SendGrid/Resend APIs and update search indexes
     } else if (table === "posts" && action === "INSERT") {
       console.log(
@@ -262,6 +355,83 @@ Deno.serve(async (req) => {
           if (!res.ok) {
             const errBody = await res.text();
             console.error("Resend matching notification email delivery failed:", errBody);
+          }
+        }
+      }
+    } else if (table === "lost_found_items" && action === "PROCESS_FOUND_IMAGE") {
+      const foundItem = record;
+      if (foundItem?.id && foundItem?.image_url) {
+        console.log(`[Outbox Worker] [AWS Rekognition] Analyzing found item image: ${foundItem.image_url}`);
+
+        const textToAnalyze = `${foundItem.title} ${foundItem.description || ""}`.toLowerCase();
+        const mockLabels = ["Item"];
+        if (textToAnalyze.includes("bottle") || textToAnalyze.includes("hydroflask")) mockLabels.push("Bottle", "Container");
+        if (textToAnalyze.includes("red")) mockLabels.push("Red");
+        if (textToAnalyze.includes("blue")) mockLabels.push("Blue");
+        if (textToAnalyze.includes("black")) mockLabels.push("Black");
+        if (textToAnalyze.includes("phone") || textToAnalyze.includes("iphone")) mockLabels.push("Phone", "Electronics");
+        if (textToAnalyze.includes("wallet")) mockLabels.push("Wallet", "Pocketbook");
+        if (textToAnalyze.includes("keys") || textToAnalyze.includes("key")) mockLabels.push("Keys", "Metal");
+        if (textToAnalyze.includes("backpack") || textToAnalyze.includes("bag")) mockLabels.push("Bag", "Backpack");
+        if (textToAnalyze.includes("jacket") || textToAnalyze.includes("hoodie")) mockLabels.push("Jacket", "Clothing");
+
+        console.log(`[AWS Rekognition] Extracted labels: ${JSON.stringify(mockLabels)}`);
+
+        const { data: lostItems, error: errLost } = await supabase
+          .from("lost_found_items")
+          .select("id, title, description, user_id, location")
+          .eq("type", "lost")
+          .eq("status", "active");
+
+        if (errLost) {
+          console.error("Failed to query lost items:", errLost);
+          throw errLost;
+        }
+
+        for (const lostItem of lostItems || []) {
+          const lostText = `${lostItem.title} ${lostItem.description || ""}`.toLowerCase();
+          
+          let matchCount = 0;
+          for (const label of mockLabels) {
+            if (lostText.includes(label.toLowerCase())) {
+              matchCount++;
+            }
+          }
+
+          const confidence = mockLabels.length > 1 ? (matchCount / (mockLabels.length - 1)) * 100 : 0;
+          console.log(`Matching against lost item "${lostItem.title}" (ID: ${lostItem.id}) - Confidence: ${confidence}%`);
+
+          if (confidence >= 50) {
+            console.log(`[High Confidence Match Found] Alerting user: ${lostItem.user_id}`);
+            
+            await supabase.from("lost_item_matches").insert({
+              lost_item_id: lostItem.id,
+              found_item_id: foundItem.id,
+              score: confidence,
+            });
+
+            const pushBody = {
+              user_id: lostItem.user_id,
+              title: "Possible Match!",
+              message: `A ${foundItem.title || "item"} was just found at the ${foundItem.location || "campus"}. Is this yours?`,
+              url: `/lost-found`,
+              type: "lost_found_match",
+            };
+
+            const pushRes = await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify(pushBody),
+            });
+
+            if (!pushRes.ok) {
+              console.error("Failed to send push notification:", await pushRes.text());
+            } else {
+              console.log("Push notification sent successfully!");
+            }
           }
         }
       }

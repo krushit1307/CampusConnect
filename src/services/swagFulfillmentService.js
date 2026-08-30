@@ -1,5 +1,5 @@
 const axios = require('axios');
-const db = require('../models'); // Adjust based on your ORM/DB setup
+const db = require('../models');
 
 async function processGraduationSwag(user, clubId) {
   try {
@@ -15,10 +15,6 @@ async function processGraduationSwag(user, clubId) {
       return { fulfilled: false, reason: 'Insufficient club ledger balance.' };
     }
 
-    // 3. Deduct funds and trigger Print-on-Demand API webhook
-    club.ledgerBalance -= 50;
-    await club.save();
-
     const podPayload = {
       recipient: {
         name: user.name,
@@ -28,9 +24,14 @@ async function processGraduationSwag(user, clubId) {
       logoUrl: club.vectorLogoUrl
     };
 
+    // 3. Dispatch Print-on-Demand API webhook first
     const response = await axios.post(process.env.POD_WEBHOOK_URL, podPayload, {
       headers: { Authorization: `Bearer ${process.env.POD_API_KEY}` }
     });
+
+    // 4. Deduct funds only after successful vendor confirmation
+    club.ledgerBalance -= 50;
+    await club.save();
 
     return {
       fulfilled: true,

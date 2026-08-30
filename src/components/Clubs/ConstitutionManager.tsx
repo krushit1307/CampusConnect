@@ -2,7 +2,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ConstitutionHistoryModal } from "./ConstitutionHistoryModal";
 import { ConstitutionTimeline } from "./ConstitutionTimeline";
-import { FileText, Upload, Clock, Loader2, Download, History } from "lucide-react";
+import { ConstitutionAmendmentsModal } from "./ConstitutionAmendmentsModal";
+import { FileText, Upload, Clock, Loader2, Download, History, Gavel } from "lucide-react";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 
@@ -23,6 +24,7 @@ export function ConstitutionManager({
 }: ConstitutionManagerProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [isAmendmentsOpen, setIsAmendmentsOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [localVersion, setLocalVersion] = useState(currentVersion || 0);
   const [localFileUrl, setLocalFileUrl] = useState(currentFileUrl);
@@ -55,18 +57,40 @@ export function ConstitutionManager({
       const { data: userAuth } = await supabase.auth.getUser();
       if (!userAuth.user) throw new Error("Not authenticated");
 
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
-        "upload_club_document",
-        {
-          p_club_id: clubId,
-          p_file_url: uploadData.path,
-          p_uploaded_by: userAuth.user.id,
-        },
-      );
+      const { data: rpcData, error: rpcError } = await supabase.rpc("upload_club_document", {
+        p_club_id: clubId,
+        p_file_url: uploadData.path,
+        p_uploaded_by: userAuth.user.id,
+      });
 
       if (rpcError) {
         await supabase.storage.from("club_documents").remove([uploadData.path]);
         throw rpcError;
+      }
+
+      const { data: publicFile } = supabase.storage
+        .from("club_documents")
+        .getPublicUrl(uploadData.path);
+      const { data: reviewDocument, error: reviewInsertError } = await supabase
+        .from("constitution_documents")
+        .insert({
+          club_id: clubId,
+          uploaded_by: userAuth.user.id,
+          file_url: publicFile.publicUrl,
+          status: "pending_review",
+        })
+        .select("id")
+        .single();
+
+      if (!reviewInsertError && reviewDocument) {
+        const { error: scanError } = await supabase.functions.invoke("lint-constitution", {
+          body: { document_id: reviewDocument.id, file_url: publicFile.publicUrl },
+        });
+        if (scanError) {
+          toast.warning("Constitution uploaded; automated review is still pending.");
+        }
+      } else {
+        toast.warning("Constitution uploaded; automated review could not be started.");
       }
 
       toast.success("Constitution uploaded successfully!");
@@ -82,9 +106,7 @@ export function ConstitutionManager({
   const handleDownloadCurrent = async () => {
     if (!localFileUrl) return;
     try {
-      const { data, error } = await supabase.storage
-        .from("club_documents")
-        .download(localFileUrl);
+      const { data, error } = await supabase.storage.from("club_documents").download(localFileUrl);
       if (error) throw error;
 
       const blobUrl = URL.createObjectURL(data);
@@ -155,6 +177,15 @@ export function ConstitutionManager({
               <History className="h-4 w-4" />
               View Timeline
             </button>
+
+            <button
+              onClick={() => setIsAmendmentsOpen(true)}
+              className="flex items-center gap-2 neu-border bg-green-300 px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-green-400 transition-colors text-black"
+              data-testid="amendments-voting-btn"
+            >
+              <Gavel className="h-4 w-4 text-black" />
+              Amendments Voting
+            </button>
           </>
         )}
       </div>
@@ -170,6 +201,19 @@ export function ConstitutionManager({
         clubId={clubId}
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
+      />
+
+      <ConstitutionAmendmentsModal
+        clubId={clubId}
+        isOrganizer={isOrganizer}
+        isOpen={isAmendmentsOpen}
+        onClose={() => setIsAmendmentsOpen(false)}
+        onAmendmentPassed={() => {
+          // Trigger local version reload or refetch if version timeline changes
+          if (typeof window !== "undefined") {
+            window.location.reload();
+          }
+        }}
       />
 
       {isTimelineOpen && (

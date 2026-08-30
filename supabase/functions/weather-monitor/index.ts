@@ -167,7 +167,7 @@ serve(async (req) => {
   const { data: events, error } = await supabase
     .from("events")
     .select(
-      "id, title, created_by, event_date, start_date, end_date, is_outdoor, location_lat, location_lon, latitude, longitude, venue_id, venues(id, name, is_outdoor, latitude, longitude)",
+      "id, title, created_by, event_date, start_date, end_date, is_outdoor, location_lat, location_lon, latitude, longitude, venue_id, venues(id, name, is_outdoor, is_outdoors, latitude, longitude, postal_code)",
     )
     .gte("event_date", now.toISOString())
     .lte("event_date", next72.toISOString());
@@ -179,7 +179,7 @@ serve(async (req) => {
   let emailsSent = 0;
   for (const event of events ?? []) {
     const venue = Array.isArray(event.venues) ? event.venues[0] : event.venues;
-    if (!event.is_outdoor && !venue?.is_outdoor) continue;
+    if (!event.is_outdoor && !venue?.is_outdoor && !venue?.is_outdoors) continue;
     const eventStart = event.start_date || event.event_date;
     if (!eventStart) continue;
     const eventTime = new Date(eventStart).getTime();
@@ -224,11 +224,11 @@ serve(async (req) => {
         indoor_backup_url: backupUrl,
       });
 
-      const message = `Severe weather (${alert.label}) is forecast for "${event.title}" near the event time. Find an indoor backup venue: ${backupUrl}`;
+      const message = `CRITICAL: Severe weather (${alert.label}) detected during your "${event.title}". Click here to instantly notify attendees of cancellation or a venue change: ${backupUrl}`;
       await supabase.from("notifications").insert({
         user_id: event.created_by,
         type: "alert",
-        title: "Urgent weather warning for your event",
+        title: "CRITICAL: Severe Weather Warning for Outdoor Event",
         message,
         link: backupPath,
         entity_id: event.id,
@@ -238,7 +238,7 @@ serve(async (req) => {
         supabaseUrl,
         serviceKey,
         event.created_by,
-        "Urgent weather warning",
+        "CRITICAL: Severe Weather Warning",
         message,
         backupPath,
       );

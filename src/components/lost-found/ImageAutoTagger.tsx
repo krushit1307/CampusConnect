@@ -23,11 +23,12 @@ import X from "lucide-react/dist/esm/icons/x";
 import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import { createClient } from "@/lib/supabase/client";
 import { autoTagImage, type AutoTagResult } from "@/lib/imageTagger";
 
 interface ImageAutoTaggerProps {
   /** Called whenever the tag list changes (after analysis or user edit). */
-  onTagsChange: (tags: string[]) => void;
+  onTagsChange: (tags: string[], imageUrl?: string) => void;
   /** Called when PII is detected in the uploaded image. The parent
    *  form should block submission when this fires. */
   onPiiDetected?: (reason: string) => void;
@@ -89,16 +90,38 @@ export function ImageAutoTagger({ onTagsChange, onPiiDetected, onClear }: ImageA
           previewUrl,
         });
         onPiiDetected?.(result.result.piiReason ?? "PII detected");
-        onTagsChange([]);
+        onTagsChange([], "");
         return;
       }
 
-      setStatus({
-        kind: "success",
-        result: result.result,
-        previewUrl,
-      });
-      onTagsChange(result.result.tags);
+      // Upload file to Supabase storage public bucket 'lost-found'
+      try {
+        const supabase = createClient();
+        const fileExt = file.name.split(".").pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("lost-found")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from("lost-found")
+          .getPublicUrl(filePath);
+
+        setStatus({
+          kind: "success",
+          result: result.result,
+          previewUrl,
+        });
+        onTagsChange(result.result.tags, urlData.publicUrl);
+      } catch (err: any) {
+        URL.revokeObjectURL(previewUrl);
+        setStatus({
+          kind: "error",
+          message: err.message || "Failed to upload image to storage.",
+        });
+      }
     },
     [onTagsChange, onPiiDetected],
   );
@@ -134,7 +157,7 @@ export function ImageAutoTagger({ onTagsChange, onPiiDetected, onClear }: ImageA
     }
     currentFileRef.current = null;
     setStatus({ kind: "idle" });
-    onTagsChange([]);
+    onTagsChange([], "");
     onClear?.();
   };
 

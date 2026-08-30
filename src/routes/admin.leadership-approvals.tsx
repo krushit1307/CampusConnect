@@ -7,6 +7,9 @@ import { toast } from "sonner";
 import { ShieldAlert, Check, X, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FundingRequestKanban } from "@/components/funding/FundingRequestKanban";
+import { LeadershipBackgroundCheckWidget } from "@/components/admin/LeadershipBackgroundCheckWidget";
+import { LeadershipBackgroundCheckReviewQueue } from "@/components/admin/LeadershipBackgroundCheckReviewQueue";
+import { clubLeadershipBackgroundCheckService } from "@/services/clubLeadershipBackgroundCheckService";
 
 export default function AdminLeadershipApprovals() {
   const supabase = createClient();
@@ -192,57 +195,71 @@ export default function AdminLeadershipApprovals() {
                 return (
                   <div
                     key={t.id}
-                    className="neu-border bg-white p-6 shadow-[4px_4px_0_0_#000] flex flex-col md:flex-row md:items-center justify-between gap-6"
+                    className="neu-border bg-white p-6 shadow-[4px_4px_0_0_#000] space-y-4"
                   >
-                    <div className="space-y-3 font-mono">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded border border-yellow-200 uppercase">
-                          Pending Staff Approval
-                        </span>
-                        <span className="text-xs text-gray-500 font-bold uppercase">
-                          {t.clubs?.name}
-                        </span>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="space-y-3 font-mono">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded border border-yellow-200 uppercase">
+                            Pending Staff Approval
+                          </span>
+                          <span className="text-xs text-gray-500 font-bold uppercase">
+                            {t.clubs?.name}
+                          </span>
+                        </div>
+                        <h3 className="font-display text-xl font-black uppercase text-black">
+                          Transfer of {t.role_title} Presidency
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-xs text-gray-700">
+                          <div>
+                            <span className="font-bold">From Current President:</span>{" "}
+                            <span>
+                              {outgoingName} ({t.outgoing?.email})
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-bold">To Nominee:</span>{" "}
+                            <span>
+                              {incomingName} ({t.incoming?.email})
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-bold">Effective Handover Date:</span>{" "}
+                            <span>{new Date(t.effective_date).toLocaleDateString()}</span>
+                          </div>
+                        </div>
                       </div>
-                      <h3 className="font-display text-xl font-black uppercase text-black">
-                        Transfer of {t.role_title} Presidency
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-xs text-gray-700">
-                        <div>
-                          <span className="font-bold">From Current President:</span>{" "}
-                          <span>
-                            {outgoingName} ({t.outgoing?.email})
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-bold">To Nominee:</span>{" "}
-                          <span>
-                            {incomingName} ({t.incoming?.email})
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-bold">Effective Handover Date:</span>{" "}
-                          <span>{new Date(t.effective_date).toLocaleDateString()}</span>
-                        </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => approveMutation.mutate(t.id)}
+                          disabled={
+                            approveMutation.isPending ||
+                            rejectMutation.isPending ||
+                            !clubLeadershipBackgroundCheckService.isCandidateClearedForLeadership(
+                              t.id,
+                            )
+                          }
+                          className="neu-border bg-[#a3e635] text-black hover:bg-lime-400 rounded-none shadow-[2px_2px_0_0_#000] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Check className="w-4 h-4 mr-1.5" /> Approve
+                        </Button>
+                        <Button
+                          onClick={() => rejectMutation.mutate(t.id)}
+                          disabled={approveMutation.isPending || rejectMutation.isPending}
+                          variant="destructive"
+                          className="neu-border bg-red-500 text-cream hover:bg-red-600 rounded-none shadow-[2px_2px_0_0_#000]"
+                        >
+                          <X className="w-4 h-4 mr-1.5" /> Reject
+                        </Button>
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => approveMutation.mutate(t.id)}
-                        disabled={approveMutation.isPending || rejectMutation.isPending}
-                        className="neu-border bg-[#a3e635] text-black hover:bg-lime-400 rounded-none shadow-[2px_2px_0_0_#000]"
-                      >
-                        <Check className="w-4 h-4 mr-1.5" /> Approve
-                      </Button>
-                      <Button
-                        onClick={() => rejectMutation.mutate(t.id)}
-                        disabled={approveMutation.isPending || rejectMutation.isPending}
-                        variant="destructive"
-                        className="neu-border bg-red-500 text-cream hover:bg-red-600 rounded-none shadow-[2px_2px_0_0_#000]"
-                      >
-                        <X className="w-4 h-4 mr-1.5" /> Reject
-                      </Button>
-                    </div>
+                    {/* Automated Leadership Background Check Widget */}
+                    <LeadershipBackgroundCheckWidget
+                      transitionId={t.id}
+                      onStatusChange={() => refetch()}
+                    />
                   </div>
                 );
               })}
@@ -254,6 +271,12 @@ export default function AdminLeadershipApprovals() {
               </p>
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="bg-cream px-4 py-12 md:px-6 text-black">
+        <div className="mx-auto max-w-7xl">
+          <LeadershipBackgroundCheckReviewQueue />
         </div>
       </section>
 
