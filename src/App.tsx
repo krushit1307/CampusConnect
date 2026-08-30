@@ -214,6 +214,7 @@ const AchievementsPage = lazy(() => import("@/pages/AchievementsPage"));
 const ProjectHubRoute = lazy(() => import("./routes/project-hub"));
 const EventFeedbackPage = lazy(() => import("@/pages/EventFeedbackPage"));
 const JuryReviewRoute = lazy(() => import("./routes/jury.review.$caseId"));
+const SponsorZkLeadsRoute = lazy(() => import("./routes/sponsor.zk-leads"));
 
 // ---------------------------------------------------------------------------
 const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id")); // ---------------------------------------------------------------------------
@@ -631,6 +632,9 @@ const router = createBrowserRouter(
 
               {/* Jury Duty Content Moderation DAO (Issue #5129) */}
               <Route path="/jury/review/:caseId" element={<JuryReviewRoute />} />
+
+              {/* Real-Time Sponsor Lead CRM Webhook Zero-Knowledge Proof (Issue #5130) */}
+              <Route path="/sponsors/zk-leads" element={<SponsorZkLeadsRoute />} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
