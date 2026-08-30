@@ -1,0 +1,35 @@
+# deploy/k8s/eks-spot-nodegroup.yaml
+# Issue #5131: Automated "Event Series" GitHub Classroom Auto-Grader Load Balancer
+# Configures Amazon EKS EC2 Spot instance NodeGroup for cheap autoscaled grader compute
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: campusconnect-eks-cluster
+  region: us-east-1
+
+managedNodeGroups:
+  - name: autograder-spot-workers
+    minSize: 0
+    maxSize: 15
+    desiredCapacity: 1
+    capacityType: SPOT
+    instanceTypes:
+      - t3.medium
+      - c5.large
+      - c6i.large
+      - m5.large
+    spotAllocationStrategy: capacity-optimized
+    labels:
+      role: autograder-spot-worker
+      workload: batch-autograder
+    taints:
+      - key: autograder-only
+        value: "true"
+        effect: NoSchedule
+    tags:
+      k8s.io/cluster-autoscaler/enabled: "true"
+      k8s.io/cluster-autoscaler/campusconnect-eks-cluster: "owned"
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        albIngress: false

@@ -215,6 +215,7 @@ const ProjectHubRoute = lazy(() => import("./routes/project-hub"));
 const EventFeedbackPage = lazy(() => import("@/pages/EventFeedbackPage"));
 const JuryReviewRoute = lazy(() => import("./routes/jury.review.$caseId"));
 const SponsorZkLeadsRoute = lazy(() => import("./routes/sponsor.zk-leads"));
+const AdminAutoGraderMonitorRoute = lazy(() => import("./routes/admin.auto-grader-monitor"));
 
 // ---------------------------------------------------------------------------
 const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id")); // ---------------------------------------------------------------------------
@@ -635,6 +636,9 @@ const router = createBrowserRouter(
 
               {/* Real-Time Sponsor Lead CRM Webhook Zero-Knowledge Proof (Issue #5130) */}
               <Route path="/sponsors/zk-leads" element={<SponsorZkLeadsRoute />} />
+
+              {/* GitHub Classroom Auto-Grader Load Balancer (Issue #5131) */}
+              <Route path="/admin/auto-grader-monitor" element={<AdminAutoGraderMonitorRoute />} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
