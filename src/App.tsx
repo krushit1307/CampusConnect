@@ -216,6 +216,7 @@ const EventFeedbackPage = lazy(() => import("@/pages/EventFeedbackPage"));
 const JuryReviewRoute = lazy(() => import("./routes/jury.review.$caseId"));
 const SponsorZkLeadsRoute = lazy(() => import("./routes/sponsor.zk-leads"));
 const AdminAutoGraderMonitorRoute = lazy(() => import("./routes/admin.auto-grader-monitor"));
+const DroneArSetupGuideRoute = lazy(() => import("./routes/equipment.drone-ar-guide.$assetId"));
 
 // ---------------------------------------------------------------------------
 const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id")); // ---------------------------------------------------------------------------
@@ -639,6 +640,12 @@ const router = createBrowserRouter(
 
               {/* GitHub Classroom Auto-Grader Load Balancer (Issue #5131) */}
               <Route path="/admin/auto-grader-monitor" element={<AdminAutoGraderMonitorRoute />} />
+
+              {/* Drone Maintenance Augmented Reality Guide (Issue #5132) */}
+              <Route
+                path="/equipment/drone-ar-guide/:assetId"
+                element={<DroneArSetupGuideRoute />}
+              />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
