@@ -426,9 +426,16 @@ describe("the claim window", () => {
   });
 
   test("the window closes four years after the end of the donation's tax year", () => {
+    // The last day the donation can be claimed, not the first day it cannot.
+    // A caller putting this on a screen must not be a day late.
     expect(service.claimableUntil(new Date("2025-05-01T00:00:00.000Z")).toISOString()).toBe(
-      "2030-04-06T00:00:00.000Z",
+      "2030-04-05T00:00:00.000Z",
     );
+  });
+
+  test("the day the window names is itself still claimable", () => {
+    const until = service.claimableUntil(new Date("2025-05-01T00:00:00.000Z"));
+    expect(service.assess("don-2025", until).status).toBe("CLAIMABLE");
   });
 
   test("a donation assessed inside the window is claimable", () => {
@@ -440,7 +447,7 @@ describe("the claim window", () => {
   test("the same donation a day later has expired", () => {
     const assessment = service.assess("don-2025", new Date("2030-04-06T00:00:00.000Z"));
     expect(assessment.status).toBe("CLAIM_WINDOW_EXPIRED");
-    expect(assessment.reason).toContain("2030-04-06");
+    expect(assessment.reason).toContain("2030-04-05");
   });
 
   test("an expired donation is reported in the batch rather than dropped from it", () => {
@@ -500,6 +507,7 @@ describe("assembling and submitting a claim", () => {
     // 22% band: 2820 and 5641 pence, each rounded down.
     expect(batch.totalRepaymentPence).toBe(2820 + 5641);
     expect(batch.excluded.map((line) => line.donationId)).toEqual(["don-sub"]);
+    expect(batch.lines.map((line) => line.repaymentPence)).toEqual([2820, 5641]);
   });
 
   test("a batch carrying anything unclaimable is rejected as a whole", () => {
@@ -584,6 +592,30 @@ describe("a declaration later found invalid", () => {
     expect(reversal.donationIds).toEqual([]);
     expect(reversal.totalRepaymentPence).toBe(0);
     expect(service.assess("don-a", ASOF).status).toBe("ALREADY_CLAIMED");
+  });
+
+  test("the reversal gives back what was claimed, not what today's rate would give", () => {
+    // The rate moves between the claim and the discovery. A reversal computed
+    // from the current bands would hand back a different number from the one
+    // that was actually taken.
+    service.registerRateBand({
+      effectiveFrom: new Date("2028-06-01T00:00:00.000Z"),
+      effectiveTo: null,
+      basicRatePercent: 30,
+    });
+    // The recomputation this replaces would now say 30%.
+    expect(service.repaymentPence(100_00, new Date("2029-01-01T00:00:00.000Z"))).toBe(4285);
+
+    const reversal = service.invalidateDeclaration("decl-1", new Date("2029-09-01T00:00:00.000Z"));
+
+    // 22% on a £100 donation received in January 2029, as claimed.
+    expect(reversal.totalRepaymentPence).toBe(2820);
+    // 30% would have been 4285, which is not what the charity received.
+    expect(reversal.totalRepaymentPence).not.toBe(4285);
+  });
+
+  test("the claimed amount is reported back on the already-claimed assessment", () => {
+    expect(service.assess("don-a", ASOF).repaymentPence).toBe(2820);
   });
 
   test("invalidating something that does not exist is an error", () => {

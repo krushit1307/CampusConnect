@@ -115,6 +115,8 @@ export interface ClaimBatch {
   claimId: string;
   assembledOn: Date;
   donationIds: string[];
+  /** The claimable assessments themselves, carrying the amount each contributed. */
+  lines: Assessment[];
   totalDonationPence: number;
   totalRepaymentPence: number;
   /** Reported rather than dropped: an expired donation is a fact, not an absence. */
@@ -127,12 +129,26 @@ export interface BatchValidation {
   problems: string[];
 }
 
+/**
+ * What a claim actually took, kept because it is what a reversal has to give
+ * back. Recomputing it later re-rates the donation against whatever the rate
+ * bands say by then, which is the error the stored rate on `gift_aid_claim_lines`
+ * exists to prevent.
+ */
+export interface ClaimedLine {
+  claimId: string;
+  repaymentPence: number;
+  basicRatePercent: number;
+}
+
 export interface Reversal {
   declarationId: string;
   donationIds: string[];
   totalRepaymentPence: number;
   reason: string;
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Benefit up to a quarter of the first £100 of a donation. */
 const BENEFIT_FIRST_TIER_LIMIT_PENCE = 100_00;
@@ -185,8 +201,11 @@ export class GiftAidClaimService {
   private readonly declarations: Declaration[] = [];
   private readonly donations = new Map<string, Donation>();
   private readonly rateBands: BasicRateBand[] = [];
-  /** donationId -> claimId, so a second claim on the same donation is refused. */
-  private readonly claimed = new Map<string, string>();
+  /**
+   * donationId -> the line that claimed it. A second claim on the same donation
+   * is refused, and the amount claimed is kept for the reversal.
+   */
+  private readonly claimed = new Map<string, ClaimedLine>();
 
   registerDeclaration(declaration: Declaration): void {
     if (
@@ -225,13 +244,24 @@ export class GiftAidClaimService {
     this.rateBands.push(band);
   }
 
-  /** The basic rate in force on a date. */
+  /**
+   * The basic rate in force on a date.
+   *
+   * Where more than one band covers the date, the one that came into force
+   * latest wins. Bands should not overlap and the migration's exclusion
+   * constraint stops them doing so in storage, but a correction registered
+   * afterwards must not lose to the row it was correcting purely because that
+   * row was inserted first.
+   */
   basicRateOn(date: Date): number {
-    const band = this.rateBands.find(
-      (candidate) =>
-        candidate.effectiveFrom.getTime() <= date.getTime() &&
-        (candidate.effectiveTo === null || candidate.effectiveTo.getTime() > date.getTime()),
-    );
+    const band = this.rateBands
+      .filter(
+        (candidate) =>
+          candidate.effectiveFrom.getTime() <= date.getTime() &&
+          (candidate.effectiveTo === null || candidate.effectiveTo.getTime() > date.getTime()),
+      )
+      .sort((a, b) => b.effectiveFrom.getTime() - a.effectiveFrom.getTime())[0];
+
     if (!band) throw new Error(`No basic rate band covers ${isoDate(date)}`);
     return band.basicRatePercent;
   }
@@ -263,12 +293,25 @@ export class GiftAidClaimService {
     );
   }
 
-  /** The last day a claim may include a donation received on this date. */
+  /**
+   * The last day a claim may include a donation received on this date,
+   * inclusive.
+   *
+   * The window runs four years from the end of the donation's tax year, and
+   * that end is itself the exclusive 6 April. Returning that bare boundary
+   * would name the first day the donation can no longer be claimed while
+   * calling it the last day it can — a caller putting it on a screen files a
+   * day late. The day before is subtracted here rather than left to whoever
+   * reads the value.
+   */
   claimableUntil(receivedOn: Date): Date {
     const end = taxYearEnd(receivedOn);
-    return new Date(
-      Date.UTC(end.getUTCFullYear() + CLAIM_WINDOW_YEARS, end.getUTCMonth(), end.getUTCDate()),
+    const closes = Date.UTC(
+      end.getUTCFullYear() + CLAIM_WINDOW_YEARS,
+      end.getUTCMonth(),
+      end.getUTCDate(),
     );
+    return new Date(closes - MS_PER_DAY);
   }
 
   /**
@@ -328,7 +371,8 @@ export class GiftAidClaimService {
       return {
         ...base,
         status: "ALREADY_CLAIMED",
-        reason: `Included in claim ${existingClaim}`,
+        repaymentPence: existingClaim.repaymentPence,
+        reason: `Included in claim ${existingClaim.claimId} for ${existingClaim.repaymentPence}p`,
       };
     }
 
@@ -372,12 +416,12 @@ export class GiftAidClaimService {
     }
 
     const until = this.claimableUntil(donation.receivedOn);
-    if (asOf.getTime() >= until.getTime()) {
+    if (asOf.getTime() > until.getTime()) {
       return {
         ...base,
         status: "CLAIM_WINDOW_EXPIRED",
         declarationId: declaration.declarationId,
-        reason: `The claim window closed on ${isoDate(until)}`,
+        reason: `The claim window closed after ${isoDate(until)}`,
       };
     }
 
@@ -419,6 +463,7 @@ export class GiftAidClaimService {
       claimId,
       assembledOn: asOf,
       donationIds: claimable.map((assessment) => assessment.donationId),
+      lines: claimable,
       totalDonationPence: claimable.reduce((sum, a) => sum + a.amountPence, 0),
       totalRepaymentPence: claimable.reduce((sum, a) => sum + a.repaymentPence, 0),
       expired,
@@ -459,8 +504,13 @@ export class GiftAidClaimService {
     }
 
     const batch = this.assembleClaim(claimId, donationIds, asOf);
-    for (const donationId of batch.donationIds) {
-      this.claimed.set(donationId, claimId);
+    for (const assessment of batch.lines) {
+      const donation = this.donations.get(assessment.donationId) as Donation;
+      this.claimed.set(assessment.donationId, {
+        claimId,
+        repaymentPence: assessment.repaymentPence,
+        basicRatePercent: this.basicRateOn(donation.receivedOn),
+      });
     }
     return batch;
   }
@@ -481,7 +531,7 @@ export class GiftAidClaimService {
     const affected: string[] = [];
     let total = 0;
 
-    for (const [donationId] of this.claimed) {
+    for (const [donationId, line] of this.claimed) {
       const donation = this.donations.get(donationId);
       if (!donation || donation.donorId !== removed.donorId) continue;
 
@@ -489,7 +539,10 @@ export class GiftAidClaimService {
       // was not funded by this declaration alone and is left alone.
       if (this.declarationInForce(donation.donorId, donation.receivedOn) === null) {
         affected.push(donationId);
-        total += this.repaymentPence(donation.amountPence, donation.receivedOn);
+        // The amount that was claimed, not a fresh computation. Recomputing
+        // re-rates the donation against whatever the bands say today, which is
+        // the error the stored rate on the claim line exists to prevent.
+        total += line.repaymentPence;
       }
     }
 
