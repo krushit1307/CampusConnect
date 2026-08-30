@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Redis } from "https://esm.sh/@upstash/redis@1.30.0";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { rateLimiter } from "../shared/rateLimiter.ts";
+import { broadcastTicketPurchased } from "../_shared/ticketPurchasedBroadcast.ts";
 import { withTarpit } from "../shared/tarpit-middleware.ts";
 
 const corsHeaders = {
@@ -194,6 +195,11 @@ serve(
         console.log(
           `[Ticket Sale] Successfully sold ticket for event ${eventId} to user ${userId}`,
         );
+        try {
+          await broadcastTicketPurchased(supabase, eventId, available - 1, userId);
+        } catch (broadcastError) {
+          console.error("[ticket_purchased] broadcast failed:", broadcastError);
+        }
         return new Response(
           JSON.stringify({ success: true, message: "Ticket purchased successfully." }),
           {

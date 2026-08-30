@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { broadcastTicketPurchased } from "../_shared/ticketPurchasedBroadcast.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -62,6 +63,20 @@ serve(async (req) => {
         if (confirmError) {
           console.error("RPC/Insert Error:", confirmError);
           throw confirmError;
+        }
+
+        if (eventId) {
+          try {
+            const { data: event } = await supabase
+              .from("events")
+              .select("available_spots, max_attendees")
+              .eq("id", eventId)
+              .maybeSingle();
+            const remaining = event?.available_spots ?? event?.max_attendees ?? 0;
+            await broadcastTicketPurchased(supabase, eventId, remaining, metadata.user_id);
+          } catch (broadcastError) {
+            console.error("[ticket_purchased] broadcast failed:", broadcastError);
+          }
         }
 
         // --- TRACK SALES VELOCITY FOR SURGE PRICING ---

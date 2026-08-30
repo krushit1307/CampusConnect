@@ -188,6 +188,7 @@ const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
 const TourManager = lazy(() => import("./routes/tours.manage"));
 const TourMode = lazy(() => import("./routes/tours.$tourId"));
 const BundleCheckoutRoute = lazy(() => import("./pages/BundleCheckoutPage"));
+const EventCheckoutRoute = lazy(() => import("./routes/checkout.$event_id"));
 const BundleDetailsRoute = lazy(() => import("./pages/BundleDetailsPage"));
 const EquipmentMarketplace = lazy(() => import("./routes/equipment"));
 const MentorshipDashboard = lazy(() => import("./routes/mentorship-dashboard"));
@@ -486,6 +487,7 @@ const router = createBrowserRouter(
               {/* Bundles */}
               <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
               <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
+              <Route path="/checkout/:event_id" element={<EventCheckoutRoute />} />
 
               {/* Referrals */}
               <Route path="/referrals/dashboard" element={<ReferralDashboardRoute />} />
