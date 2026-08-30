@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Award,
   Star,
@@ -18,16 +18,18 @@ import {
   X,
   Zap,
   Building,
-  GraduationCap
-} from 'lucide-react';
+  GraduationCap,
+} from "lucide-react";
 import {
   AlumniSpeakerEngagementService,
   AlumniSpeakerLeaderboardItem,
   LeaderboardFilterOptions,
   SpeakerTierGrade,
   SpeakerEngagementMetrics,
-  AlumniSpeakerEngagementScore
-} from '@/services/alumniSpeakerEngagementService';
+  AlumniSpeakerEngagementScore,
+} from "@/services/alumniSpeakerEngagementService";
+import { AlumniSpeakerEngagementMeter } from "@/components/events/AlumniSpeakerEngagementMeter";
+import { AlumniSpeakerPresenterOverlay } from "@/components/events/AlumniSpeakerPresenterOverlay";
 
 export const AlumniSpeakerEngagementTracker: React.FC = () => {
   // Leaderboard data state
@@ -35,10 +37,10 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
   // Filters state
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedIndustry, setSelectedIndustry] = useState<string>('ALL');
-  const [selectedTier, setSelectedTier] = useState<SpeakerTierGrade | 'ALL'>('ALL');
-  const [sortBy, setSortBy] = useState<'score' | 'events' | 'impact' | 'rating'>('score');
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedIndustry, setSelectedIndustry] = useState<string>("ALL");
+  const [selectedTier, setSelectedTier] = useState<SpeakerTierGrade | "ALL">("ALL");
+  const [sortBy, setSortBy] = useState<"score" | "events" | "impact" | "rating">("score");
 
   // Selected Speaker Modal state
   const [selectedItem, setSelectedItem] = useState<AlumniSpeakerLeaderboardItem | null>(null);
@@ -47,14 +49,17 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
   const [simulatedMetrics, setSimulatedMetrics] = useState<SpeakerEngagementMetrics | null>(null);
   const [simulatedScore, setSimulatedScore] = useState<AlumniSpeakerEngagementScore | null>(null);
 
+  // Issue #5128 Live Sentiment Overlay toggle state
+  const [showLiveOverlay, setShowLiveOverlay] = useState<boolean>(true);
+
   // Load Leaderboard Data
   const loadLeaderboard = async () => {
     setLoading(true);
     const filterOpts: LeaderboardFilterOptions = {
       searchQuery,
       industry: selectedIndustry,
-      tierGrade: selectedTier === 'ALL' ? undefined : selectedTier,
-      sortBy
+      tierGrade: selectedTier === "ALL" ? undefined : selectedTier,
+      sortBy,
     };
     const data = await AlumniSpeakerEngagementService.getAlumniSpeakerLeaderboard(filterOpts);
     setLeaderboardItems(data);
@@ -69,7 +74,10 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
   const handleOpenSpeakerModal = (item: AlumniSpeakerLeaderboardItem) => {
     setSelectedItem(item);
     setSimulatedMetrics({ ...item.metrics });
-    const score = AlumniSpeakerEngagementService.calculateEngagementScore(item.speaker.id, item.metrics);
+    const score = AlumniSpeakerEngagementService.calculateEngagementScore(
+      item.speaker.id,
+      item.metrics,
+    );
     setSimulatedScore(score);
   };
 
@@ -78,40 +86,50 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
     if (!simulatedMetrics || !selectedItem) return;
     const updated = { ...simulatedMetrics, [key]: value };
     setSimulatedMetrics(updated);
-    const newScore = AlumniSpeakerEngagementService.calculateEngagementScore(selectedItem.speaker.id, updated);
+    const newScore = AlumniSpeakerEngagementService.calculateEngagementScore(
+      selectedItem.speaker.id,
+      updated,
+    );
     setSimulatedScore(newScore);
   };
 
   // Helper for Tier Badge styles
   const getTierBadgeStyle = (tier: SpeakerTierGrade) => {
     switch (tier) {
-      case 'S':
-        return 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/20 border border-amber-300';
-      case 'A':
-        return 'bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 text-white font-bold shadow-lg shadow-indigo-500/20 border border-indigo-400/30';
-      case 'B':
-        return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold border border-blue-400/30';
-      case 'C':
-        return 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold border border-emerald-400/30';
+      case "S":
+        return "bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-slate-950 font-black shadow-lg shadow-amber-500/20 border border-amber-300";
+      case "A":
+        return "bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 text-white font-bold shadow-lg shadow-indigo-500/20 border border-indigo-400/30";
+      case "B":
+        return "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold border border-blue-400/30";
+      case "C":
+        return "bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold border border-emerald-400/30";
       default:
-        return 'bg-slate-700 text-slate-300 border border-slate-600';
+        return "bg-slate-700 text-slate-300 border border-slate-600";
     }
   };
 
   // Aggregate stats across current dataset
-  const totalImpacted = leaderboardItems.reduce((acc, curr) => acc + curr.speaker.total_students_impacted, 0);
+  const totalImpacted = leaderboardItems.reduce(
+    (acc, curr) => acc + curr.speaker.total_students_impacted,
+    0,
+  );
   const avgScore =
     leaderboardItems.length > 0
       ? Math.round(
-          (leaderboardItems.reduce((acc, curr) => acc + curr.score.overall_score, 0) / leaderboardItems.length) * 10
+          (leaderboardItems.reduce((acc, curr) => acc + curr.score.overall_score, 0) /
+            leaderboardItems.length) *
+            10,
         ) / 10
       : 0;
   const topSpeaker = leaderboardItems[0];
   const avgMentorshipRate =
     leaderboardItems.length > 0
       ? Math.round(
-          leaderboardItems.reduce((acc, curr) => acc + curr.metrics.mentorship_followup_conversion_rate, 0) /
-            leaderboardItems.length
+          leaderboardItems.reduce(
+            (acc, curr) => acc + curr.metrics.mentorship_followup_conversion_rate,
+            0,
+          ) / leaderboardItems.length,
         )
       : 0;
 
@@ -135,19 +153,80 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
               Dynamic Alumni Speaker Engagement Tracker
             </h1>
             <p className="text-sm text-slate-300 mt-2 max-w-3xl">
-              Track, score, and rank alumni guest speakers based on live event attendance, student sentiment ratings, Q&A interactivity, and post-talk mentorship conversions.
+              Track, score, and rank alumni guest speakers based on live event attendance, student
+              sentiment ratings, Q&A interactivity, and post-talk mentorship conversions.
             </p>
+          </div>
+
+          <div className="shrink-0">
+            <button
+              onClick={() => setShowLiveOverlay(!showLiveOverlay)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition shadow-lg shadow-indigo-600/30"
+            >
+              <Zap className="w-4 h-4 text-amber-300" />
+              <span>
+                {showLiveOverlay ? "Hide Live Sentiment Overlay" : "Launch Live Sentiment Overlay"}
+              </span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Live Audience Sentiment Overlay Section (Issue #5128) */}
+      {showLiveOverlay && (
+        <div className="space-y-4 rounded-3xl bg-slate-900/90 border border-indigo-500/30 p-6 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-xs font-bold font-mono px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                ISSUE #5128 REALTIME OVERLAY
+              </span>
+              <h2 className="text-base font-bold text-white">
+                Live Event Session Sentiment Telemetry
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400 font-mono hidden sm:inline">
+              Event Session ID: demo-event-5128
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Attendee Sentiment Meter Slider */}
+            <div>
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                1. Attendee Perspective — Engagement Meter Slider
+              </div>
+              <AlumniSpeakerEngagementMeter
+                eventId="demo-event-5128"
+                attendeeId="student-user-77"
+              />
+            </div>
+
+            {/* Presenter Teleprompter Overlay */}
+            <div>
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                2. Speaker Perspective — Teleprompter / Presenter Overlay
+              </div>
+              <AlumniSpeakerPresenterOverlay
+                eventId="demo-event-5128"
+                speakerName="Elena Rostova (VP of Eng)"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Aggregate Overview Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Network Avg Score</div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Network Avg Score
+            </div>
             <div className="text-3xl font-extrabold text-white mt-1">{avgScore}</div>
-            <div className="text-xs text-amber-400 font-medium mt-0.5">Top 5% across universities</div>
+            <div className="text-xs text-amber-400 font-medium mt-0.5">
+              Top 5% across universities
+            </div>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
             <Award className="w-6 h-6" />
@@ -156,12 +235,15 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
 
         <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Top Alumni Speaker</div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Top Alumni Speaker
+            </div>
             <div className="text-lg font-bold text-indigo-200 truncate max-w-[150px] mt-1">
-              {topSpeaker ? topSpeaker.speaker.name : 'N/A'}
+              {topSpeaker ? topSpeaker.speaker.name : "N/A"}
             </div>
             <div className="text-xs text-emerald-400 font-mono mt-0.5">
-              Score: {topSpeaker ? topSpeaker.score.overall_score : 0} (Tier {topSpeaker ? topSpeaker.score.tier_grade : 'S'})
+              Score: {topSpeaker ? topSpeaker.score.overall_score : 0} (Tier{" "}
+              {topSpeaker ? topSpeaker.score.tier_grade : "S"})
             </div>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
@@ -171,8 +253,12 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
 
         <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Students Impacted</div>
-            <div className="text-3xl font-extrabold text-white mt-1">{totalImpacted.toLocaleString()}</div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Students Impacted
+            </div>
+            <div className="text-3xl font-extrabold text-white mt-1">
+              {totalImpacted.toLocaleString()}
+            </div>
             <div className="text-xs text-slate-400 mt-0.5">Across keynotes & workshops</div>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -182,7 +268,9 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
 
         <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-xl flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mentorship Conversion</div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Mentorship Conversion
+            </div>
             <div className="text-3xl font-extrabold text-white mt-1">{avgMentorshipRate}%</div>
             <div className="text-xs text-indigo-300 mt-0.5">Post-talk coffee chats booked</div>
           </div>
@@ -240,17 +328,17 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
         {/* Tier Filter Pills */}
         <div className="flex items-center gap-2 pt-2 border-t border-slate-800 overflow-x-auto pb-1">
           <span className="text-xs text-slate-400 font-semibold uppercase mr-2">Filter Tier:</span>
-          {(['ALL', 'S', 'A', 'B', 'C', 'D'] as const).map((tier) => (
+          {(["ALL", "S", "A", "B", "C", "D"] as const).map((tier) => (
             <button
               key={tier}
               onClick={() => setSelectedTier(tier)}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition ${
                 selectedTier === tier
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
               }`}
             >
-              {tier === 'ALL' ? 'All Tiers' : `Tier ${tier}`}
+              {tier === "ALL" ? "All Tiers" : `Tier ${tier}`}
             </button>
           ))}
         </div>
@@ -292,7 +380,9 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-lg font-bold text-white">{speaker.name}</h3>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono uppercase ${tierStyle}`}>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-mono uppercase ${tierStyle}`}
+                      >
                         Tier {score.tier_grade}
                       </span>
                       <span className="bg-slate-800 text-slate-300 border border-slate-700 text-[11px] px-2 py-0.5 rounded font-mono">
@@ -302,8 +392,9 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
 
                     <p className="text-xs text-slate-300 flex items-center gap-1.5">
                       <Building className="w-3.5 h-3.5 text-indigo-400" />
-                      <span className="font-semibold text-slate-200">{speaker.job_title}</span> at{' '}
-                      <span className="text-indigo-300">{speaker.company}</span>
+                      <span className="font-semibold text-slate-200">
+                        {speaker.job_title}
+                      </span> at <span className="text-indigo-300">{speaker.company}</span>
                     </p>
 
                     <p className="text-xs text-slate-400 flex items-center gap-3 font-mono">
@@ -321,22 +412,33 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
                   <div className="text-center">
                     <div className="text-[10px] text-slate-400 font-semibold uppercase">Rating</div>
                     <div className="text-sm font-bold text-amber-400 flex items-center justify-center gap-1">
-                      <Star className="w-3.5 h-3.5 fill-amber-400" /> {metrics.avg_student_rating.toFixed(2)}
+                      <Star className="w-3.5 h-3.5 fill-amber-400" />{" "}
+                      {metrics.avg_student_rating.toFixed(2)}
                     </div>
                   </div>
 
                   <div className="text-center">
-                    <div className="text-[10px] text-slate-400 font-semibold uppercase">Turnout</div>
-                    <div className="text-sm font-bold text-emerald-400 font-mono">{metrics.attendance_rate}%</div>
+                    <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                      Turnout
+                    </div>
+                    <div className="text-sm font-bold text-emerald-400 font-mono">
+                      {metrics.attendance_rate}%
+                    </div>
                   </div>
 
                   <div className="text-center">
-                    <div className="text-[10px] text-slate-400 font-semibold uppercase">Q&A Answered</div>
-                    <div className="text-sm font-bold text-indigo-300 font-mono">{metrics.qa_questions_answered}</div>
+                    <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                      Q&A Answered
+                    </div>
+                    <div className="text-sm font-bold text-indigo-300 font-mono">
+                      {metrics.qa_questions_answered}
+                    </div>
                   </div>
 
                   <div className="text-center">
-                    <div className="text-[10px] text-slate-400 font-semibold uppercase">Mentorship</div>
+                    <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                      Mentorship
+                    </div>
                     <div className="text-sm font-bold text-purple-400 font-mono">
                       {metrics.mentorship_followup_conversion_rate}%
                     </div>
@@ -346,9 +448,15 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
                 {/* Right Overall Score Dial & Action */}
                 <div className="flex items-center justify-between lg:justify-end gap-4 shrink-0">
                   <div className="text-right">
-                    <div className="text-[10px] text-slate-400 uppercase font-semibold">Engagement Score</div>
-                    <div className="text-2xl font-black text-white tracking-tight">{score.overall_score}</div>
-                    <div className="text-[10px] text-slate-400 font-mono">{speaker.total_events_hosted} events hosted</div>
+                    <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                      Engagement Score
+                    </div>
+                    <div className="text-2xl font-black text-white tracking-tight">
+                      {score.overall_score}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      {speaker.total_events_hosted} events hosted
+                    </div>
                   </div>
 
                   <button
@@ -386,10 +494,12 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
                 />
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-extrabold text-white">{selectedItem.speaker.name}</h2>
+                    <h2 className="text-xl font-extrabold text-white">
+                      {selectedItem.speaker.name}
+                    </h2>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-mono ${getTierBadgeStyle(
-                        simulatedScore.tier_grade
+                        simulatedScore.tier_grade,
                       )}`}
                     >
                       Tier {simulatedScore.tier_grade}
@@ -405,8 +515,12 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
               </div>
 
               <div className="flex flex-col items-end justify-center bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
-                <span className="text-xs text-slate-400 uppercase font-semibold">Simulated Overall Score</span>
-                <span className="text-3xl font-black text-white">{simulatedScore.overall_score}</span>
+                <span className="text-xs text-slate-400 uppercase font-semibold">
+                  Simulated Overall Score
+                </span>
+                <span className="text-3xl font-black text-white">
+                  {simulatedScore.overall_score}
+                </span>
               </div>
             </div>
 
@@ -524,7 +638,7 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
                     setSimulatedMetrics({ ...selectedItem.metrics });
                     const res = AlumniSpeakerEngagementService.calculateEngagementScore(
                       selectedItem.speaker.id,
-                      selectedItem.metrics
+                      selectedItem.metrics,
                     );
                     setSimulatedScore(res);
                   }}
@@ -548,7 +662,9 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
                     max="5.0"
                     step="0.05"
                     value={simulatedMetrics.avg_student_rating}
-                    onChange={(e) => handleSimulatorMetricChange('avg_student_rating', parseFloat(e.target.value))}
+                    onChange={(e) =>
+                      handleSimulatorMetricChange("avg_student_rating", parseFloat(e.target.value))
+                    }
                     className="w-full accent-amber-400 bg-slate-800 h-2 rounded-lg cursor-pointer"
                   />
                 </div>
@@ -566,7 +682,12 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
                     max="30"
                     step="1"
                     value={simulatedMetrics.qa_questions_answered}
-                    onChange={(e) => handleSimulatorMetricChange('qa_questions_answered', parseInt(e.target.value, 10))}
+                    onChange={(e) =>
+                      handleSimulatorMetricChange(
+                        "qa_questions_answered",
+                        parseInt(e.target.value, 10),
+                      )
+                    }
                     className="w-full accent-indigo-400 bg-slate-800 h-2 rounded-lg cursor-pointer"
                   />
                 </div>
@@ -585,7 +706,10 @@ export const AlumniSpeakerEngagementTracker: React.FC = () => {
                     step="2"
                     value={simulatedMetrics.mentorship_followup_conversion_rate}
                     onChange={(e) =>
-                      handleSimulatorMetricChange('mentorship_followup_conversion_rate', parseInt(e.target.value, 10))
+                      handleSimulatorMetricChange(
+                        "mentorship_followup_conversion_rate",
+                        parseInt(e.target.value, 10),
+                      )
                     }
                     className="w-full accent-purple-400 bg-slate-800 h-2 rounded-lg cursor-pointer"
                   />
