@@ -16,6 +16,8 @@ import { LiveAnnouncer } from "@/components/events/LiveAnnouncer";
 import { StaleProfileNudgeModal } from "@/components/profile/StaleProfileNudgeModal";
 import { isProfileDataStale } from "@/services/profileFreshnessService";
 
+import { getDeviceFingerprint } from "@/lib/fingerprint";
+
 export function SiteShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [supabase] = useState(() => createClient());
@@ -41,6 +43,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    getDeviceFingerprint();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUser(user);
       if (user) {
