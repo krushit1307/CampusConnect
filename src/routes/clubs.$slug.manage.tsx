@@ -23,6 +23,13 @@ import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
+import { ImpeachmentVoteModal } from "@/components/Clubs/ImpeachmentVoteModal";
+import { ClubRolesManager } from "@/components/Clubs/ClubRolesManager";
+import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
+import { ClubBudgetDashboard } from "@/components/Clubs/ClubBudgetDashboard";
+import { ManageMerch } from "@/components/Clubs/Merchandise/ManageMerch";
+import { QuorumPanel } from "@/components/Clubs/QuorumPanel";
+import { FundingRequestBuilder } from "@/components/funding/FundingRequestBuilder";
 import { LeadershipBackgroundCheckModal } from "@/components/Clubs/LeadershipBackgroundCheckModal";
 import { requiresLeadershipBackgroundCheck } from "@/lib/clubLeadershipBackgroundCheck";
 import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";
@@ -78,6 +85,30 @@ export default function ClubManageRoute() {
     | "constitution"
     | "trash"
     | "analytics"
+    | "meetings"
+    | "merchandise"
+    | "funding"
+    | "developer"
+    | "finances"
+  >(
+    initialTab === "analytics"
+      ? "analytics"
+      : initialTab === "meetings"
+        ? "meetings"
+        : initialTab === "members"
+          ? "members"
+          : initialTab === "roles"
+            ? "roles"
+            : initialTab === "events"
+              ? "events"
+              : initialTab === "merchandise"
+                ? "merchandise"
+                : initialTab === "developer"
+                  ? "developer"
+                  : initialTab === "finances"
+                    ? "finances"
+                    : "settings",
+  );
     | "widgets"
   >("settings");
 
@@ -99,6 +130,9 @@ export default function ClubManageRoute() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [impeachmentTarget, setImpeachmentTarget] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const [serverClub, setServerClub] = useState<Club | null>(null);
   const [backgroundCheckRequest, setBackgroundCheckRequest] = useState<{
     memberId: string;
@@ -837,6 +871,15 @@ export default function ClubManageRoute() {
                       onReject={(memberId) =>
                         updateMemberMutation.mutate({ memberId, updates: { status: "rejected" } })
                       }
+                      onAssignRole={(memberId, roleId) =>
+                        updateMemberMutation.mutate({ memberId, updates: { role_id: roleId } })
+                      }
+                      onImpeach={(memberId) => {
+                        const mem = club.club_members.find((m: any) => m.id === memberId);
+                        const name = Array.isArray(mem?.profiles)
+                          ? mem?.profiles[0]?.full_name
+                          : mem?.profiles?.full_name;
+                        setImpeachmentTarget({ id: memberId, name: name || "Member" });
                       onAssignRole={(memberId, roleId) => {
                         if (requiresLeadershipBackgroundCheck(club.risk_level)) {
                           setBackgroundCheckRequest({ memberId, roleId });
@@ -845,6 +888,22 @@ export default function ClubManageRoute() {
                         }
                       }}
                     />
+
+                    {impeachmentTarget && (
+                      <ImpeachmentVoteModal
+                        clubId={club.id}
+                        targetUserId={
+                          club.club_members.find((m: any) => m.id === impeachmentTarget.id)
+                            ?.user_id || ""
+                        }
+                        targetUserName={impeachmentTarget.name}
+                        isOpen={!!impeachmentTarget}
+                        onClose={() => setImpeachmentTarget(null)}
+                        onSuccess={() => {
+                          setImpeachmentTarget(null);
+                        }}
+                      />
+                    )}
                   </div>
                 );
               })()}
