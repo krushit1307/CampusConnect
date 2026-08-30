@@ -19,6 +19,7 @@ export interface RfpBid {
   rfp_id: string;
   vendor_name: string;
   vendor_email: string;
+  vendor_user_id?: string | null;
   quoted_price: number;
   proposal_pdf_url?: string | null;
   notes?: string | null;
@@ -39,7 +40,7 @@ export const RFP_CATEGORIES: { category: RfpCategory; label: string }[] = [
  */
 export function calculateBidSavings(
   budgetMax: number,
-  quotedPrice: number
+  quotedPrice: number,
 ): { savingsAmount: number; savingsPercent: number; isUnderBudget: boolean } {
   const budget = Math.max(0, budgetMax || 0);
   const quote = Math.max(0, quotedPrice || 0);

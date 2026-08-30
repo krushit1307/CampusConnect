@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
+  createCampaignDonationCheckout,
   formatCents,
   getCampaignProgressPercent,
   isCampaignEnded,
@@ -62,6 +63,33 @@ describe("getCampaignProgressPercent", () => {
   it("never returns a negative percent for a zero/invalid target", () => {
     const campaign = makeCampaign({ target_amount_cents: 0, current_amount_cents: 5000 });
     expect(getCampaignProgressPercent(campaign)).toBe(0);
+  });
+});
+
+describe("createCampaignDonationCheckout", () => {
+  it("forwards a match invitation ID to the checkout function", async () => {
+    const invoke = vi
+      .fn()
+      .mockResolvedValue({ data: { url: "https://checkout.example" }, error: null });
+    const supabase = { functions: { invoke } } as any;
+
+    await expect(
+      createCampaignDonationCheckout(supabase, {
+        campaignId: "campaign-1",
+        amountCents: 500,
+        isAnonymous: false,
+        matchId: "match-1",
+      }),
+    ).resolves.toEqual({ url: "https://checkout.example" });
+
+    expect(invoke).toHaveBeenCalledWith("create-campaign-donation-checkout", {
+      body: {
+        campaignId: "campaign-1",
+        amountCents: 500,
+        isAnonymous: false,
+        matchId: "match-1",
+      },
+    });
   });
 });
 

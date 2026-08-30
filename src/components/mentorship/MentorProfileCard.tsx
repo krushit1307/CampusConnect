@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: MentorProfileCard
--- Issue: #2963 - Build an 'Alumni Mentorship' Matching Module
--- Description: Renders an individual alumni mentor's profile in the directory 
--- grid. Shows their capacity status, expertise tags, and a CTA to request 
--- mentorship.
+// Issue: #2963 - Build an 'Alumni Mentorship' Matching Module
+// Description: Renders an individual alumni mentor's profile in the directory 
+// grid. Shows their capacity status, expertise tags, and a CTA to request 
+// mentorship.
 // =============================================================================
 
 import React from 'react';

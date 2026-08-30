@@ -2,10 +2,9 @@ import {
   formatDate,
   formatEventDateRange,
   getCountdown,
-  getGoogleCalendarUrl,
-  getIcsContent,
   isEventLive,
 } from "@/lib/utils";
+import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { MapPin, Calendar, Clock, Link as LinkIcon, Share2, Bookmark, Play } from "lucide-react";
@@ -37,11 +36,13 @@ interface Event {
   banner_url?: string | null;
   created_at?: string | null;
   max_attendees?: number | null;
-  clubs: { name: string } | { name: string }[] | null;
-  event_rsvps: { id: string; user_id: string; no_media_consent?: boolean | null }[] | null;
-  saved_events: { id: string; user_id: string }[] | null;
+  clubs?: { name: string; logo_url?: string | null } | { name: string; logo_url?: string | null }[] | null;
+  event_rsvps?: { id: string; user_id: string; no_media_consent?: boolean | null }[] | null;
+  saved_events?: { id: string; user_id: string }[] | null;
   rsvp_count?: number;
   saved_count?: number;
+  is_remote?: boolean;
+  host_institution?: string;
 }
 
 interface EventCardProps {
@@ -172,16 +173,6 @@ export function EventCard({
   const myRsvp = user ? rsvps.find((rsvp) => rsvp.user_id === user.id) : null;
   const preloadEvent = usePreloadEvent(event.id);
   const hasRsvpd = !!myRsvp;
-  const colors = ["bg-lime", "bg-sky", "bg-peach"];
-  const googleCalendarUrl = getGoogleCalendarUrl({
-    title: event.title,
-    description: event.description,
-    event_date: event.event_date,
-    start_date: event.start_date,
-    end_date: event.end_date,
-    location: event.location,
-  });
-  const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
   const isLive = isEventLive(event);
 
   const [ticketOpen, setTicketOpen] = useState(false);
@@ -220,31 +211,7 @@ export function EventCard({
     }
   };
 
-  const handleDownloadIcs = () => {
-    const icsContent = getIcsContent({
-      title: event.title,
-      description: event.description,
-      event_date: event.event_date,
-      start_date: event.start_date,
-      end_date: event.end_date,
-      location: event.location,
-    });
-
-    if (!icsContent) {
-      toast.error("Failed to generate calendar file");
-      return;
-    }
-
-    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${event.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.ics`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  
 
   const shareUrl =
     typeof window !== "undefined"
@@ -314,6 +281,12 @@ export function EventCard({
                 </span>
               )
             )}
+
+            {event.is_remote && (
+              <span className="mt-2 inline-flex min-h-[24px] items-center rounded-full bg-blue-100 px-2 py-1 text-[11px] font-bold text-blue-800 border border-blue-300">
+                🌐 External Event
+              </span>
+            )}
           </div>
           <div className="flex gap-2 relative z-10">
             <TooltipProvider>
@@ -366,7 +339,9 @@ export function EventCard({
             {event.title}
           </h2>
         </Link>
-        <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
+        <p className="mt-1 font-mono text-sm font-bold text-blue-900">
+          {event.is_remote ? `Hosted by ${event.host_institution}` : club?.name}
+        </p>
         {(event.tldr_summary || event.description) && (
           <p className="mt-3 border-l-4 border-black/30 pl-3 font-mono text-sm font-semibold leading-relaxed text-black/80">
             <span className="mr-1 text-[10px] font-black uppercase tracking-wider text-black/60">
@@ -425,37 +400,29 @@ export function EventCard({
             </Tooltip>
           </TooltipProvider>
 
-          {hasRsvpd && googleCalendarUrl && (
-            <a
-              href={googleCalendarUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
-            >
-              <Calendar aria-hidden="true" size={14} strokeWidth={3} />
-              Add to Google Calendar
-            </a>
-          )}
-          {hasRsvpd && googleCalendarUrl && (
-            <button
-              onClick={handleDownloadIcs}
-              type="button"
-              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 text-black"
-            >
-              <Calendar aria-hidden="true" size={14} strokeWidth={3} />
-              Add to Apple/Outlook
-            </button>
-          )}
-          {hasRsvpd && myRsvp && (
-            <Button
-              type="button"
-              onClick={() => setTicketOpen(true)}
-              variant="outline"
-              className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-black"
-            >
-              View Ticket
-            </Button>
-          )}
+          <AddToCalendarDropdown
+              event={{
+                id: event.id,
+                title: event.title,
+                description: event.description,
+                event_date: event.event_date,
+                start_date: event.start_date,
+                end_date: event.end_date,
+                location: event.location,
+                eventUrl: `/events/${event.id}`,
+              }}
+              className=""
+            />
+            {hasRsvpd && (
+              <Button
+                type="button"
+                onClick={() => setTicketOpen(true)}
+                variant="outline"
+                className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-black"
+              >
+                View Ticket
+              </Button>
+            )}
           {event.audio_recording_url && (
             <Button
               type="button"

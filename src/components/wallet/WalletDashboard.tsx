@@ -7,6 +7,7 @@
 
 import React from "react";
 import { useWallet, WalletTransaction } from "../../hooks/useWallet";
+import { PlatformCreditLedgerWidget } from "./PlatformCreditLedgerWidget";
 
 export const WalletDashboard: React.FC = () => {
   const { balance, transactions, isLoading, error } = useWallet();
@@ -33,8 +34,16 @@ export const WalletDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Balance Card */}
+    <div className="space-y-8">
+      {/* Platform Credit & Cancellation Refund Ledger (#4522) */}
+      <PlatformCreditLedgerWidget />
+
+      {/* ConnectCoin Gamification Points */}
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-6">
+        <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+          ConnectCoin Rewards Balance
+        </h3>
+        {/* Balance Card */}
       <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
         {/* Decorative background elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
@@ -94,6 +103,7 @@ export const WalletDashboard: React.FC = () => {
             transactions.map((tx) => <TransactionRow key={tx.id} transaction={tx} />)
           )}
         </div>
+      </div>
       </div>
     </div>
   );

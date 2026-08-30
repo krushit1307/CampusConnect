@@ -5,13 +5,13 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { RevivalRequestForm, RevivalRequestData } from "@/components/clubs/RevivalRequestForm";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthHydration } from "@/hooks/useAuthHydration";
 
 export default function ReviveClubPage() {
   const { slug } = useParams<{ slug: string }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useAuthHydration();
   const supabase = createClient();
 
   const handleSubmit = async (data: RevivalRequestData) => {

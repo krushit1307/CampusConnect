@@ -10,6 +10,7 @@ const JoyrideComponent =
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BugReportWidget } from "@/components/BugReportWidget";
+import { NoiseComplaintWidget } from "@/components/events/NoiseComplaintWidget";
 import { AutoBreadcrumbs } from "@/components/ui/AutoBreadcrumbs";
 import { LiveAnnouncer } from "@/components/events/LiveAnnouncer";
 import { StaleProfileNudgeModal } from "@/components/profile/StaleProfileNudgeModal";
@@ -212,6 +213,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       </main>
       <Footer />
       <BugReportWidget />
+      <NoiseComplaintWidget />
       <StaleProfileNudgeModal
         isOpen={showStaleNudge}
         onClose={() => {

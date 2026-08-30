@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
@@ -6,6 +6,11 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { StarRating } from "@/components/ui/star-rating";
 
 import { User } from "@supabase/supabase-js";
+import {
+  KeystrokeTracker,
+  attachKeystrokeTracker,
+  analyzeSentiment,
+} from "@/lib/keystrokeDynamics";
 
 interface EventFeedbackFormProps {
   eventId: string;
@@ -15,6 +20,17 @@ export default function EventFeedbackForm({ eventId, user }: EventFeedbackFormPr
   const supabase = createClient();
   const [rating, setRating] = useState<number>(0);
   const [comment, setComment] = useState("");
+  const keystrokeTracker = useRef<KeystrokeTracker>(new KeystrokeTracker());
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Attach keystroke tracker to textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      const cleanup = attachKeystrokeTracker(textareaRef.current, keystrokeTracker.current);
+      return cleanup;
+    }
+  }, []);
+
   const {
     data: existingFeedback,
     isLoading,
@@ -41,11 +57,22 @@ export default function EventFeedbackForm({ eventId, user }: EventFeedbackFormPr
       if (!user) throw new Error("Must be logged in");
       if (rating < 1 || rating > 5) throw new Error("Please select a rating between 1 and 5");
 
+      // Get keystroke metrics
+      const keystrokeData = keystrokeTracker.current.getSubmissionData();
+      const sentimentScore = analyzeSentiment(comment);
+
       const { error } = await supabase.from("event_feedbacks").insert({
         event_id: eventId,
         user_id: user.id,
         rating,
         comment: comment.trim() || null,
+        keystroke_data: keystrokeData.keystroke_data,
+        avg_dwell_time_ms: keystrokeData.avg_dwell_time_ms,
+        avg_flight_time_ms: keystrokeData.avg_flight_time_ms,
+        backspace_count: keystrokeData.backspace_count,
+        correction_rate: keystrokeData.correction_rate,
+        typing_duration_ms: keystrokeData.typing_duration_ms,
+        sentiment_score: sentimentScore,
       });
 
       if (error) {
@@ -55,9 +82,24 @@ export default function EventFeedbackForm({ eventId, user }: EventFeedbackFormPr
         }
         throw error;
       }
+
+      // Analyze feedback for coercion after submission
+      const { data: insertedFeedback } = await supabase
+        .from("event_feedbacks")
+        .select("id")
+        .eq("event_id", eventId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (insertedFeedback) {
+        await supabase.rpc("analyze_feedback_coercion", {
+          p_feedback_id: insertedFeedback.id,
+        });
+      }
     },
     onSuccess: () => {
       toast.success("Feedback submitted successfully!");
+      keystrokeTracker.current.reset();
       refetch();
     },
     onError: (err: Error) => {
@@ -116,6 +158,7 @@ export default function EventFeedbackForm({ eventId, user }: EventFeedbackFormPr
         </label>
         <textarea
           id="comment"
+          ref={textareaRef}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="What did you think of the event?"

@@ -22,6 +22,22 @@ export interface TopDonor {
   last_donation_at: string;
 }
 
+export interface CampaignMatchActivity {
+  match_id: string;
+  campaign_id: string;
+  requested_amount_cents: number;
+  created_at: string;
+  matched_at: string;
+  source_display_name: string;
+  alumni_display_name: string;
+}
+
+export interface CampaignMatchInvitation {
+  campaign_id: string;
+  requested_amount_cents: number;
+  source_display_name: string;
+}
+
 /** Formats cents as a compact USD string, e.g. 512340 -> "$5,123.40". */
 export function formatCents(cents: number): string {
   return (cents / 100).toLocaleString("en-US", {
@@ -80,16 +96,46 @@ export async function fetchTopDonors(
   return (data ?? []) as TopDonor[];
 }
 
-/** Kicks off a Stripe Checkout session for a one-off campaign donation. */
+/** Loads public-safe alumni match activity for a campaign. */
+export async function fetchCampaignMatchActivity(
+  supabase: SupabaseClient,
+  campaignId: string,
+  limit = 10,
+): Promise<CampaignMatchActivity[]> {
+  const { data, error } = await supabase
+    .from("campaign_match_activity")
+    .select("*")
+    .eq("campaign_id", campaignId)
+    .order("matched_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CampaignMatchActivity[];
+}
+
+export async function fetchCampaignMatchInvitation(
+  supabase: SupabaseClient,
+  matchId: string,
+): Promise<CampaignMatchInvitation | null> {
+  const { data, error } = await supabase
+    .rpc("get_campaign_match_invitation", { p_match_id: matchId })
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return (data ?? null) as CampaignMatchInvitation | null;
+}
+
+/** Kicks off Stripe Checkout for an ordinary donation or exact match gift. */
 export async function createCampaignDonationCheckout(
   supabase: SupabaseClient,
-  params: { campaignId: string; amountCents: number; isAnonymous: boolean },
+  params: { campaignId: string; amountCents: number; isAnonymous: boolean; matchId?: string },
 ): Promise<{ url: string }> {
   const { data, error } = await supabase.functions.invoke("create-campaign-donation-checkout", {
     body: {
       campaignId: params.campaignId,
       amountCents: params.amountCents,
       isAnonymous: params.isAnonymous,
+      matchId: params.matchId,
     },
   });
 
