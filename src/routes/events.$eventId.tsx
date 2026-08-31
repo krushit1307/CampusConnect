@@ -1332,28 +1332,30 @@ export default function EventDetailsPage() {
         return { alreadyCheckedIn: true };
       }
 
-      const { error } = await supabase
-        .from("event_rsvps")
-        .update({ checked_in: true })
-        .eq("id", rsvpId)
-        .eq("event_id", eventId);
+const { data: transition, error } = await supabase.rpc(
+  "transition_event_attendance",
+  {
+    p_rsvp_id: rsvpId,
+    p_to_state: "checked_in",
+    p_reason: "Organizer check-in",
+  },
+);
 
-      if (error) throw error;
+if (error) throw error;
 
-      try {
-        await supabase.from("event_attendance_logs").insert({
-          rsvp_id: rsvpId,
-          recorded_by: user.id,
-          // Distinguishes this manual/QR-adjacent organizer action from an
-          // attendee's own GPS-verified self check-in (see check_in_via_geofence).
-          verification_method: "organizer_override",
-        });
-      } catch {
-        // Attendance logging is optional if the table is unavailable in the current environment.
-      }
+if (!transition?.success) {
+  if (transition?.code === "ALREADY_CHECKED_IN") {
+    return { alreadyCheckedIn: true };
+  }
 
-      return { alreadyCheckedIn: false };
-    },
+  throw new Error(
+    transition?.message ||
+      transition?.code ||
+      "Unable to check in attendee.",
+  );
+}
+
+return { alreadyCheckedIn: false };    },
     onSuccess: (result) => {
       if (result?.alreadyCheckedIn) {
         toast.success("This attendee is already checked in.");
