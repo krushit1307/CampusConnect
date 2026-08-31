@@ -51,29 +51,30 @@ export class CatererTempLoggingService {
    */
   static async uploadTempLogs(
     contractId: string,
-    readings: { recorded_at: string; temperature_fahrenheit: number }[]
+    readings: { recorded_at: string; temperature_fahrenheit: number }[],
   ): Promise<{
     success: boolean;
-    shipment_status?: "PENDING" | "SAFE" | "CONDEMNED";
+    shipment_status?: "PENDING" | "Pending_Environmental_Clearance" | "SAFE" | "CONDEMNED";
     stripe_payment_blocked?: boolean;
     message?: string;
     error?: string;
   }> {
     const supabase = createClient();
     try {
-      const { data, error } = await supabase.rpc("upload_caterer_temp_logs", {
-        p_contract_id: contractId,
-        p_logs: readings,
+      const { data, error } = await supabase.functions.invoke("upload-caterer-temp-logs", {
+        body: {
+          contractId,
+          readings,
+          signature: "mock_iot_device_signature_777",
+        },
       });
 
       if (error) throw error;
-      
-      const res = typeof data === "string" ? JSON.parse(data) : data;
       return {
-        success: res?.success ?? false,
-        shipment_status: res?.shipment_status,
-        stripe_payment_blocked: res?.stripe_payment_blocked,
-        message: res?.message,
+        success: data?.success ?? false,
+        shipment_status: data?.shipment_status,
+        stripe_payment_blocked: data?.stripe_payment_blocked,
+        message: data?.message,
       };
     } catch (err: any) {
       console.error("Error uploading temp logs:", err);

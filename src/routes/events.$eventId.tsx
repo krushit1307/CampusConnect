@@ -23,6 +23,7 @@ import { HoneyPotTrapWidget } from "@/components/events/HoneyPotTrapWidget";
 import { DafDonationWidget } from "@/components/events/DafDonationWidget";
 import { ParametricInsuranceWidget } from "@/components/events/ParametricInsuranceWidget";
 import { WifiProvisioningWidget } from "@/components/events/WifiProvisioningWidget";
+import { LipSyncCheckerWidget } from "@/components/events/LipSyncCheckerWidget";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
 import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
@@ -3753,6 +3754,7 @@ export default function EventDetailsPage() {
         />
         <ParametricInsuranceWidget eventId={eventId || ""} />
         <WifiProvisioningWidget targetCampus={event?.location || "MIT"} userId={user?.id || ""} />
+        <LipSyncCheckerWidget userId={user?.id || ""} />
         <AslAvatarPip eventId={eventId || ""} />
       </SiteShell>
     </>

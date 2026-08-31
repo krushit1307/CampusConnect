@@ -56,6 +56,26 @@ vi.mock("@/services/catererTempLoggingService", () => {
   };
 });
 
+// Mock CatererZkService
+vi.mock("@/services/catererZkService", () => {
+  return {
+    CatererZkService: {
+      fetchZkProofs: vi.fn().mockResolvedValue([]),
+      submitZkProof: vi.fn().mockResolvedValue({
+        success: true,
+        proof_id: "proof-123",
+        status: "VERIFIED",
+      }),
+      generateMockZkSnark: vi.fn().mockResolvedValue({
+        proof_hash: "zk-snark-groth16-proof-mock-hash",
+        total_readings: 5000,
+        max_threshold_temp: 40.0,
+        is_valid: true,
+      }),
+    },
+  };
+});
+
 function makeForecast(overrides: Partial<DietaryForecast> = {}): DietaryForecast {
   return {
     ok: true,
@@ -262,5 +282,48 @@ describe("DietaryForecastPanel", () => {
 
     // Verify PENDING state is visible
     expect(screen.getByTestId("status-box-pending")).toBeInTheDocument();
+  });
+
+  it("handles zk-SNARK proof generation and verification submissions", async () => {
+    mockUseDietaryForecast.mockReturnValue({
+      forecast: makeForecast(), isLoading: false, error: null, refresh: vi.fn(),
+    });
+
+    // Mock active temperature readings
+    const { CatererTempLoggingService } = await import("@/services/catererTempLoggingService");
+    const { CatererZkService } = await import("@/services/catererZkService");
+    
+    vi.mocked(CatererTempLoggingService.fetchTempLogs).mockResolvedValue([
+      { id: "log-1", contract_id: "contract-1", temperature_fahrenheit: 38.5, recorded_at: new Date().toISOString() }
+    ]);
+
+    render(<DietaryForecastPanel eventId="e1" />);
+
+    // ZK compliance section exists
+    const zkSection = await screen.findByTestId("zk-compliance-section");
+    expect(zkSection).toBeInTheDocument();
+
+    // Click compile zk-SNARK
+    const genBtn = screen.getByTestId("caterer-gen-zk-btn");
+    fireEvent.click(genBtn);
+
+    await waitFor(() => {
+      expect(CatererZkService.generateMockZkSnark).toHaveBeenCalled();
+    });
+
+    // Submit button should appear
+    const submitBtn = await screen.findByTestId("caterer-submit-zk-btn");
+    expect(submitBtn).toBeInTheDocument();
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(CatererZkService.submitZkProof).toHaveBeenCalledWith(
+        "contract-1",
+        "Lot 123",
+        "zk-snark-groth16-proof-mock-hash",
+        5000,
+        40.00
+      );
+    });
   });
 });

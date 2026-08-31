@@ -1,3 +1,8 @@
+// =============================================================================
+// Component: LosslessYieldDonationDashboard
+// Issue: #5380 - MakerDAO CDP/Flash Minting leveraged yield donation & tax savings
+// =============================================================================
+
 import React, { useState, useEffect } from "react";
 import {
   PiggyBank,
@@ -8,6 +13,9 @@ import {
   ShieldCheck,
   Droplets,
   Coins,
+  Percent,
+  TrendingUp,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Card,
@@ -18,205 +26,381 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+import { DefiLeverageService, type DefiDonation } from "@/services/defiLeverageService";
 
 export const LosslessYieldDonationDashboard: React.FC = () => {
-  const [principalAmount] = useState(1000000); // $1M USDC
+  const supabase = createClient();
+
+  // Active donation tracked ID (for mock database synchronization)
+  const [activeDonationId, setActiveDonationId] = useState<string>("");
+  const [principalAmount, setPrincipalAmount] = useState(1000000); // $1M collateral equivalent
   const [apy] = useState(5.0); // 5% APY
   const [yieldGenerated, setYieldGenerated] = useState(4166.67); // 1 month of yield
   const [isHarvesting, setIsHarvesting] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
-
   const [clubBalance, setClubBalance] = useState(0);
+
+  // MakerDAO CDP & Tax states
+  const [collateralAsset, setCollateralAsset] = useState("ETH");
+  const [collateralQty, setCollateralQty] = useState(333.33); // 333.33 ETH
+  const [ethPrice] = useState(3000); // Mock ETH Price
+  const [debtAmountDai, setDebtAmountDai] = useState(500000); // $500k DAI
+  const [isLeveraging, setIsLeveraging] = useState(false);
+
+  // Calculated fields
+  const [liquidationPrice, setLiquidationPrice] = useState(2250);
+  const [taxSavings, setTaxSavings] = useState(208250);
+  const [leverageMult, setLeverageMult] = useState(1.5);
+  const [isLeveraged, setIsLeveraged] = useState(false);
+
+  // Initialize a mock donation ID so we have a target record to update in DB
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) return;
+
+        // Try to fetch existing
+        const existing = await DefiLeverageService.fetchDonations(userData.user.id);
+        if (existing.length > 0) {
+          const active = existing[0];
+          setActiveDonationId(active.id);
+          setPrincipalAmount(Number(active.principal_locked_usdc) || 1000000);
+          setCollateralQty(Number(active.collateral_amount) || 333.33);
+          setDebtAmountDai(Number(active.debt_amount_dai) || 500000);
+          setLiquidationPrice(Number(active.liquidation_price) || 2250);
+          setTaxSavings(Number(active.tax_savings_usd) || 208250);
+          setLeverageMult(Number(active.leverage_multiplier) || 1.5);
+          setIsLeveraged(active.is_leveraged);
+        } else {
+          // Seed a mock donation for the current user
+          const { data, error } = await supabase
+            .from("lossless_yield_donations")
+            .insert({
+              donor_id: userData.user.id,
+              club_id: userData.user.id, // self-donating mock
+              contract_address: "0xDeFi" + Math.floor(Math.random() * 100000) + "CDP",
+              principal_locked_usdc: 1000000,
+              status: "ACTIVE",
+            })
+            .select()
+            .single();
+
+          if (data) {
+            setActiveDonationId(data.id);
+          }
+        }
+      } catch (err) {
+        console.error("Seed donation error:", err);
+      }
+    })();
+  }, []);
 
   const handleHarvest = () => {
     setIsHarvesting(true);
-    // Simulate Smart Contract execution
     setTimeout(() => {
       setClubBalance((prev) => prev + yieldGenerated);
       setYieldGenerated(0);
       setIsHarvesting(false);
-    }, 3000);
+      toast.success("Yield successfully routed to Student Club treasury!");
+    }, 2000);
   };
 
   const handleWithdraw = () => {
     setIsWithdrawing(true);
-    // Simulate Principal Unlocking
     setTimeout(() => {
-      alert(
-        "Smart Contract Execution: $1,000,000 USDC unlocked from Aave and routed strictly back to your wallet. You have surrendered nothing.",
-      );
+      toast.success("Emergency Withdraw: $1,000,000 ETH collateral returned to your wallet.");
       setIsWithdrawing(false);
-    }, 3000);
+      setIsLeveraged(false);
+      setDebtAmountDai(0);
+    }, 2000);
   };
 
-  // Simulate live yield generation tick
+  const handleSimulateLeverage = async () => {
+    if (!activeDonationId) {
+      toast.error("No active yield donation session found.");
+      return;
+    }
+
+    setIsLeveraging(true);
+    toast.info("Opening MakerDAO CDP Vault and staking DAI stablecoins...");
+
+    const collateralValue = collateralQty * ethPrice;
+    if (debtAmountDai > collateralValue * 0.75) {
+      toast.error("CDP exceeds maximum safe borrow threshold of 75%!");
+      setIsLeveraging(false);
+      return;
+    }
+
+    try {
+      const res = await DefiLeverageService.simulateLeverage(
+        activeDonationId,
+        collateralQty,
+        debtAmountDai,
+        ethPrice
+      );
+
+      if (res.success) {
+        setPrincipalAmount(collateralValue);
+        setLiquidationPrice(res.liquidation_price || 0);
+        setTaxSavings(res.tax_savings || 0);
+        setLeverageMult(res.leverage_multiplier || 1.0);
+        setIsLeveraged(true);
+        toast.success("MakerDAO CDP vault updated & DAI yield routing activated!");
+      } else {
+        toast.error(res.error || "DeFi simulation error.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Simulate error.");
+    } finally {
+      setIsLeveraging(false);
+    }
+  };
+
+  // Live yield generation tick
   useEffect(() => {
     const interval = setInterval(() => {
       if (!isWithdrawing) {
-        // roughly $0.15 per second on 1M at 5% APY
-        setYieldGenerated((prev) => prev + 0.158);
+        // Leveraged yield is calculated on the borrowed debt (DAI) plus the base collateral value
+        const totalYieldBase = isLeveraged ? debtAmountDai : principalAmount;
+        // roughly $0.15 per second on $1M at 5% APY
+        const yieldPerSecond = (totalYieldBase * (apy / 100)) / (365 * 24 * 3600);
+        setYieldGenerated((prev) => prev + yieldPerSecond);
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [isWithdrawing]);
+  }, [isWithdrawing, isLeveraged, debtAmountDai, principalAmount]);
+
+  const collateralValue = collateralQty * ethPrice;
+  const colRatio = debtAmountDai > 0 ? (collateralValue / debtAmountDai) * 100 : 0;
+  const isCdpRisky = colRatio > 0 && colRatio < 160;
 
   return (
-    <div className="max-w-6xl mx-auto p-6 font-sans space-y-8">
+    <div className="max-w-6xl mx-auto p-6 font-mono text-black dark:text-white space-y-8" data-testid="defi-yield-dashboard">
       {/* Header Section */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b-4 border-black pb-6 gap-4">
         <div>
-          <h1 className="text-4xl font-black text-white tracking-tight flex items-center gap-4">
-            <PiggyBank className="h-10 w-10 text-emerald-500" />
-            Lossless DeFi Yield Endowment
+          <h1 className="text-4xl font-black uppercase tracking-tight flex items-center gap-3">
+            <PiggyBank className="h-10 w-10 text-emerald-600 animate-bounce" />
+            MakerDAO Leveraged Yield Endowment
           </h1>
-          <p className="text-slate-400 mt-3 font-mono text-base max-w-4xl leading-relaxed">
-            Ultra-High-Net-Worth individuals refuse to surrender principal capital to mismanaged
-            university endowments. This architecture utilizes a customized Smart Contract
-            interacting with Aave V3. The donor locks $1,000,000 USDC. The smart contract
-            mathematically protects the principal (claimable only by the donor) while continuously
-            streaming 100% of the generated 5% APY directly to the Student Club.
+          <p className="text-sm text-zinc-600 mt-2 max-w-4xl leading-relaxed">
+            Avoid tax liabilities by staking asset yields. Use MakerDAO Collateralized Debt Positions (CDPs) 
+            to flash-mint DAI stablecoin loans against your ETH. Yield is auto-routed to the club, while you retain collateral ownership.
           </p>
+        </div>
+        <div className="flex items-center gap-1.5 bg-emerald-100 border-2 border-black px-3 py-1 font-bold text-xs uppercase text-emerald-950">
+          <ShieldCheck className="h-4 w-4" /> Tax-Exempt Status Confirmed (990-N)
         </div>
       </div>
 
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* Left Column: Donor Principal Control */}
-        <div className="lg:col-span-2 space-y-6 flex flex-col h-full">
-          <Card className="bg-slate-900 border-slate-800 shadow-2xl relative overflow-hidden flex-1">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
-            <CardHeader className="border-b border-slate-800 pb-5 bg-slate-950/40">
-              <CardTitle className="text-white flex items-center justify-between text-lg">
+        
+        {/* Left Column: CDP Vault & Calculator controls */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="border-4 border-black bg-white shadow-[8px_8px_0_0_#000] rounded-none">
+            <CardHeader className="border-b-2 border-black bg-zinc-50">
+              <CardTitle className="text-base font-black uppercase flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <LockKeyhole className="h-5 w-5 text-emerald-400" /> Donor Principal
+                  <LockKeyhole className="h-5 w-5 text-black" /> MakerDAO CDP Controller
                 </span>
-                <span className="text-xs bg-emerald-950 text-emerald-400 px-2 py-1 rounded font-bold border border-emerald-900">
-                  100% SECURE
+                <span className="text-[10px] bg-indigo-100 text-indigo-800 border-2 border-black px-2 py-0.5 rounded font-black">
+                  CDP ACTIVE
                 </span>
               </CardTitle>
-              <CardDescription className="text-slate-400">Contract: 0xDeFi...4A91</CardDescription>
+              <CardDescription className="text-zinc-500 font-mono text-[10px]">
+                Contract: 0xDeFiCDP...4A91
+              </CardDescription>
             </CardHeader>
-            <CardContent className="pt-8 space-y-6">
-              <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
-                  Locked USDC Liquidity
-                </p>
-                <p className="text-5xl font-black text-white flex items-center justify-center gap-2">
-                  ${(principalAmount / 1000000).toFixed(1)}M
-                </p>
-                <p className="text-sm font-mono text-emerald-400 mt-2 flex items-center justify-center gap-1">
-                  <LineChart className="h-4 w-4" /> Generating {apy}% APY on Aave V3
-                </p>
+            <CardContent className="pt-6 space-y-4">
+              
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase block text-zinc-500">Collateral Type</label>
+                <select
+                  value={collateralAsset}
+                  onChange={(e) => setCollateralAsset(e.target.value)}
+                  className="border-2 border-black bg-white px-2 py-1.5 text-xs font-mono w-full text-black outline-none"
+                >
+                  <option value="ETH">ETH (Ethereum)</option>
+                  <option value="wBTC">wBTC (Wrapped Bitcoin)</option>
+                </select>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 p-5 rounded-lg flex items-start gap-4 shadow-inner mt-8">
-                <ShieldCheck className="h-8 w-8 text-slate-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-slate-400 leading-relaxed font-mono">
-                  Your principal is hardcoded to be withdrawable <b>exclusively</b> to your
-                  connected wallet `0xDonorWallet...8F2`. The University cannot touch these funds.
-                </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase block text-zinc-500">Collateral Qty</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={collateralQty}
+                    onChange={(e) => setCollateralQty(Number(e.target.value))}
+                    className="border-2 border-black bg-white px-2 py-1.5 text-xs font-mono w-full text-black outline-none"
+                    data-testid="collateral-qty-input"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase block text-zinc-500">Stablecoin Borrow (DAI)</label>
+                  <input
+                    type="number"
+                    step="1000"
+                    value={debtAmountDai}
+                    onChange={(e) => setDebtAmountDai(Number(e.target.value))}
+                    className="border-2 border-black bg-white px-2 py-1.5 text-xs font-mono w-full text-black outline-none"
+                    data-testid="dai-borrow-input"
+                  />
+                </div>
               </div>
+
+              <div className="border-2 border-dashed border-black/20 p-3 bg-zinc-50 space-y-1.5 text-[10px]">
+                <div className="flex justify-between">
+                  <span>ETH Price (Oracle):</span>
+                  <span className="font-bold">${ethPrice.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Collateral Value:</span>
+                  <span className="font-bold">${collateralValue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Collateralization Ratio:</span>
+                  <span className={`font-black ${isCdpRisky ? "text-red-600 animate-pulse" : "text-emerald-700"}`}>
+                    {colRatio.toFixed(1)}% (Min 150%)
+                  </span>
+                </div>
+                {isCdpRisky && (
+                  <p className="text-[8px] text-red-600 font-bold flex items-center gap-1 mt-1 animate-pulse">
+                    <AlertTriangle className="h-3 w-3 shrink-0" /> RISK OF LIQUIDATION! ADD COLLATERAL.
+                  </p>
+                )}
+              </div>
+
+              <Button
+                onClick={handleSimulateLeverage}
+                disabled={isLeveraging || debtAmountDai <= 0}
+                className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-black border-2 border-black py-2.5 text-xs uppercase shadow-[2px_2px_0_0_#000]"
+                data-testid="simulate-leverage-btn"
+              >
+                {isLeveraging ? "Leveraging Vault..." : "Lock Collateral & Mint DAI"}
+              </Button>
             </CardContent>
-            <CardFooter className="bg-slate-950/50 border-t border-slate-800 pt-5 mt-auto">
+            <CardFooter className="bg-zinc-50 border-t-2 border-black py-3">
               <Button
                 onClick={handleWithdraw}
                 disabled={isWithdrawing}
                 variant="destructive"
-                className="w-full font-black h-12 uppercase tracking-widest transition-all"
+                className="w-full font-black border-2 border-black py-2.5 text-xs uppercase shadow-[2px_2px_0_0_#000]"
               >
-                {isWithdrawing ? "Unlocking from Aave..." : "Emergency Withdraw Principal"}
+                {isWithdrawing ? "Unlocking Collateral..." : "Emergency Withdraw CDP"}
               </Button>
             </CardFooter>
           </Card>
         </div>
 
-        {/* Right Column: Yield Routing */}
+        {/* Right Column: Live Yield stats & Tax-Exempt Gains Calculator display */}
         <div className="lg:col-span-3 space-y-6">
-          <Card className="bg-slate-900 border-slate-800 shadow-2xl relative overflow-hidden">
-            {/* Streaming Animation Line */}
-            <div className="absolute top-1/2 left-0 w-full h-[2px] bg-slate-800 z-0"></div>
-            <div className="absolute top-1/2 left-0 w-full h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-400 to-emerald-500/0 z-0 animate-[shimmer_2s_infinite]"></div>
-
-            <CardContent className="p-8 relative z-10 grid grid-cols-3 gap-4 items-center">
-              {/* Node 1: Aave Protocol */}
-              <div className="bg-slate-950 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center shadow-xl">
-                <Droplets className="h-10 w-10 text-emerald-500 mb-4" />
-                <p className="text-sm font-bold text-white mb-1">Aave V3 Pool</p>
-                <p className="text-xs text-emerald-400 font-mono">aUSDC APY Engine</p>
+          
+          {/* Yield Routing visualizer card */}
+          <Card className="border-4 border-black bg-white shadow-[8px_8px_0_0_#000] rounded-none">
+            <CardContent className="p-6 grid grid-cols-3 gap-2 items-center text-center">
+              
+              <div className="border-2 border-black bg-zinc-50 p-3 rounded-none">
+                <Droplets className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
+                <p className="text-xs font-bold">MakerDAO Vault</p>
+                <p className="text-[9px] text-zinc-500 font-mono">CDP Collateral</p>
               </div>
 
-              {/* Action */}
               <div className="flex flex-col items-center justify-center">
-                <div className="bg-slate-900 border-2 border-slate-800 rounded-full p-4 mb-2 shadow-2xl relative overflow-hidden">
-                  <div
-                    className={`absolute inset-0 bg-emerald-500/20 ${isHarvesting ? "animate-ping" : ""}`}
-                  ></div>
-                  <ArrowRightLeft
-                    className={`h-6 w-6 text-slate-300 relative z-10 ${isHarvesting ? "animate-spin" : ""}`}
-                  />
+                <div className="bg-zinc-50 border-2 border-black rounded-full p-2.5 mb-1 animate-pulse">
+                  <ArrowRightLeft className="h-5 w-5 text-zinc-700" />
                 </div>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
-                  Smart Router
+                <p className="text-[8px] font-black uppercase text-zinc-500 tracking-wider">
+                  Leveraged Yield Router
                 </p>
               </div>
 
-              {/* Node 2: Club Treasury */}
-              <div className="bg-slate-950 border border-slate-800 p-6 rounded-xl flex flex-col items-center justify-center shadow-xl relative overflow-hidden">
-                <div
-                  className={`absolute inset-0 bg-emerald-500/10 transition-opacity duration-1000 ${isHarvesting ? "opacity-100" : "opacity-0"}`}
-                ></div>
-                <Wallet className="h-10 w-10 text-cyan-500 mb-4 relative z-10" />
-                <p className="text-sm font-bold text-white mb-1 relative z-10">Club Treasury</p>
-                <p className="text-xs text-cyan-400 font-mono relative z-10">0xClubWallet</p>
+              <div className="border-2 border-black bg-zinc-50 p-3 rounded-none">
+                <Wallet className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
+                <p className="text-xs font-bold">Club Treasury</p>
+                <p className="text-[9px] text-zinc-500 font-mono">0xClubTreasury</p>
               </div>
+
             </CardContent>
           </Card>
 
-          {/* Financial Totals */}
-          <div className="grid grid-cols-2 gap-6">
-            <Card className="bg-slate-900 border-slate-800 shadow-xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-500">
-                  Available Yield (Unclaimed)
+          {/* Yield and Tax savings calculations */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            {/* Unclaimed Yield */}
+            <Card className="border-4 border-black bg-white shadow-[6px_6px_0_0_#000] rounded-none">
+              <CardHeader className="pb-2 bg-zinc-50 border-b-2 border-black">
+                <CardTitle className="text-xs font-black uppercase tracking-wider">
+                  Accrued Yield (Unclaimed)
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-4xl font-black text-emerald-400 font-mono">
-                  $
-                  {yieldGenerated.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+              <CardContent className="pt-4">
+                <p className="text-3xl font-black text-emerald-600 font-mono">
+                  ${yieldGenerated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <Button
                   onClick={handleHarvest}
                   disabled={isHarvesting || yieldGenerated < 1}
-                  className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black h-10 uppercase tracking-wider transition-all"
+                  className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-black border-2 border-black font-black py-2 text-xs uppercase shadow-[2px_2px_0_0_#000]"
+                  data-testid="harvest-yield-btn"
                 >
-                  {isHarvesting ? "Routing to Club..." : "Harvest to Club"}
+                  {isHarvesting ? "Staking to Club..." : "Harvest to Club Treasury"}
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-900 border-slate-800 shadow-xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                  <Coins className="h-4 w-4" /> Lifetime Club Impact
+            {/* Tax Savings */}
+            <Card className="border-4 border-black bg-white shadow-[6px_6px_0_0_#000] rounded-none">
+              <CardHeader className="pb-2 bg-zinc-50 border-b-2 border-black">
+                <CardTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1">
+                  <Percent className="h-3.5 w-3.5 text-indigo-600" /> Capital Gains Tax Savings
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-4xl font-black text-cyan-400 font-mono">
-                  $
-                  {clubBalance.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+              <CardContent className="pt-4 space-y-3">
+                <p className="text-3xl font-black text-indigo-600 font-mono">
+                  ${taxSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-slate-400 font-mono mt-3 leading-relaxed">
-                  Sustainable, tax-exempt protocol income completely decoupled from principal loss.
-                </p>
+                <div className="text-[10px] text-zinc-500 font-mono leading-normal">
+                  <div className="flex justify-between">
+                    <span>Leverage Factor:</span>
+                    <span className="font-bold text-black">{leverageMult.toFixed(2)}x</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>CDP Liquidation Price:</span>
+                    <span className="font-bold text-black">${liquidationPrice.toLocaleString()}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
+
           </div>
+
+          {/* Tax-Exempt Capital Gains Calculator Summary */}
+          <div className="border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0_0_#000] space-y-3">
+            <span className="font-black text-xs uppercase text-amber-900 block border-b-2 border-amber-950/20 pb-1 flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4" /> Tax-Exempt Capital Gains Calculator Breakdown
+            </span>
+            <p className="text-[10px] text-amber-900/80 leading-normal">
+              By routing yield generated directly from locked assets through a Smart Contract, the donor offsets 
+              standard Capital Gains taxes on direct asset sales.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[10px] text-zinc-700">
+              <div className="border border-black/10 bg-white p-2.5">
+                <span className="font-bold block text-black">US Tax Rate Baseline:</span>
+                Uses 20% federal capital gains tax rate + 13.3% state rate offsets.
+              </div>
+              <div className="border border-black/10 bg-white p-2.5">
+                <span className="font-bold block text-black">Net Impact Boost:</span>
+                Total charitable impact boosted by {((leverageMult - 1) * 100).toFixed(0)}% using flash-minted stablecoin staking.
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
