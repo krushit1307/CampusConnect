@@ -20,6 +20,8 @@ import { EscrowDonationWidget } from "@/components/events/EscrowDonationWidget";
 import { SkillMatcherWidget } from "@/components/events/SkillMatcherWidget";
 import { OfacCompliancePanel } from "@/components/events/OfacCompliancePanel";
 import { HoneyPotTrapWidget } from "@/components/events/HoneyPotTrapWidget";
+import { DafDonationWidget } from "@/components/events/DafDonationWidget";
+import { ParametricInsuranceWidget } from "@/components/events/ParametricInsuranceWidget";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
 import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
@@ -1333,30 +1335,24 @@ export default function EventDetailsPage() {
         return { alreadyCheckedIn: true };
       }
 
-const { data: transition, error } = await supabase.rpc(
-  "transition_event_attendance",
-  {
-    p_rsvp_id: rsvpId,
-    p_to_state: "checked_in",
-    p_reason: "Organizer check-in",
-  },
-);
+      const { data: transition, error } = await supabase.rpc("transition_event_attendance", {
+        p_rsvp_id: rsvpId,
+        p_to_state: "checked_in",
+        p_reason: "Organizer check-in",
+      });
 
-if (error) throw error;
+      if (error) throw error;
 
-if (!transition?.success) {
-  if (transition?.code === "ALREADY_CHECKED_IN") {
-    return { alreadyCheckedIn: true };
-  }
+      if (!transition?.success) {
+        if (transition?.code === "ALREADY_CHECKED_IN") {
+          return { alreadyCheckedIn: true };
+        }
 
-  throw new Error(
-    transition?.message ||
-      transition?.code ||
-      "Unable to check in attendee.",
-  );
-}
+        throw new Error(transition?.message || transition?.code || "Unable to check in attendee.");
+      }
 
-return { alreadyCheckedIn: false };    },
+      return { alreadyCheckedIn: false };
+    },
     onSuccess: (result) => {
       if (result?.alreadyCheckedIn) {
         toast.success("This attendee is already checked in.");
@@ -2725,50 +2721,6 @@ return { alreadyCheckedIn: false };    },
                         venueName={event.title}
                       />
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* Event Series Catch-Up Hub */}
-              <EventSeriesCatchUpCard
-                eventId={event.id}
-                eventTitle={event.title}
-                recordingUrl={(event as any).recording_url}
-                materialsUrl={(event as any).materials_url}
-                seriesId={(event as any).series_id}
-              />
-
-              {/* Vending Machine Smart Credits */}
-              {user && (
-                <VendingMachineIntegration
-                  eventId={event.id}
-                  userId={user.id}
-                  isOrganizer={isOrganizer}
-                />
-              )}
-
-              {/* Event Feedback (Only if ended and user RSVP'd) */}
-              {user &&
-                hasRsvpd &&
-                event.end_date &&
-                new Date(event.end_date).getTime() < Date.now() && (
-                  <div className="mt-10">
-                    <EventFeedbackForm eventId={event.id} user={user} />
-                  </div>
-                )}
-
-              {/* Event Gallery */}
-              <div className="mt-8 border-t-2 border-black pt-8">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-                      Event Gallery
-                    </h2>
-                    <p className="font-mono text-xs text-black/60 mt-1">
-                      Photos shared from this event
-                    </p>
-                  </div>
-                  {isOrganizer && (
                   </>
                 ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                   <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
@@ -3794,6 +3746,11 @@ return { alreadyCheckedIn: false };    },
         />
         <OfacCompliancePanel />
         <HoneyPotTrapWidget />
+        <DafDonationWidget
+          clubId={event?.clubs?.id || ""}
+          clubWalletAddress="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        />
+        <ParametricInsuranceWidget eventId={eventId || ""} />
         <AslAvatarPip eventId={eventId || ""} />
       </SiteShell>
     </>
