@@ -13,7 +13,23 @@ export interface Request {
     role?: string;
   };
 }
+import { checkIfAccountSuspended } from '@/lib/security/accountSuspensionService';
 
+// Add this to the auth check middleware
+export async function checkAccountStatus(userId: string) {
+  const { isSuspended, suspension } = await checkIfAccountSuspended(userId);
+
+  if (isSuspended && suspension) {
+    return {
+      blocked: true,
+      reason: suspension.reason,
+      suspendedUntil: suspension.suspendedUntil,
+      remediationRequired: !!suspension.remediationCourseId,
+    };
+  }
+
+  return { blocked: false };
+}
 export interface Response {
   statusCode: number;
   headers: Record<string, string | string[]>;

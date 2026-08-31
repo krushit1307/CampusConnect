@@ -34,7 +34,24 @@ vi.mock("@/lib/supabase/client", () => ({
       }
       return {};
     }),
+    channel: vi.fn().mockReturnValue({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn(),
+      unsubscribe: vi.fn(),
+      track: vi.fn(),
+      presenceState: vi.fn().mockReturnValue({}),
+    }),
   }),
+}));
+
+vi.mock("@/components/events/CollaborativeDescriptionEditor", () => ({
+  default: ({ onChange }: any) => (
+    <textarea
+      placeholder="Event description"
+      onChange={(e) => onChange(e.target.value)}
+      data-testid="mock-collab-editor"
+    />
+  ),
 }));
 
 const mockUser = { id: "user-1" } as User;

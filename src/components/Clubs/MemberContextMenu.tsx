@@ -12,6 +12,7 @@ interface MemberContextMenuProps {
   };
   onToggleRole?: (memberId: string, currentRole: string) => void;
   onKick: (memberId: string) => void;
+  onImpeach?: (memberId: string) => void;
 }
 
 export function MemberContextMenu({
@@ -19,6 +20,7 @@ export function MemberContextMenu({
   member,
   onToggleRole,
   onKick,
+  onImpeach,
 }: MemberContextMenuProps) {
   const navigate = useNavigate();
 
@@ -56,6 +58,15 @@ export function MemberContextMenu({
           >
             Kick Member
           </ContextMenu.Item>
+
+          {onImpeach && member.role !== "member" && (
+            <ContextMenu.Item
+              className="flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-red-800 bg-red-100 outline-none focus:bg-red-200 font-bold mt-1"
+              onSelect={() => onImpeach(member.id)}
+            >
+              Cast Impeachment Vote
+            </ContextMenu.Item>
+          )}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

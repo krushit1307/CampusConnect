@@ -22,6 +22,14 @@ import type { DateRange } from "react-day-picker";
 import format from "date-fns/format";
 import { createClient } from "@/lib/supabase/client";
 import {
+  checkOrganizerPostMortemGate,
+  searchClubPostMortems,
+  findHistoricalRetrospectiveSuggestions,
+  type PendingPostMortemEvent,
+  type EventPostMortem,
+} from "@/services/eventPostMortemService";
+import { PostMortemGatingModal } from "@/components/events/PostMortemGatingModal";
+import {
   eventFormSchema,
   TITLE_MAX_LENGTH,
   hasDraftContent,
@@ -33,6 +41,7 @@ import {
   removeFaq,
   updateFaq,
   DEFAULT_EVENT_TAG_OPTIONS,
+  RESOURCE_OPTIONS,
   type EventFormValues,
 } from "@/lib/eventUtils";
 import { EventLogisticsService } from "@/services/eventLogisticsService";
@@ -97,8 +106,9 @@ interface LocalEventFormValues extends EventFormValues {
   maxAttendees?: number;
   offCampusSpeaker?: boolean;
   requiresApproval?: boolean;
+  requiresSignature?: boolean;
+  ndaTemplateUrl?: string;
 }
-
 const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
@@ -122,11 +132,12 @@ const defaultValues: LocalEventFormValues = {
   maxAttendees: undefined,
   offCampusSpeaker: false,
   requiresApproval: false,
+  requiresSignature: false,
+  ndaTemplateUrl: undefined,
   isPrivate: false,
   tags: [],
   faqs: [],
 };
-
 const DRAFT_KEY = "event_draft";
 const DRAFT_AUTOSAVE_INTERVAL_MS = 5000;
 
@@ -243,6 +254,31 @@ export function CreateEventDialog({
 
     return () => window.clearTimeout(timer);
   }, [watchedTitle, watchedDescription, clubId]);
+
+  // Post-Mortem Gating & Historical Retrospective Suggestions
+  const [showGatingModal, setShowGatingModal] = useState(false);
+
+  const { data: gatingStatus, refetch: refetchGating } = useQuery({
+    queryKey: ["organizer_post_mortem_gate", user?.id, clubId],
+    queryFn: () => (user ? checkOrganizerPostMortemGate(user.id, clubId) : null),
+    enabled: Boolean(user && open),
+  });
+
+  const { data: pastRetrospectives } = useQuery<EventPostMortem[]>({
+    queryKey: ["club_past_retrospectives", clubId],
+    queryFn: () => (clubId ? searchClubPostMortems(clubId) : []),
+    enabled: Boolean(clubId && open),
+  });
+
+  const historicalSuggestions = useMemo(() => {
+    if (!pastRetrospectives || pastRetrospectives.length === 0) return [];
+    return findHistoricalRetrospectiveSuggestions(
+      String(watchedTitle || ""),
+      String(watchedDescription || ""),
+      pastRetrospectives,
+    );
+  }, [watchedTitle, watchedDescription, pastRetrospectives]);
+
   const isUndoingRedoingRef = useRef(false);
   const {
     state: undoableState,
@@ -358,6 +394,13 @@ export function CreateEventDialog({
         throw new Error("You must be logged in to create an event.");
       }
 
+      if (gatingStatus?.is_locked && gatingStatus.pending_events?.length > 0) {
+        setShowGatingModal(true);
+        throw new Error(
+          `Event creation locked: You have ${gatingStatus.pending_count} pending post-mortem retrospective(s) to complete first.`,
+        );
+      }
+
       const payload = eventFormToDbPayload(values, user.id, clubId);
 
       // If user is currently offline, queue in IndexedDB & Background Sync immediately
@@ -377,6 +420,28 @@ export function CreateEventDialog({
 
         if (error) {
           throw new Error(error.message);
+        }
+
+        if (createdData?.id && values.resourceNeeds && values.resourceNeeds.length > 0) {
+          try {
+            const { error: resourceError } = await supabase.from("event_resource_requests").insert({
+              event_id: createdData.id,
+              resources: values.resourceNeeds,
+              status: "pending",
+              provider: "zendesk", // Default extensible provider
+            });
+            if (resourceError) {
+              console.warn("Failed to log resource request:", resourceError);
+            } else {
+              supabase.functions
+                .invoke("submit-resource-ticket", {
+                  body: { eventId: createdData.id },
+                })
+                .catch((err) => console.warn("Failed to invoke submit-resource-ticket:", err));
+            }
+          } catch (e) {
+            console.warn("Resource req fail", e);
+          }
         }
 
         if (createdData?.id) {
@@ -655,6 +720,22 @@ export function CreateEventDialog({
                     </FormItem>
                   )}
                 />
+
+                {/* Historical Retrospective Institutional Memory Suggestions */}
+                {historicalSuggestions.length > 0 && (
+                  <div className="border-2 border-amber-500 bg-amber-50 p-3 shadow-[2px_2px_0_0_#000]">
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-black uppercase text-amber-950 mb-1">
+                      <span>💡 Institutional Memory Tip</span>
+                    </div>
+                    <div className="space-y-1 font-mono text-[11px] text-amber-900">
+                      {historicalSuggestions.map((s, idx) => (
+                        <p key={idx}>
+                          • From <strong>{s.eventTitle}</strong> ({s.keyword}): &quot;{s.advice}&quot;
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <FormField
                   control={control}
                   name="category"
@@ -1031,10 +1112,69 @@ export function CreateEventDialog({
                   )}
                 />
 
+                <FormField
+                  control={control}
+                  name="requiresSignature"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Requires NDA Signature
+                        </FormLabel>
+                        <p className="text-xs text-black/50">
+                          Attendees must digitally sign an NDA before their RSVP is confirmed.
+                          Recommended for talks involving unreleased products or confidential
+                          material.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("requiresSignature") && (
+                  <FormField
+                    control={control}
+                    name="ndaTemplateUrl"
+                    render={({ field }) => (
+                      <FormItem className="rounded-md border-2 border-black bg-white p-4">
+                        <FormLabel className="font-bold">NDA Template (PDF)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const path = `${Date.now()}-${file.name}`;
+                              const { error: uploadError } = await supabase.storage
+                                .from("event_nda_templates")
+                                .upload(path, file);
+                              if (uploadError) {
+                                toast.error("Failed to upload NDA template");
+                                return;
+                              }
+                              const { data: publicUrlData } = supabase.storage
+                                .from("event_nda_templates")
+                                .getPublicUrl(path);
+                              field.onChange(publicUrlData.publicUrl);
+                            }}
+                          />
+                        </FormControl>
+                        <p className="mt-1 text-xs text-black/50">
+                          Attendees will be shown this document to review and sign before RSVP.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 {watchedGeofencingEnabled && (
                   <div className="space-y-3 rounded-md border-2 border-black bg-white p-4">
-                    <GeofenceMapPicker
-                      latitude={watchedLatitude}
+                    <GeofenceMapPicker                      latitude={watchedLatitude}
                       longitude={watchedLongitude}
                       radiusMeters={watchedGeofenceRadius || DEFAULT_GEOFENCE_RADIUS_METERS}
                       onChange={({ latitude, longitude }) => {
@@ -1174,6 +1314,35 @@ export function CreateEventDialog({
                     />
                   </div>
                 </div>
+
+                <FormField
+                  control={control}
+                  name="resourceNeeds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                        Resource Needs (IT & Facilities)
+                      </FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          value={(field.value || []).map((res: string) => {
+                            const option = RESOURCE_OPTIONS.find((o) => o.value === res);
+                            return { value: res, label: option?.label || res };
+                          })}
+                          onChange={(resources) => field.onChange(resources.map((r) => r.value))}
+                          options={RESOURCE_OPTIONS}
+                          placeholder="Select required resources..."
+                          allowCustom={true}
+                        />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-black/50">
+                        Automatically opens a ticket with the provider (e.g. Zendesk) for requested
+                        items.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
 
@@ -1431,6 +1600,17 @@ export function CreateEventDialog({
           </form>
         </Form>
       </DialogContent>
+      {gatingStatus?.pending_events && (
+        <PostMortemGatingModal
+          isOpen={showGatingModal}
+          pendingEvents={gatingStatus.pending_events}
+          onClose={() => setShowGatingModal(false)}
+          onSuccess={() => {
+            setShowGatingModal(false);
+            refetchGating();
+          }}
+        />
+      )}
     </Dialog>
   );
 }

@@ -25,7 +25,7 @@ vi.mock("@/lib/supabase/client", () => ({
             eq: () => ({
               maybeSingle: () => Promise.resolve({ data: { id: "layout-1" }, error: null })
             })
-          });
+          })
         }
       }
       if (table === "seats") {
@@ -42,7 +42,7 @@ vi.mock("@/lib/supabase/client", () => ({
                 })
               })
             })
-          });
+          })
         }
       }
       if (table === "event_rsvps") {
@@ -56,7 +56,7 @@ vi.mock("@/lib/supabase/client", () => ({
                 })
               })
             })
-          });
+          })
         }
       }
       return {

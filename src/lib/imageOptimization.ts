@@ -66,9 +66,11 @@ export function getOptimizedImageUrl(source: string, options: ImageTransformOpti
   return parsed.toString();
 }
 
+export const DEFAULT_RESPONSIVE_WIDTHS = [300, 600, 1200];
+
 export function buildResponsiveImageSrcSet(
   source: string,
-  widths: number[],
+  widths: number[] = DEFAULT_RESPONSIVE_WIDTHS,
   options: Omit<ImageTransformOptions, "width"> = {},
 ): string | undefined {
   if (!isSupabasePublicImage(source)) return undefined;

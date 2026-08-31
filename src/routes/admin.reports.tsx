@@ -11,6 +11,7 @@ import { useQuery } from "@/hooks/useReactQueryReplacement";
 
 const AdminCharts = lazy(() => import("@/components/AdminCharts"));
 import LazyHydrate from "@/components/LazyHydrate";
+import { DMCATakedownPipeline } from "@/components/admin/DMCATakedownPipeline";
 
 interface Profile {
   full_name: string | null;
@@ -97,7 +98,7 @@ export default function AdminReportsPage() {
   const [user, setUser] = useState<unknown | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "resolved" | "dismissed">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "pending" | "resolved" | "dismissed" | "dmca">("all");
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [note, setNote] = useState("");
 
@@ -249,7 +250,7 @@ export default function AdminReportsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 mb-6 border-b-2 border-black pb-4">
-            {(["all", "pending", "resolved", "dismissed"] as const).map((tab) => (
+            {(["all", "pending", "resolved", "dismissed", "dmca"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -257,24 +258,28 @@ export default function AdminReportsPage() {
                   activeTab === tab ? "bg-black text-white" : "bg-white text-black hover:bg-gray-50"
                 }`}
               >
-                {tab} ({reports.filter((r) => tab === "all" || r.status === tab).length})
+                {tab === "dmca" ? "DMCA Takedowns" : tab} ({tab === "dmca" ? "Auto" : reports.filter((r) => tab === "all" || r.status === tab).length})
               </button>
             ))}
           </div>
 
-          {isReportsLoading && (
-            <div className="text-center font-mono text-sm py-12 text-black">
-              Loading reports queue...
-            </div>
-          )}
+          {activeTab === "dmca" ? (
+            <DMCATakedownPipeline />
+          ) : (
+            <>
+              {isReportsLoading && (
+                <div className="text-center font-mono text-sm py-12 text-black">
+                  Loading reports queue...
+                </div>
+              )}
 
-          {!isReportsLoading && filteredReports.length === 0 && (
-            <div className="neu-border bg-white p-8 text-center font-mono text-sm text-gray-500">
-              No reports found in this section.
-            </div>
-          )}
+              {!isReportsLoading && filteredReports.length === 0 && (
+                <div className="neu-border bg-white p-8 text-center font-mono text-sm text-gray-500">
+                  No reports found in this section.
+                </div>
+              )}
 
-          <div className="space-y-4">
+              <div className="space-y-4">
             {filteredReports.map((report) => {
               const profile = Array.isArray(report.profiles) ? report.profiles[0] : report.profiles;
               return (
@@ -390,6 +395,8 @@ export default function AdminReportsPage() {
               );
             })}
           </div>
+        </>
+      )}
         </div>
       </div>
     </SiteShell>
