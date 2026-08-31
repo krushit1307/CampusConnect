@@ -288,6 +288,8 @@ export default function EventFloorplanPage() {
                 onRemovePoi={floorplan.removePoi}
                 heatmapZones={heatmap.zones}
                 onZoneDoorClick={(zone) => navigate(`/events/${eventId}/zones/${zone.id}/check-in`)}
+                evacuation={floorplan.evacuation}
+                saveError={floorplan.saveError}
               />
               <EventCapacityThermalMap eventId={eventId} />
             </div>
