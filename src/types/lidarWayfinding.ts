@@ -80,6 +80,7 @@ export interface AcousticWayfindingState {
 export interface WayfindingAudioConfig {
   speechEnabled: boolean;
   hapticsEnabled: boolean;
+  smartwatchHapticsEnabled: boolean;
   speechRate: number; // Default 1.0
   speechVolume: number; // Default 1.0
   voiceCooldownMs: number; // Default 4000ms

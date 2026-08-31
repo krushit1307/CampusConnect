@@ -11,6 +11,7 @@
 
 import { LiDARSensorAdapter, lidarSensorAdapter } from "@/lib/accessibility/lidarSensorAdapter";
 import { LiDARObstacleDetector, lidarObstacleDetector } from "@/services/lidarObstacleDetector";
+import { HapticAction, smartwatchHapticsAdapter } from "@/lib/hardware/smartwatchHaptics";
 import {
   AcousticWayfindingState,
   HazardSeverity,
@@ -24,6 +25,7 @@ export type StateListener = (state: AcousticWayfindingState) => void;
 export const DEFAULT_AUDIO_CONFIG: WayfindingAudioConfig = {
   speechEnabled: true,
   hapticsEnabled: true,
+  smartwatchHapticsEnabled: false,
   speechRate: 1.0,
   speechVolume: 1.0,
   voiceCooldownMs: 4000, // 4-second debouncing between warnings for same obstacle
@@ -208,6 +210,11 @@ export class AcousticWayfindingController {
       if (this.audioConfig.hapticsEnabled && !wasOverrideActive) {
         this.triggerAggressiveStopHaptics();
       }
+      
+      // 1b. Trigger Bluetooth Smartwatch haptics
+      if (this.audioConfig.smartwatchHapticsEnabled && !wasOverrideActive) {
+        smartwatchHapticsAdapter.sendHapticSignal(HapticAction.STOP_OBSTACLE);
+      }
 
       // 2. Speak urgent voice warning with debouncing
       const now = Date.now();
@@ -241,6 +248,9 @@ export class AcousticWayfindingController {
       if (cleared && this.audioConfig.speechEnabled) {
         this.speakText("Path cleared. Resume walking.");
         this.lastSpokenText = "Path cleared. Resume walking.";
+      }
+      if (cleared && this.audioConfig.smartwatchHapticsEnabled) {
+        smartwatchHapticsAdapter.sendHapticSignal(HapticAction.CLEAR);
       }
     }
   }
@@ -308,6 +318,17 @@ export class AcousticWayfindingController {
   }
 
   private updateState(partial: Partial<AcousticWayfindingState>): void {
+    if (partial.currentInstruction && partial.currentInstruction !== this.state.currentInstruction) {
+      if (this.audioConfig.smartwatchHapticsEnabled) {
+        const text = partial.currentInstruction.toLowerCase();
+        if (text.includes("right")) {
+          smartwatchHapticsAdapter.sendHapticSignal(HapticAction.TURN_RIGHT);
+        } else if (text.includes("left")) {
+          smartwatchHapticsAdapter.sendHapticSignal(HapticAction.TURN_LEFT);
+        }
+      }
+    }
+    
     this.state = { ...this.state, ...partial };
     this.stateListeners.forEach((listener) => listener(this.state));
   }
