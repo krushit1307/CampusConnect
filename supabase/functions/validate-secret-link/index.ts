@@ -30,10 +30,18 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
     );
 
+    const clientIp =
+      req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const userAgent = req.headers.get("user-agent") || "unknown";
+    const fingerprint = req.headers.get("x-device-fingerprint") || null;
+
     // Call the RPC function to validate the unlock hash
     const { data, error } = await supabaseClient.rpc("validate_unlock_hash", {
       p_event_id: eventId,
       p_unlock_hash: unlockHash,
+      p_ip_address: clientIp,
+      p_fingerprint: fingerprint,
+      p_user_agent: userAgent,
     });
 
     if (error) {

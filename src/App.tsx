@@ -162,6 +162,11 @@ const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
 const EventFloorplan = lazy(() => import("./routes/events.$eventId.floorplan"));
 const EventZoneCheckIn = lazy(() => import("./routes/events.$eventId.zones.$zoneId.check-in"));
 const LostFound = lazy(() => import("./routes/lost-found"));
+const LibraryBookFinder = lazy(() => import("./pages/LibraryBookFinder"));
+const Leaderboard = lazy(() =>
+  import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
+);
+const StudyGroupFinderPage = lazy(() => import("./pages/StudyGroupFinder"));
 const Leaderboard = lazy(() => import("./routes/leaderboard"));
 const Recap = lazy(() => import("./routes/recap"));
 const NetworkPage = lazy(() => import("@/pages/NetworkPage"));
@@ -183,10 +188,19 @@ const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
 const TourManager = lazy(() => import("./routes/tours.manage"));
 const TourMode = lazy(() => import("./routes/tours.$tourId"));
 const BundleCheckoutRoute = lazy(() => import("./pages/BundleCheckoutPage"));
+const EventCheckoutRoute = lazy(() => import("./routes/checkout.$event_id"));
 const BundleDetailsRoute = lazy(() => import("./pages/BundleDetailsPage"));
 const EquipmentMarketplace = lazy(() => import("./routes/equipment"));
 const MentorshipDashboard = lazy(() => import("./routes/mentorship-dashboard"));
 const EventFeedbackAnalytics = lazy(() => import("./pages/EventFeedbackAnalytics"));
+const CampusActivityHeatmap = lazy(() => import("@/components/heatmap/CampusActivityHeatmap"));
+const ActivityInsightsReport = lazy(() => import("@/pages/ActivityInsightsReport"));
+const AttendanceAnalyticsDashboard = lazy(
+  () => import("@/components/analytics/AttendanceAnalyticsDashboard"),
+);
+const EventRecommendationEngine = lazy(
+  () => import("@/components/recommendations/EventRecommendationEngine"),
+);
 const CampusShuttleTracker = lazy(() => import("./pages/CampusShuttleTracker"));
 const CourseReviews = lazy(() => import("./pages/CourseReviews"));
 const CampusParkingSpotFinder = lazy(() => import("./pages/CampusParkingSpotFinder"));
@@ -208,9 +222,17 @@ const DynamicEarlyBirdAnalyticsRoute = lazy(
 const AchievementsPage = lazy(() => import("@/pages/AchievementsPage"));
 const ProjectHubRoute = lazy(() => import("./routes/project-hub"));
 const EventFeedbackPage = lazy(() => import("@/pages/EventFeedbackPage"));
+const JuryReviewRoute = lazy(() => import("./routes/jury.review.$caseId"));
+const SponsorZkLeadsRoute = lazy(() => import("./routes/sponsor.zk-leads"));
+const AdminAutoGraderMonitorRoute = lazy(() => import("./routes/admin.auto-grader-monitor"));
+const DroneArSetupGuideRoute = lazy(() => import("./routes/equipment.drone-ar-guide.$assetId"));
 
 // ---------------------------------------------------------------------------
+const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id")); // ---------------------------------------------------------------------------
+const ParkingSpotFinderRoute = lazy(() => import("./pages/ParkingSpotFinder"));
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
+const EventBudgetManagerRoute = lazy(() => import("./pages/EventBudgetManager"));
+const AttendanceTrackerRoute = lazy(() => import("./pages/CampusAttendanceTracker"));
 // ---------------------------------------------------------------------------
 function AnimatedOutlet() {
   const location = useLocation();
@@ -473,6 +495,7 @@ const router = createBrowserRouter(
               {/* Bundles */}
               <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
               <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
+              <Route path="/checkout/:event_id" element={<EventCheckoutRoute />} />
 
               {/* Referrals */}
               <Route path="/referrals/dashboard" element={<ReferralDashboardRoute />} />
@@ -619,9 +642,79 @@ const router = createBrowserRouter(
               {/* Event Feedback Analytics */}
               <Route path="/event-feedback" element={<EventFeedbackAnalytics />} />
 
+              {/* Campus Activity Heatmap */}
+              <Route path="/analytics/heatmap" element={<CampusActivityHeatmap />} />
+
+              {/* Campus Activity Insights Report */}
+              <Route path="/analytics/insights" element={<ActivityInsightsReport />} />
+
+              {/* Attendance Analytics Dashboard */}
+              <Route path="/analytics/attendance" element={<AttendanceAnalyticsDashboard />} />
+
+              {/* Event Recommendation Engine */}
+              <Route path="/recommendations" element={<EventRecommendationEngine />} />
+              {/* Jury Duty Content Moderation DAO (Issue #5129) */}
+              <Route path="/jury/review/:caseId" element={<JuryReviewRoute />} />
+
+              {/* Real-Time Sponsor Lead CRM Webhook Zero-Knowledge Proof (Issue #5130) */}
+              <Route path="/sponsors/zk-leads" element={<SponsorZkLeadsRoute />} />
+
+              {/* GitHub Classroom Auto-Grader Load Balancer (Issue #5131) */}
+              <Route path="/admin/auto-grader-monitor" element={<AdminAutoGraderMonitorRoute />} />
+
+              {/* Drone Maintenance Augmented Reality Guide (Issue #5132) */}
+              <Route
+                path="/equipment/drone-ar-guide/:assetId"
+                element={<DroneArSetupGuideRoute />}
+              />
+
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Route>
+            <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+            <Route
+              path="/events/:eventId/kiosk"
+              element={
+                <Suspense fallback={<RemoteLoadingScreen />}>
+                  <EventKiosk />
+                </Suspense>
+              }
+            />
+            <Route path="/events/:eventId/gantt" element={<EventGantt />} />
+            {/* Events Map View with clustering */}
+            <Route path="events/map" element={<EventsMapPage />} />
+            {/* Campus Heatmap - Live Activity */}
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/tours/manage" element={<TourManager />} />
+            <Route path="/tours/:tourId" element={<TourMode />} />{" "}
+            <Route path="challenge" element={<ChallengeArena />} />
+            <Route path="leaderboard" element={<Leaderboard />} />
+            <Route path="/feed" element={<Feed />} />
+            <Route path="/library" element={<LibraryBookFinder />} />
+            <Route path="/lost-found" element={<LostFound />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/data" element={<SettingsData />} />
+            <Route path="/recap" element={<Recap />} />
+            <Route path="/volunteer-record" element={<VolunteerRecord />} />
+            <Route path="/network" element={<NetworkPage />} />
+            <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+            <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/messages" element={<MessagesRoute />} />
+            <Route path="/admin/reports" element={<AdminReportsPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/restore" element={<AdminRestorePage />} />
+            <Route path="/admin/dlq" element={<AdminDlqPage />} />
+            <Route path="/admin/emergency-broadcast" element={<AdminEmergencyBroadcast />} />{" "}
+            <Route path="/admin/badges" element={<AdminBadgesPage />} />{" "}
+            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
+            <Route path="/attendance" element={<AttendanceTrackerRoute />} />
+            <Route path="/admin/badges" element={<AdminBadgesPage />} />{" "}
+            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
+            {/* Catch-all route for 404 errors */}
+            <Route path="*" element={<NotFound />} />
             {/* Campus Shuttle Tracker */}
             <Route path="/shuttle-tracker" element={<CampusShuttleTracker />} />
             {/* Course Reviews */}
@@ -630,7 +723,53 @@ const router = createBrowserRouter(
             <Route path="/parking" element={<CampusParkingSpotFinder />} />
             {/* Library Book Finder */}
             <Route path="/library" element={<LibraryBookFinder />} />
+            <Route path="/study-groups" element={<StudyGroupFinderPage />} />
           </Route>
+          feature/3022-club-hibernation-workflow
+          <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+          <Route
+            path="/events/:eventId/kiosk"
+            element={
+              <Suspense fallback={<RemoteLoadingScreen />}>
+                <EventKiosk />
+              </Suspense>
+            }
+          />
+          <Route path="/events/:eventId/gantt" element={<EventGantt />} />
+          {/* Events Map View with clustering */}
+          <Route path="events/map" element={<EventsMapPage />} />
+          {/* Campus Heatmap - Live Activity */}
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/tours/manage" element={<TourManager />} />
+          <Route path="/tours/:tourId" element={<TourMode />} />{" "}
+          <Route path="challenge" element={<ChallengeArena />} />
+          <Route path="leaderboard" element={<Leaderboard />} />
+          <Route path="/feed" element={<Feed />} />
+          <Route path="/lost-found" element={<LostFound />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/data" element={<SettingsData />} />
+          <Route path="/recap" element={<Recap />} />
+          <Route path="/volunteer-record" element={<VolunteerRecord />} />
+          <Route path="/network" element={<NetworkPage />} />
+          <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+          <Route path="/admin/clubs/revival-requests" element={<AdminRevivalRequestsPage />} />
+          <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/messages" element={<MessagesRoute />} />
+          <Route path="/admin/reports" element={<AdminReportsPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/restore" element={<AdminRestorePage />} />
+          <Route path="/admin/dlq" element={<AdminDlqPage />} />
+          <Route path="/admin/leadership-approvals" element={<AdminLeadershipApprovals />} />
+          <Route path="/equipment-rentals" element={<EquipmentMarketplace />} />
+          <Route path="/mentorship-dashboard" element={<MentorshipDashboard />} />
+          <Route path="/parking" element={<ParkingSpotFinderRoute />} />
+          <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
+          <Route path="/event-budgets" element={<EventBudgetManagerRoute />} />
+          {/* Catch-all route for 404 errors */}
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Route>
     </>,

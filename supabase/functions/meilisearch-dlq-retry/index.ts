@@ -32,8 +32,8 @@ interface DlqRow {
   table_name: string;
   record_id: string;
   operation: string;
-  payload: {
-    type: string;
+  sync_version: number | null;
+  payload: {    type: string;
     table: string;
     record: Record<string, unknown> | null;
     old_record: Record<string, unknown> | null;
@@ -90,9 +90,40 @@ Deno.serve(async (req: Request) => {
   let exhausted = 0;
 
   for (const row of dlqRows as DlqRow[]) {
-    const payload = row.payload;
-    let success = false;
+const payload = row.payload;
+let success = false;
 
+if (row.table_name === "events" && row.sync_version !== null) {
+  const { data: currentEvent, error: currentEventError } =
+    await supabase
+      .from("events")
+      .select("version, search_sync_version")
+      .eq("id", row.record_id)
+      .maybeSingle();
+
+  if (currentEventError) {
+    throw new Error(
+      `Unable to verify current event version: ${currentEventError.message}`,
+    );
+  }
+
+  if (currentEvent) {
+    const currentVersion = Number(
+      currentEvent.search_sync_version ??
+        currentEvent.version ??
+        1,
+    );
+
+    if (row.sync_version < currentVersion) {
+      await supabase
+        .from("meilisearch_dlq")
+        .delete()
+        .eq("id", row.id);
+
+      continue;
+    }
+  }
+}
     try {
       if (payload.type === "DELETE") {
         const recordId = payload.old_record?.id;

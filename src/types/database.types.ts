@@ -4775,6 +4775,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      skill_endorsements: {
+        Row: {
+          id: string;
+          user_id: string;
+          endorser_user_id: string;
+          event_id: string;
+          club_id: string | null;
+          skill_tag: string;
+          comment: string | null;
+          endorser_weight: number;
+          attendance_proof: Json;
+          proof_digest: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endorser_user_id: string;
+          event_id: string;
+          club_id?: string | null;
+          skill_tag: string;
+          comment?: string | null;
+          endorser_weight: number;
+          attendance_proof: Json;
+          proof_digest: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          endorser_user_id?: string;
+          event_id?: string;
+          club_id?: string | null;
+          skill_tag?: string;
+          comment?: string | null;
+          endorser_weight?: number;
+          attendance_proof?: Json;
+          proof_digest?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       set_club_role_manager: {
@@ -5377,6 +5422,62 @@ export type Database = {
           p_event_id: string;
         };
         Returns: Json;
+      };
+      endorse_volunteer_skill: {
+        Args: {
+          p_event_id: string;
+          p_user_id: string;
+          p_skill_tag: string;
+          p_comment?: string | null;
+        };
+        Returns: Json;
+      };
+      get_endorseable_volunteers: {
+        Args: {
+          p_event_id: string;
+        };
+        Returns: {
+          user_id: string;
+          full_name: string;
+          handle: string;
+          avatar_url: string | null;
+          attendance_method: string;
+          endorsed_skills: string[];
+        }[];
+      };
+      get_user_skill_endorsements: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: {
+          id: string;
+          user_id: string;
+          endorser_user_id: string;
+          endorser_name: string | null;
+          endorser_handle: string | null;
+          endorser_avatar: string | null;
+          event_id: string;
+          event_title: string | null;
+          club_name: string | null;
+          skill_tag: string;
+          comment: string | null;
+          endorser_weight: number;
+          attendance_proof: Json;
+          proof_digest: string;
+          created_at: string;
+        }[];
+      };
+      get_skill_endorsement_summary: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: {
+          skill_tag: string;
+          weighted_score: number;
+          endorsement_count: number;
+          distinct_endorsers: number;
+          last_endorsed_at: string;
+        }[];
       };
     };
     Enums: {

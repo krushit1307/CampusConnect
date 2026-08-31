@@ -39,7 +39,6 @@ model RSVP {
 
   @@unique([eventId, userId])
 }
-
 model LostAndFoundItem {
   id              String   @id @default(uuid())
   type            String   // 'LOST' or 'FOUND'

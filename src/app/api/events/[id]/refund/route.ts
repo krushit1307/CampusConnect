@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { processPartialRefund, calculateRefundAmount } from '@/lib/stripe/refunds';
 import { PartialRefundRequest } from '@/types/refunds';
-
+import { authorizeResourceAction } from '@/lib/auth/authorizeResourceAction';
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -13,9 +13,22 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
-        const eventId = params.id;
-        const body: PartialRefundRequest = await req.json();
+const eventId = params.id;
 
+const authorization = await authorizeResourceAction(
+    "event",
+    eventId,
+    "refund_event",
+);
+
+if (!authorization.authorized) {
+    return NextResponse.json(
+        { error: authorization.error },
+        { status: authorization.status },
+    );
+}
+
+const body: PartialRefundRequest = await req.json();
         if (!body.refundType || !body.value || !body.reason) {
             return NextResponse.json(
                 { error: 'Missing required refund parameters' },

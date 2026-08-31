@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 /**
  * @title ParametricInsurance
  * @notice A decentralized parametric insurance smart contract for student events.
- * @dev Payouts are triggered autonomously based on Oracle weather data (e.g., precipitation > 1.0 inches).
+ * @dev Payouts are triggered autonomously based on TWAP Oracle weather data to prevent flash loan arbitrage.
  */
 contract ParametricInsurance {
     address public owner;
@@ -24,7 +24,7 @@ contract ParametricInsurance {
     mapping(string => Policy) public policies;
     
     event PolicyCreated(string eventId, uint256 premium, uint256 coverage);
-    event PayoutTriggered(string eventId, uint256 amount, int256 precipitation);
+    event PayoutTriggered(string eventId, uint256 amount, uint256 twapProbability);
     
     modifier onlyOwner() {
         require(msg.sender == owner, "Not authorized");
@@ -45,18 +45,22 @@ contract ParametricInsurance {
      * @notice Allows a club to purchase parametric insurance for an event.
      * @param eventId Unique identifier for the event
      * @param coverageAmount The amount to be paid out if triggered (e.g., 5000 USD equivalent in wei)
+     * @param eventTime The scheduled timestamp of the event
      * @param lat Latitude of the event (multiplied by 1e6 for precision)
      * @param lon Longitude of the event (multiplied by 1e6 for precision)
      */
     function purchasePolicy(
         string memory eventId,
         uint256 coverageAmount,
+        uint256 eventTime,
         int256 lat,
         int256 lon
     ) external payable {
         require(msg.value > 0, "Premium must be > 0");
         // In production: require(msg.value == (coverageAmount * 2) / 100); // 2% premium
         
+        // Flash Loan / Arbitrage Prevention: Must buy at least 1 hour before event, replacing the 72-hour lockup
+        require(eventTime >= block.timestamp + 1 hours, "Must purchase at least 1 hour before event");
         require(!policies[eventId].isActive, "Policy already exists");
         
         policies[eventId] = Policy({
@@ -64,7 +68,7 @@ contract ParametricInsurance {
             coverageAmount: coverageAmount,
             isActive: true,
             isClaimed: false,
-            eventTimestamp: block.timestamp,
+            eventTimestamp: eventTime,
             latitude: lat,
             longitude: lon
         });
@@ -73,13 +77,13 @@ contract ParametricInsurance {
     }
     
     /**
-     * @notice Called by the trusted Oracle to trigger a payout if weather conditions are met.
+     * @notice Called by the trusted Oracle to trigger a payout if TWAP weather conditions are met.
      * @param eventId The event to check
-     * @param precipitationInches The recorded precipitation at the event location (multiplied by 100)
+     * @param twapRainProbability The Time-Weighted Average probability of rain over the preceding 24 hours (0-100)
      */
     function reportWeatherAndTrigger(
         string memory eventId,
-        int256 precipitationInches
+        uint256 twapRainProbability
     ) external onlyOracle {
         Policy storage policy = policies[eventId];
         
@@ -87,15 +91,19 @@ contract ParametricInsurance {
         require(!policy.isClaimed, "Policy already claimed");
         require(block.timestamp >= policy.eventTimestamp, "Event has not occurred yet");
         
-        // Trigger condition: precipitation > 1.0 inches (represented as > 100)
-        if (precipitationInches > 100) {
+        // Payout logic changed: Trigger condition is TWAP probability > 50%
+        // Dilutes instantaneous spikes from hackers using flash loans when a storm forms.
+        if (twapRainProbability > 50) {
             policy.isClaimed = true;
             policy.isActive = false;
             
             // In a real implementation, this would transfer from a dedicated pool
             // payable(msg.sender).transfer(policy.coverageAmount); // Simplified for artifact
             
-            emit PayoutTriggered(eventId, policy.coverageAmount, precipitationInches);
+            emit PayoutTriggered(eventId, policy.coverageAmount, twapRainProbability);
+        } else {
+            // Flash loan arbitrage neutralization: Payout $0
+            policy.isActive = false; // Expire without payout
         }
     }
     

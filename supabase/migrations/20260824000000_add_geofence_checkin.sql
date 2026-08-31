@@ -261,27 +261,52 @@ BEGIN
 
   -- Authorize exactly this row's checked_in flip for the trigger above,
   -- then perform the update in the same transaction.
-  PERFORM set_config('app.geofence_checkin_bypass', v_rsvp.id::text, true);
-
-  UPDATE public.event_rsvps
-  SET checked_in = true
-  WHERE id = v_rsvp.id;
-
-  INSERT INTO public.event_attendance_logs (
-    rsvp_id, recorded_by, verification_method, distance_meters, location_accuracy_meters
-  ) VALUES (
-    v_rsvp.id, auth.uid(), 'geofence', v_distance, p_accuracy_meters
-  );
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'already_checked_in', false,
-    'distance_meters', ROUND(v_distance::numeric, 1),
-    'radius_meters', v_event.geofence_radius_meters
-  );
-END;
+DECLARE
+  v_transition JSONB;END;
 $$;
+v_transition := public.transition_event_attendance(
+  v_rsvp.id,
+  'checked_in',
+  'Geofence check-in'
+);
 
+IF COALESCE((v_transition->>'success')::BOOLEAN, FALSE) IS NOT TRUE THEN
+  RAISE EXCEPTION '%',
+    COALESCE(
+      v_transition->>'message',
+      v_transition->>'code',
+      'Attendance transition failed.'
+    );
+END IF;
+
+-- The transition function is responsible for changing the
+-- attendance state and creating the audit record.
+-- Update the latest audit entry with geofence-specific metadata.
+UPDATE public.event_attendance_logs
+SET
+  verification_method = 'geofence',
+  distance_meters = v_distance,
+  location_accuracy_meters = p_accuracy_meters
+WHERE rsvp_id = v_rsvp.id
+  AND recorded_by = auth.uid()
+  AND verification_method = 'manual'
+  AND checked_in_at = (
+    SELECT MAX(checked_in_at)
+    FROM public.event_attendance_logs
+    WHERE rsvp_id = v_rsvp.id
+  );
+
+RETURN jsonb_build_object(
+  'success', true,
+  'already_checked_in',
+    COALESCE(
+      (v_transition->>'code') = 'ALREADY_CHECKED_IN',
+      false
+    ),
+  'distance_meters', ROUND(v_distance::numeric, 1),
+  'radius_meters', v_event.geofence_radius_meters,
+  'state', 'checked_in'
+);
 COMMENT ON FUNCTION public.check_in_via_geofence IS
   'Attendee self check-in. Verifies the caller owns the RSVP and that their '
   'reported device location is within the event''s geofence, then flips '

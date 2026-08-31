@@ -1,15 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateEventWithOCC } from '@/lib/events/concurrency';
-import { EventUpdatePayload } from '@/types/events';
+import { updateEventWithOCC } from '@/lib/events/concurrency';import { EventUpdatePayload } from '@/types/events';
 
 export async function PUT(
     req: NextRequest,
     { params }: { params: { id: string } }
 ) {
     try {
-        const eventId = params.id;
-        const body: EventUpdatePayload = await req.json();
+const eventId = params.id;
 
+const authorization = await authorizeResourceAction(
+    "event",
+    eventId,
+    "update_event",
+);
+
+if (!authorization.authorized) {
+    return NextResponse.json(
+        { error: authorization.error },
+        { status: authorization.status },
+    );
+}
+
+const body: EventUpdatePayload = await req.json();
         if (body.eventId !== eventId) {
             return NextResponse.json({ error: 'Event ID mismatch' }, { status: 400 });
         }

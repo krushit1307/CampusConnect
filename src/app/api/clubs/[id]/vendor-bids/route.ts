@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { assertClubNotFrozen, validateTransactionAmount } from '@/lib/finance/budgetFreeze';
 import { VendorBidRequest } from '@/types/clubs';
-
+import { authorizeResourceAction } from '@/lib/auth/authorizeResourceAction';
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -13,9 +13,22 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
-        const clubId = params.id;
-        const body: VendorBidRequest = await req.json();
+const clubId = params.id;
 
+const authorization = await authorizeResourceAction(
+    "club",
+    clubId,
+    "manage_event_resources",
+);
+
+if (!authorization.authorized) {
+    return NextResponse.json(
+        { error: authorization.error },
+        { status: authorization.status },
+    );
+}
+
+const body: VendorBidRequest = await req.json();
         // 1. Intercept and check if club is frozen
         await assertClubNotFrozen(clubId);
 

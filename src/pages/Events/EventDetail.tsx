@@ -20,6 +20,7 @@ import { useBannerColor } from "@/hooks/useBannerColor";
 import { EventFeedbackSurvey } from "@/components/events/EventFeedbackSurvey";
 import VolunteerShifts from "@/components/VolunteerShifts";
 import { LiveTaskOrganizerPanel } from "@/components/events/LiveTaskOrganizerPanel";
+import { SkillEndorsementPanel } from "@/components/events/SkillEndorsementPanel";
 import { LiveTaskAttendeePopup } from "@/components/events/LiveTaskAttendeePopup";
 import { HelpQueueMentorDashboard } from "@/components/events/HelpQueueMentorDashboard";
 import { HelpQueueAttendeeWidget } from "@/components/events/HelpQueueAttendeeWidget";
@@ -295,6 +296,12 @@ export default function EventDetail() {
         {isOrganizer && event.id && (
           <div className="pt-6">
             <LiveTaskOrganizerPanel eventId={event.id} />
+          </div>
+        )}
+
+        {isOrganizer && event.id && (
+          <div className="pt-6">
+            <SkillEndorsementPanel eventId={event.id} />
           </div>
         )}
 

@@ -12,7 +12,7 @@ export const activeDonationTracks = new Map();
  * Listens for a specific transaction hash to be confirmed on the blockchain
  * and verifies it matches the expected USDC donation amount.
  */
-export const trackCryptoDonation = async (clubId, txHash, donorAddress, expectedAmount) => {
+export const trackCryptoDonation = async (clubId, txHash, donorAddress, expectedAmount, tokenContract = null, scamRegistry = []) => {
   try {
     activeDonationTracks.set(txHash, { status: 'PENDING', clubId, donorAddress });
 
@@ -28,6 +28,14 @@ export const trackCryptoDonation = async (clubId, txHash, donorAddress, expected
     if (isSuccess) {
       // For real verification, we'd parse receipt.logs for USDC transfer event:
       // const transferTopic = ethers.utils.id("Transfer(address,address,uint256)");
+
+      const fiatUsd = Number(expectedAmount);
+      const isScam = tokenContract && [...scamRegistry].map((a) => String(a).toLowerCase()).includes(String(tokenContract).toLowerCase());
+      if (isScam || !(Number.isFinite(fiatUsd) && fiatUsd >= 1)) {
+        console.log(`[Web3 Monitor] Dropped dust/scam TX: ${txHash}`);
+        activeDonationTracks.set(txHash, { status: 'DROPPED', clubId, donorAddress });
+        return { success: true, dropped: true };
+      }
       
       console.log(`[Web3 Monitor] Donation Confirmed on-chain! TX: ${txHash}`);
       

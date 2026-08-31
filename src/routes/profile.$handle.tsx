@@ -24,6 +24,7 @@ import { PoapTrophyCase } from "@/components/gamification/PoapTrophyCase";
 import { ProgressRing } from "@/components/profile/ProgressRing";
 import { useState, useEffect } from "react";
 import { SharedClubsSection } from "@/components/profile/SharedClubsSection";
+import { SkillEndorsementsSection } from "@/components/profile/SkillEndorsementsSection";
 import { getSharedClubs } from "@/lib/sharedClubs";
 import { ReportDialog } from "@/components/ReportDialog";
 import { AlertTriangle } from "lucide-react";
@@ -364,6 +365,14 @@ export default function Profile() {
               targetUserName={profile.full_name || profile.handle}
             />
           )}
+
+          {/* ── NEW (Issue #3677): Verified Skill Endorsements Section ───── */}
+          <SkillEndorsementsSection
+            profileId={profile.id}
+            profileHandle={profile.handle || ""}
+            profileName={profile.full_name || profile.handle || "This user"}
+            isOwnProfile={Boolean(currentUser?.id && currentUser.id === profile.id)}
+          />
 
           {/* Upcoming Events Section */}
           <div className="space-y-6">

@@ -2,14 +2,14 @@ import { trackCryptoDonation, activeDonationTracks } from '../services/cryptoDon
 
 export const submitCryptoDonationTrack = async (req, res) => {
   try {
-    const { clubId, txHash, donorAddress, amount } = req.body;
+    const { clubId, txHash, donorAddress, amount, tokenContract } = req.body;
 
     if (!txHash || !clubId) {
       return res.status(400).json({ error: "Missing transaction hash or club ID" });
     }
 
     // Fire and forget tracking function
-    trackCryptoDonation(clubId, txHash, donorAddress, amount);
+    trackCryptoDonation(clubId, txHash, donorAddress, amount, tokenContract);
 
     return res.status(202).json({
       success: true,

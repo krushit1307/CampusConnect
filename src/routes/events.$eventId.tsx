@@ -14,6 +14,12 @@ import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { AslAvatarPip } from "@/components/events/AslAvatarPip";
+import { AudioDescriptionSyncWidget } from "@/components/events/AudioDescriptionSyncWidget";
+import { LiveTranslationEarpiecePanel } from "@/components/events/LiveTranslationEarpiecePanel";
+import { EscrowDonationWidget } from "@/components/events/EscrowDonationWidget";
+import { SkillMatcherWidget } from "@/components/events/SkillMatcherWidget";
+import { OfacCompliancePanel } from "@/components/events/OfacCompliancePanel";
+import { HoneyPotTrapWidget } from "@/components/events/HoneyPotTrapWidget";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
 import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
@@ -110,6 +116,7 @@ import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccess
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { EventSeriesCatchUpCard } from "@/components/events/EventSeriesCatchUpCard";
+import { VendingMachineIntegration } from "@/components/events/VendingMachineIntegration";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import {
@@ -148,6 +155,7 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+import { EventTransitSyncWidget } from "@/components/events/EventTransitSyncWidget";
 import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
 import { WaitlistBiddingLeaderboard } from "@/components/events/WaitlistBiddingLeaderboard";
 
@@ -691,7 +699,7 @@ export default function EventDetailsPage() {
           venues (
             name, building, capacity, accessibility_features, latitude, longitude, geofence_radius_meters
           ),
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code, base_price, surge_multiplier, is_bidding_enabled,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code, base_price, surge_multiplier, is_bidding_enabled, audio_description_url, audio_description_enabled,
           profiles (full_name, email),
           event_metrics (views)
         `,
@@ -1324,28 +1332,30 @@ export default function EventDetailsPage() {
         return { alreadyCheckedIn: true };
       }
 
-      const { error } = await supabase
-        .from("event_rsvps")
-        .update({ checked_in: true })
-        .eq("id", rsvpId)
-        .eq("event_id", eventId);
+const { data: transition, error } = await supabase.rpc(
+  "transition_event_attendance",
+  {
+    p_rsvp_id: rsvpId,
+    p_to_state: "checked_in",
+    p_reason: "Organizer check-in",
+  },
+);
 
-      if (error) throw error;
+if (error) throw error;
 
-      try {
-        await supabase.from("event_attendance_logs").insert({
-          rsvp_id: rsvpId,
-          recorded_by: user.id,
-          // Distinguishes this manual/QR-adjacent organizer action from an
-          // attendee's own GPS-verified self check-in (see check_in_via_geofence).
-          verification_method: "organizer_override",
-        });
-      } catch {
-        // Attendance logging is optional if the table is unavailable in the current environment.
-      }
+if (!transition?.success) {
+  if (transition?.code === "ALREADY_CHECKED_IN") {
+    return { alreadyCheckedIn: true };
+  }
 
-      return { alreadyCheckedIn: false };
-    },
+  throw new Error(
+    transition?.message ||
+      transition?.code ||
+      "Unable to check in attendee.",
+  );
+}
+
+return { alreadyCheckedIn: false };    },
     onSuccess: (result) => {
       if (result?.alreadyCheckedIn) {
         toast.success("This attendee is already checked in.");
@@ -2705,6 +2715,58 @@ export default function EventDetailsPage() {
                     >
                       Open in Google Maps ↗
                     </a>
+
+                    <div className="mt-6">
+                      <EventTransitSyncWidget
+                        venueLatitude={coordsCheck.lat}
+                        venueLongitude={coordsCheck.lng}
+                        venueName={event.title}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Event Series Catch-Up Hub */}
+              <EventSeriesCatchUpCard
+                eventId={event.id}
+                eventTitle={event.title}
+                recordingUrl={(event as any).recording_url}
+                materialsUrl={(event as any).materials_url}
+                seriesId={(event as any).series_id}
+              />
+
+              {/* Vending Machine Smart Credits */}
+              {user && (
+                <VendingMachineIntegration
+                  eventId={event.id}
+                  userId={user.id}
+                  isOrganizer={isOrganizer}
+                />
+              )}
+
+              {/* Event Feedback (Only if ended and user RSVP'd) */}
+              {user &&
+                hasRsvpd &&
+                event.end_date &&
+                new Date(event.end_date).getTime() < Date.now() && (
+                  <div className="mt-10">
+                    <EventFeedbackForm eventId={event.id} user={user} />
+                  </div>
+                )}
+
+              {/* Event Gallery */}
+              <div className="mt-8 border-t-2 border-black pt-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                      Event Gallery
+                    </h2>
+                    <p className="font-mono text-xs text-black/60 mt-1">
+                      Photos shared from this event
+                    </p>
+                  </div>
+                  {isOrganizer && (
                   </>
                 ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                   <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
@@ -3707,6 +3769,29 @@ export default function EventDetailsPage() {
             />
           </div>
         )}
+        <AudioDescriptionSyncWidget
+          eventId={eventId || ""}
+          audioDescriptionUrl={event?.audio_description_url || null}
+          videoElement={null}
+        />
+        <LiveTranslationEarpiecePanel
+          eventId={eventId || ""}
+          userId={user?.id ?? null}
+          isOrganizer={isOrganizer}
+          isCheckedIn={Boolean(myRsvp?.checked_in)}
+        />
+        <EscrowDonationWidget
+          clubId={event?.clubs?.name || ""}
+          clubWalletAddress="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+          userRole={user?.id === event?.created_by ? "club" : "donor"}
+        />
+        <SkillMatcherWidget
+          userRole={user?.id === event?.created_by ? "recruiter" : "student"}
+          sponsorId={event?.created_by || ""}
+          companyName={event?.clubs?.name || ""}
+        />
+        <OfacCompliancePanel />
+        <HoneyPotTrapWidget />
         <AslAvatarPip eventId={eventId || ""} />
       </SiteShell>
     </>

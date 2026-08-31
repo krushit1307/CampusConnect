@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { executeProratedUpgrade } from '@/lib/stripe/proration';
-
+import { authorizeResourceAction } from '@/lib/auth/authorizeResourceAction';
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -12,9 +12,22 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
-        const clubId = params.id;
-        const { newPriceId, previewInvoiceId } = await req.json();
+const clubId = params.id;
 
+const authorization = await authorizeResourceAction(
+    "club",
+    clubId,
+    "manage_roles",
+);
+
+if (!authorization.authorized) {
+    return NextResponse.json(
+        { error: authorization.error },
+        { status: authorization.status },
+    );
+}
+
+const { newPriceId, previewInvoiceId } = await req.json();
         if (!newPriceId || !previewInvoiceId) {
             return NextResponse.json(
                 { error: 'Missing required parameters' },

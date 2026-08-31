@@ -6,6 +6,7 @@ import { EventCapacity } from '@/types/bouncer';
 import { getEventCapacity, triggerEmergencyHalt } from '@/lib/bouncer/capacityControl';
 import EmergencyCapacityAlert from '@/components/bouncer/EmergencyCapacityAlert';
 import { useAuth } from '@/lib/auth';
+import { useFireAlarmMonitor } from '@/hooks/useFireAlarmMonitor';
 
 export default function BouncerCheckInPage() {
     const params = useParams();
@@ -17,6 +18,18 @@ export default function BouncerCheckInPage() {
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const [evacuationMessage, setEvacuationMessage] = useState<string | null>(null);
+
+    // Fire alarm audio fingerprinting — background FFT T3 detection → EMERGENCY_EVACUATION → drop magnetic locks
+    const { status: fireAlarmStatus, lastPeakHz } = useFireAlarmMonitor({
+        eventId,
+        bouncerId: user?.id ?? null,
+        enabled: !!user && !!eventId,
+        onEvacuationTriggered: () => {
+            setEvacuationMessage('🔥 FIRE ALARM DETECTED — TURNSTILES UNLOCKED FOR EVACUATION');
+            setMessage({ type: 'error', text: 'EMERGENCY EVACUATION ACTIVE — Magnetic locks dropped. Free-flow exit enabled.' });
+        },
+    });
 
     // Poll capacity every 3 seconds
     useEffect(() => {
@@ -99,11 +112,17 @@ export default function BouncerCheckInPage() {
     }
 
     const isAtCapacity = capacity.checked_in_count >= capacity.venue_physical_capacity;
+    const isEvacuating = fireAlarmStatus === 'evacuating' || !!evacuationMessage || (capacity as unknown as { emergency_evacuation_active?: boolean }).emergency_evacuation_active;
 
     return (
-        <div className={`min-h-screen flex flex-col ${isAtCapacity || capacity.emergency_halt_active ? 'bg-red-950' : 'bg-gray-900'}`}>
+        <div className={`min-h-screen flex flex-col ${isAtCapacity || capacity.emergency_halt_active || isEvacuating ? 'bg-red-950' : 'bg-gray-900'}`}>
             {capacity.emergency_halt_active && (
                 <EmergencyCapacityAlert onReset={() => window.location.reload()} />
+            )}
+            {isEvacuating && (
+                <div className="bg-red-600 text-white text-center py-4 px-6 font-black text-xl animate-pulse border-b-4 border-red-800" role="alert" aria-live="assertive">
+                    {evacuationMessage ?? 'EMERGENCY EVACUATION — TURNSTILES UNLOCKED — FREE-FLOW EXIT'} {lastPeakHz ? `(${Math.round(lastPeakHz)} Hz T3)` : ''} — Fire alarm {fireAlarmStatus}
+                </div>
             )}
 
             <div className="flex-1 flex flex-col items-center justify-center p-6 max-w-2xl mx-auto w-full">
