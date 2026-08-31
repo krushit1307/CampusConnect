@@ -26,7 +26,11 @@ interface VideoPlayerProps {
 
 // Strip any VTT markup tags (<i>, <b>, <c>, <v>, etc.) that may already be
 // present in cue text before we run our own bold-fixation transform on it.
-const stripVttTags = (text: string): string => text.replace(/<[^>]+>/g, "");
+// Only strips WebVTT's own markup tags (voice, class, ruby, italics, bold,
+// underline, and their timestamp/annotation variants) — not arbitrary
+// angle-bracket text a caption might legitimately contain, e.g. "x < y > z".
+const stripVttTags = (text: string): string =>
+  text.replace(/<\/?(?:c|i|b|u|ruby|rt|v|lang)(?:[.\w-]*)?(?:\s[^>]*)?>/gi, "");
 
 // Applies a "Bionic Reading" style bold-fixation to a single word: the first
 // portion of the word's letters are bolded so the eye can anchor on them and
@@ -34,14 +38,19 @@ const stripVttTags = (text: string): string => text.replace(/<[^>]+>/g, "");
 // pace with fast-moving text. Leading/trailing punctuation is preserved
 // outside the bold span so things like quotes and commas render normally.
 const bionicWord = (word: string): string => {
-  const match = word.match(/^([^a-zA-Z0-9]*)([a-zA-Z0-9]+)([^a-zA-Z0-9]*)$/);
+  // \p{L} (letters) and \p{N} (numbers) cover non-ASCII scripts (Cyrillic,
+  // Arabic, CJK, accented Latin, etc.), not just [a-zA-Z0-9].
+  const match = word.match(/^([^\p{L}\p{N}]*)([\p{L}\p{N}]+)([^\p{L}\p{N}]*)$/u);
   if (!match) return word;
   const [, prefix, core, suffix] = match;
-  if (core.length <= 1) return `${prefix}${core}${suffix}`;
+  // Use Unicode-aware grapheme count so combining accents don't distort the
+  // bold cut point.
+  const coreChars = Array.from(core);
+  if (coreChars.length <= 1) return `${prefix}${core}${suffix}`;
 
-  const boldLength = Math.max(1, Math.ceil(core.length * 0.45));
-  const boldPart = core.slice(0, boldLength);
-  const restPart = core.slice(boldLength);
+  const boldLength = Math.max(1, Math.ceil(coreChars.length * 0.45));
+  const boldPart = coreChars.slice(0, boldLength).join("");
+  const restPart = coreChars.slice(boldLength).join("");
   return `${prefix}<strong>${boldPart}</strong>${restPart}${suffix}`;
 };
 
@@ -464,6 +473,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     onClick={() => {
                       setSelectedTrack("off");
                       setShowCcMenu(false);
+                      setBionicReadingEnabled(false);
                       if (videoRef.current) {
                         for (let i = 0; i < videoRef.current.textTracks.length; i++) {
                           videoRef.current.textTracks[i].mode = "disabled";
@@ -505,10 +515,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     </button>
                   ))}
                   <div className="border-t border-zinc-700 mt-1 pt-2 px-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-gray-200 py-1 select-none">
+                    <label
+                      className={`flex items-center gap-2 py-1 select-none ${
+                        selectedTrack === "off"
+                          ? "text-gray-500 cursor-not-allowed"
+                          : "text-gray-200 cursor-pointer"
+                      }`}
+                    >
                       <input
                         type="checkbox"
                         checked={bionicReadingEnabled}
+                        disabled={selectedTrack === "off"}
                         onChange={(e) => setBionicReadingEnabled(e.target.checked)}
                         className="accent-indigo-500"
                         aria-label="Enable Dyslexia-Optimized Subtitles"
