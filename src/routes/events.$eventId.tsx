@@ -15,6 +15,7 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { AslAvatarPip } from "@/components/events/AslAvatarPip";
 import { AudioDescriptionSyncWidget } from "@/components/events/AudioDescriptionSyncWidget";
+import { LiveTranslationEarpiecePanel } from "@/components/events/LiveTranslationEarpiecePanel";
 import { EscrowDonationWidget } from "@/components/events/EscrowDonationWidget";
 import { SkillMatcherWidget } from "@/components/events/SkillMatcherWidget";
 import { OfacCompliancePanel } from "@/components/events/OfacCompliancePanel";
@@ -3770,6 +3771,12 @@ export default function EventDetailsPage() {
           eventId={eventId || ""}
           audioDescriptionUrl={event?.audio_description_url || null}
           videoElement={null}
+        />
+        <LiveTranslationEarpiecePanel
+          eventId={eventId || ""}
+          userId={user?.id ?? null}
+          isOrganizer={isOrganizer}
+          isCheckedIn={Boolean(myRsvp?.checked_in)}
         />
         <EscrowDonationWidget
           clubId={event?.clubs?.name || ""}
