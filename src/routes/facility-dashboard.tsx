@@ -82,13 +82,27 @@ export default function FacilityDashboard() {
       .channel(`thermal-realtime-${selectedVenueId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "thermostat_telemetry", filter: `venue_id=eq.${selectedVenueId}` },
-        () => { void loadThermalData(); }
+        {
+          event: "*",
+          schema: "public",
+          table: "thermostat_telemetry",
+          filter: `venue_id=eq.${selectedVenueId}`,
+        },
+        () => {
+          void loadThermalData();
+        },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "thermal_alerts", filter: `venue_id=eq.${selectedVenueId}` },
-        () => { void loadThermalData(); }
+        {
+          event: "*",
+          schema: "public",
+          table: "thermal_alerts",
+          filter: `venue_id=eq.${selectedVenueId}`,
+        },
+        () => {
+          void loadThermalData();
+        },
       )
       .subscribe();
 
@@ -161,9 +175,7 @@ export default function FacilityDashboard() {
           .select("venue_id, venues(id, name, building, capacity)")
           .eq("user_id", user.id);
         if (error) throw error;
-        return (data || [])
-          .map((item: any) => item.venues)
-          .filter(Boolean) as Venue[];
+        return (data || []).map((item: any) => item.venues).filter(Boolean) as Venue[];
       }
     },
     enabled: authChecked && !!user && !!role,
@@ -177,7 +189,11 @@ export default function FacilityDashboard() {
   }, [venues, selectedVenueId]);
 
   // Fetch today's events for selected venue
-  const { data: events = [], isLoading: isLoadingEvents, refetch: refetchEvents } = useQuery<EventData[]>({
+  const {
+    data: events = [],
+    isLoading: isLoadingEvents,
+    refetch: refetchEvents,
+  } = useQuery<EventData[]>({
     queryKey: ["facility_events_today", selectedVenueId],
     queryFn: async () => {
       if (!selectedVenueId) return [];
@@ -198,7 +214,11 @@ export default function FacilityDashboard() {
   const eventIds = events.map((e) => e.id);
 
   // Fetch accommodation requests for today's events
-  const { data: requests = [], isLoading: isLoadingRequests, refetch: refetchRequests } = useQuery<AccommodationRequest[]>({
+  const {
+    data: requests = [],
+    isLoading: isLoadingRequests,
+    refetch: refetchRequests,
+  } = useQuery<AccommodationRequest[]>({
     queryKey: ["facility_accommodations_today", eventIds],
     queryFn: async () => {
       if (eventIds.length === 0) return [];
@@ -230,7 +250,15 @@ export default function FacilityDashboard() {
 
   // Mutation to toggle/toggle deployments
   const toggleDeployment = useMutation({
-    mutationFn: async ({ eventId, action, isDeployed }: { eventId: string; action: string; isDeployed: boolean }) => {
+    mutationFn: async ({
+      eventId,
+      action,
+      isDeployed,
+    }: {
+      eventId: string;
+      action: string;
+      isDeployed: boolean;
+    }) => {
       if (isDeployed) {
         // Remove deployment
         const { error } = await supabase
@@ -242,14 +270,12 @@ export default function FacilityDashboard() {
         if (error) throw error;
       } else {
         // Add deployment
-        const { error } = await supabase
-          .from("venue_deployments")
-          .insert({
-            venue_id: selectedVenueId,
-            event_id: eventId,
-            action,
-            status: "completed",
-          });
+        const { error } = await supabase.from("venue_deployments").insert({
+          venue_id: selectedVenueId,
+          event_id: eventId,
+          action,
+          status: "completed",
+        });
         if (error) throw error;
       }
     },
@@ -283,9 +309,12 @@ export default function FacilityDashboard() {
         <main className="mx-auto max-w-4xl p-6">
           <div className="border-4 border-black bg-yellow-50 p-8 text-center shadow-[8px_8px_0_0_#000]">
             <ShieldAlert className="mx-auto h-12 w-12 text-black mb-4" />
-            <h1 className="font-display text-2xl font-black uppercase text-black">No Assigned Venues</h1>
+            <h1 className="font-display text-2xl font-black uppercase text-black">
+              No Assigned Venues
+            </h1>
             <p className="mt-2 font-mono text-sm text-zinc-600">
-              You are registered as a facility manager but have not been assigned to any venues yet. Please contact a system administrator.
+              You are registered as a facility manager but have not been assigned to any venues yet.
+              Please contact a system administrator.
             </p>
           </div>
         </main>
@@ -304,7 +333,9 @@ export default function FacilityDashboard() {
   const dailyBriefingList: string[] = [];
   events.forEach((event) => {
     const eventRequests = requests.filter((r) => r.event_id === event.id);
-    const wheelchairCount = eventRequests.filter((r) => r.accommodation_type === "WHEELCHAIR_SEATING").length;
+    const wheelchairCount = eventRequests.filter(
+      (r) => r.accommodation_type === "WHEELCHAIR_SEATING",
+    ).length;
     const aslCount = eventRequests.filter((r) => r.accommodation_type === "ASL_INTERPRETER").length;
 
     if (wheelchairCount > 0 || aslCount > 0) {
@@ -317,7 +348,9 @@ export default function FacilityDashboard() {
       } else {
         details = `${aslCount} ASL request${aslCount > 1 ? "s" : ""}`;
       }
-      dailyBriefingList.push(`Today, expect ${details} for "${event.title}" starting at ${timeStr}.`);
+      dailyBriefingList.push(
+        `Today, expect ${details} for "${event.title}" starting at ${timeStr}.`,
+      );
     }
   });
 
@@ -336,9 +369,20 @@ export default function FacilityDashboard() {
               </p>
             </div>
 
-            {/* Venue Dropdown */}
-            <div className="flex items-center gap-2">
-              <label htmlFor="venue-select" className="font-mono text-xs font-bold uppercase text-black">
+            {/* Venue Dropdown & HVAC Model Shortcut */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                to="/events/venue-main-auditorium/hvac-pre-cooling"
+                data-testid="link-hvac-precooling-model"
+                className="border-2 border-black bg-cyan-400 hover:bg-cyan-300 px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[2px_2px_0_0_#000] flex items-center gap-1.5 transition text-black"
+              >
+                <Thermometer className="w-3.5 h-3.5" />
+                HVAC Pre-Cooling Model
+              </Link>
+              <label
+                htmlFor="venue-select"
+                className="font-mono text-xs font-bold uppercase text-black"
+              >
                 Select Venue:
               </label>
               <select
@@ -361,12 +405,17 @@ export default function FacilityDashboard() {
         <section className="border-4 border-black bg-yellow-50 p-6 shadow-[8px_8px_0_0_#000] mb-8">
           <div className="flex items-center gap-2 border-b-2 border-black pb-3 mb-4">
             <Flame className="h-6 w-6 text-black fill-black" />
-            <h2 className="font-display text-xl font-black uppercase text-black">Daily Accessibility Briefing</h2>
+            <h2 className="font-display text-xl font-black uppercase text-black">
+              Daily Accessibility Briefing
+            </h2>
           </div>
           {dailyBriefingList.length > 0 ? (
             <ul className="space-y-3">
               {dailyBriefingList.map((briefing, idx) => (
-                <li key={idx} className="flex items-start gap-2.5 font-mono text-sm text-zinc-900 leading-relaxed">
+                <li
+                  key={idx}
+                  className="flex items-start gap-2.5 font-mono text-sm text-zinc-900 leading-relaxed"
+                >
                   <span className="text-lime font-bold">•</span>
                   <span>{briefing}</span>
                 </li>
@@ -374,7 +423,8 @@ export default function FacilityDashboard() {
             </ul>
           ) : (
             <p className="font-mono text-sm text-zinc-600">
-              No critical physical accessibility accommodations requested for today's events at this venue.
+              No critical physical accessibility accommodations requested for today's events at this
+              venue.
             </p>
           )}
         </section>
@@ -384,7 +434,9 @@ export default function FacilityDashboard() {
           <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-4">
             <div className="flex items-center gap-2">
               <Thermometer className="h-6 w-6 text-black" />
-              <h2 className="font-display text-xl font-black uppercase text-black">HVAC & Thermostat Telemetry</h2>
+              <h2 className="font-display text-xl font-black uppercase text-black">
+                HVAC & Thermostat Telemetry
+              </h2>
             </div>
             <button
               onClick={() => void loadThermalData()}
@@ -401,9 +453,13 @@ export default function FacilityDashboard() {
               <div className="flex items-center gap-3">
                 <AlertTriangle className="h-8 w-8 text-red-600 animate-bounce shrink-0" />
                 <div>
-                  <h3 className="font-black text-red-600 uppercase text-sm">🚨 Thermal Overcrowding Alert Active</h3>
+                  <h3 className="font-black text-red-600 uppercase text-sm">
+                    🚨 Thermal Overcrowding Alert Active
+                  </h3>
                   <p className="text-xs text-black font-bold">
-                    University HVAC reports an extreme ambient spike of {alerts[0].temp_spike.toFixed(1)}°F. Campus Police notified of high-density biological mass.
+                    University HVAC reports an extreme ambient spike of{" "}
+                    {alerts[0].temp_spike.toFixed(1)}°F. Campus Police notified of high-density
+                    biological mass.
                   </p>
                 </div>
               </div>
@@ -424,9 +480,13 @@ export default function FacilityDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 {/* Current temperature */}
                 <div className="border-2 border-black bg-white p-3 shadow-[3px_3px_0_0_#000]">
-                  <span className="text-[10px] font-black uppercase text-zinc-500">Current Temp</span>
+                  <span className="text-[10px] font-black uppercase text-zinc-500">
+                    Current Temp
+                  </span>
                   <div className="text-2xl font-black text-black">
-                    {telemetry[0] ? `${telemetry[0].temperature_fahrenheit.toFixed(1)}°F` : "70.0°F"}
+                    {telemetry[0]
+                      ? `${telemetry[0].temperature_fahrenheit.toFixed(1)}°F`
+                      : "70.0°F"}
                   </div>
                   <span className="text-[9px] font-bold text-zinc-400 block mt-1">
                     HVAC Normal Setpoint: 70°F - 74°F
@@ -435,8 +495,12 @@ export default function FacilityDashboard() {
 
                 {/* Rate of Change Delta T */}
                 <div className="border-2 border-black bg-white p-3 shadow-[3px_3px_0_0_#000]">
-                  <span className="text-[10px] font-black uppercase text-zinc-500">20-Min Rate of Change (ΔT)</span>
-                  <div className={`text-2xl font-black ${(telemetry[0]?.temperature_fahrenheit - (telemetry[telemetry.length - 1]?.temperature_fahrenheit || 70)) >= 10 ? "text-red-600 animate-pulse" : "text-black"}`}>
+                  <span className="text-[10px] font-black uppercase text-zinc-500">
+                    20-Min Rate of Change (ΔT)
+                  </span>
+                  <div
+                    className={`text-2xl font-black ${telemetry[0]?.temperature_fahrenheit - (telemetry[telemetry.length - 1]?.temperature_fahrenheit || 70) >= 10 ? "text-red-600 animate-pulse" : "text-black"}`}
+                  >
                     {telemetry.length > 0
                       ? `+${(telemetry[0].temperature_fahrenheit - telemetry[telemetry.length - 1].temperature_fahrenheit).toFixed(1)}°F`
                       : "+0.0°F"}
@@ -457,11 +521,20 @@ export default function FacilityDashboard() {
                 ) : (
                   <div className="max-h-32 overflow-y-auto space-y-1.5 pr-2">
                     {telemetry.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between text-xs font-mono">
+                      <div
+                        key={t.id}
+                        className="flex items-center justify-between text-xs font-mono"
+                      >
                         <span className="text-zinc-600">
-                          {new Date(t.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                          {new Date(t.recorded_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
                         </span>
-                        <span className="font-black text-black">{t.temperature_fahrenheit.toFixed(1)}°F</span>
+                        <span className="font-black text-black">
+                          {t.temperature_fahrenheit.toFixed(1)}°F
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -476,7 +549,8 @@ export default function FacilityDashboard() {
                   Simulation & Testing Bench
                 </h3>
                 <p className="text-xs text-zinc-600 mb-4">
-                  Simulate external facilities API integrations (Siemens/Johnson Controls) to test the mathematical thermal spike alarm loop.
+                  Simulate external facilities API integrations (Siemens/Johnson Controls) to test
+                  the mathematical thermal spike alarm loop.
                 </p>
 
                 <div className="flex gap-2 items-end mb-4">
@@ -522,7 +596,9 @@ export default function FacilityDashboard() {
           </h2>
 
           {isLoadingEvents ? (
-            <div className="font-mono text-sm py-8 text-center animate-pulse">Loading today's events...</div>
+            <div className="font-mono text-sm py-8 text-center animate-pulse">
+              Loading today's events...
+            </div>
           ) : events.length === 0 ? (
             <div className="border-4 border-black border-dashed p-8 text-center text-zinc-500 font-mono text-sm">
               No events scheduled at this venue for today.
@@ -531,11 +607,19 @@ export default function FacilityDashboard() {
             <div className="grid gap-6 md:grid-cols-2">
               {events.map((event) => {
                 const eventRequests = requests.filter((r) => r.event_id === event.id);
-                const wheelchairRequests = eventRequests.filter((r) => r.accommodation_type === "WHEELCHAIR_SEATING");
-                const aslRequests = eventRequests.filter((r) => r.accommodation_type === "ASL_INTERPRETER");
+                const wheelchairRequests = eventRequests.filter(
+                  (r) => r.accommodation_type === "WHEELCHAIR_SEATING",
+                );
+                const aslRequests = eventRequests.filter(
+                  (r) => r.accommodation_type === "ASL_INTERPRETER",
+                );
 
-                const isRampDeployed = deployments.some((d) => d.event_id === event.id && d.action === "Ramp Deployed");
-                const isAslConfirmed = deployments.some((d) => d.event_id === event.id && d.action === "ASL Interpreter Confirmed");
+                const isRampDeployed = deployments.some(
+                  (d) => d.event_id === event.id && d.action === "Ramp Deployed",
+                );
+                const isAslConfirmed = deployments.some(
+                  (d) => d.event_id === event.id && d.action === "ASL Interpreter Confirmed",
+                );
 
                 return (
                   <article
@@ -633,7 +717,11 @@ export default function FacilityDashboard() {
 
                           {/* Render other general request types */}
                           {eventRequests
-                            .filter((r) => r.accommodation_type !== "WHEELCHAIR_SEATING" && r.accommodation_type !== "ASL_INTERPRETER")
+                            .filter(
+                              (r) =>
+                                r.accommodation_type !== "WHEELCHAIR_SEATING" &&
+                                r.accommodation_type !== "ASL_INTERPRETER",
+                            )
                             .map((req) => (
                               <div
                                 key={req.id}
