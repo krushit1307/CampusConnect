@@ -13,6 +13,7 @@
 import AWS from 'aws-sdk';
 import { VideoProcessingJob, VideoProcessingConfig, FaceDetectionResult } from '../types/videoFaceBlurring';
 import { awsRekognitionService } from './awsRekognitionService';
+import { gaitRedactionService } from './gaitRedactionService';
 
 export class VideoFaceBlurringService {
   private s3: AWS.S3;
@@ -172,6 +173,12 @@ export class VideoFaceBlurringService {
     try {
       // Generate blur filter specifications from matched frames
       const blurSpecs = this.generateBlurFilterSpecs(matchedFrames, config.blurRadius);
+      
+      // Generate Kinematic Distortion filter to shatter Gait Analysis tracking
+      const kinematicDistortionSpecs = await gaitRedactionService.generateKinematicDistortionFilterSpecs(
+        matchedFrames,
+        videoS3Key
+      );
 
       // Create MediaConvert job
       const jobParams = {
@@ -192,6 +199,7 @@ export class VideoFaceBlurringService {
                 {
                   FilterType: 'IMAGE_INSERTER',
                   // Specify blur regions based on matchedFrames
+                  // And append kinematic distortion specs for advanced biometric evasion
                 },
               ],
             },
