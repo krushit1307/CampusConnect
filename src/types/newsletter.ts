@@ -9,8 +9,8 @@ export interface NewsletterBlock {
   url?: string;
   eventId?: string;
   style?: Record<string, string>;
+  caption?: string;
 }
-
 export interface NewsletterDesign {
   blocks: NewsletterBlock[];
   backgroundColor?: string;

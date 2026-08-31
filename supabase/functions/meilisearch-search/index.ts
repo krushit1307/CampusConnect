@@ -77,14 +77,19 @@ Deno.serve(async (req: Request) => {
   const limit = body.limitPerIndex ?? 5;
 
   // Use Meilisearch's /multi-search endpoint for a single round-trip.
-  const multiSearchBody = {
-    queries: [
-      { indexUid: "events", q: query, limit },
-      { indexUid: "clubs", q: query, limit },
-      { indexUid: "profiles", q: query, limit },
-    ],
-  };
-
+const multiSearchBody = {
+  queries: [
+    {
+      indexUid: "events",
+      q: query,
+      limit,
+      filter:
+        "deleted_at IS NULL AND status NOT IN [cancelled, canceled, archived]",
+    },
+    { indexUid: "clubs", q: query, limit },
+    { indexUid: "profiles", q: query, limit },
+  ],
+};
   try {
     const response = await fetch(`${meiliHost}/multi-search`, {
       method: "POST",

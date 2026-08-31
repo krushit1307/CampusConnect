@@ -54,10 +54,16 @@ export async function processIoTNoiseAlert(
 
     // If eventId not provided, query active event matching venue
     if (!activeEventId) {
+      const cleanVenueId = (venueId || "").replace(/[,()]/g, " ").trim();
+      const cleanVenueName = (venueName || "").replace(/[,()]/g, " ").trim();
+      const filterClause = cleanVenueName
+        ? `location.ilike.%${cleanVenueId}%,location.ilike.%${cleanVenueName}%`
+        : `location.ilike.%${cleanVenueId}%`;
+
       const { data: activeEvents } = await supabase
         .from("events")
         .select("id, title, location")
-        .or(`location.ilike.%${venueId}%,location.ilike.%${venueName}%`)
+        .or(filterClause)
         .order("created_at", { ascending: false })
         .limit(1);
 

@@ -3,10 +3,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { getSessionIdFromToken } from "../shared/session-token.ts";
 import { parseUserAgent } from "../shared/device-info.ts";
+import {
+  getFingerprintFromRequest,
+  getIpSubnet,
+  getRequestIp,
+  hmacHex,
+} from "../shared/replay-detection.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-device-fingerprint",
 };
 
 serve(async (req) => {
@@ -49,7 +56,7 @@ serve(async (req) => {
       });
     }
 
-    let body: { user_agent?: string } = {};
+    let body: { user_agent?: string; deviceFingerprint?: string } = {};
     try {
       body = await req.json();
     } catch {
@@ -59,7 +66,19 @@ serve(async (req) => {
     const userAgent = body.user_agent || req.headers.get("user-agent") || "";
     const { device_info, browser, os } = parseUserAgent(userAgent);
 
-    const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+    const ipAddress = getRequestIp(req);
+    const fingerprint = getFingerprintFromRequest(req, body);
+
+    // Bind this session to the context that minted it so token replay
+    // can be detected later. Only HMAC digests are stored — never the
+    // raw fingerprint or IP address.
+    const bindingSecret = Deno.env.get("REPLAY_BINDING_SECRET") ?? "";
+    const [fingerprintHash, ipSubnetHash] = await Promise.all([
+      fingerprint ? hmacHex(fingerprint, bindingSecret) : Promise.resolve(null),
+      ipAddress
+        ? hmacHex(getIpSubnet(ipAddress) ?? ipAddress, bindingSecret)
+        : Promise.resolve(null),
+    ]);
 
     const { error } = await supabase.from("device_sessions").upsert(
       {
@@ -70,6 +89,8 @@ serve(async (req) => {
         os,
         ip_address: ipAddress,
         user_agent: userAgent,
+        fingerprint_hash: fingerprintHash,
+        ip_subnet_hash: ipSubnetHash,
         last_active_at: new Date().toISOString(),
       },
       { onConflict: "auth_session_id" },

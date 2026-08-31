@@ -1,6 +1,7 @@
 import type { TDocumentDefinitions } from "pdfmake/interfaces";
 import type { TicketPdfInput } from "./types";
 import { formatTicketDate, formatTicketDateRange } from "./format";
+import { MEDIA_CONSENT_COPY } from "@/lib/mediaConsent";
 
 /**
  * Build the pdfmake document definition for an event ticket
@@ -19,7 +20,7 @@ import { formatTicketDate, formatTicketDateRange } from "./format";
  *   - Footer: small print with the event URL if provided
  */
 export function buildTicketDocDefinition(input: TicketPdfInput): TDocumentDefinitions {
-  const { event, attendee, ticketId, qrCodeDataUrl } = input;
+  const { event, attendee, ticketId, qrCodeDataUrl, noMediaConsent } = input;
 
   const attendeeName = attendee.fullName?.trim() || attendee.email?.trim() || "Guest";
 
@@ -130,6 +131,40 @@ export function buildTicketDocDefinition(input: TicketPdfInput): TDocumentDefini
             color: "#666666",
           }
         : { text: "" },
+      ...(noMediaConsent
+        ? [
+            {
+              margin: [0, 14, 0, 0] as [number, number, number, number],
+              table: {
+                widths: ["*"],
+                body: [
+                  [
+                    {
+                      stack: [
+                        {
+                          text: MEDIA_CONSENT_COPY.ticketLabel,
+                          color: "#ffffff",
+                          bold: true,
+                          fontSize: 13,
+                          characterSpacing: 1,
+                        },
+                        {
+                          text: MEDIA_CONSENT_COPY.staffInstruction,
+                          color: "#ffffff",
+                          fontSize: 8,
+                          margin: [0, 4, 0, 0],
+                        },
+                      ],
+                      fillColor: "#b91c1c",
+                      margin: [10, 8, 10, 8],
+                    },
+                  ],
+                ],
+                layout: "noBorders",
+              },
+            },
+          ]
+        : []),
 
       // Footer divider
       {

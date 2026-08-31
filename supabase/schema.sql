@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- 1. Create custom types
-CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin');
+CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin', 'Premium');
 CREATE TYPE member_role AS ENUM ('member', 'admin');
 CREATE TYPE join_status AS ENUM ('pending', 'approved');
 CREATE TYPE club_visibility AS ENUM ('public', 'private');
@@ -170,6 +170,10 @@ CHECK (
     (longitude >= -180 AND longitude <= 180)
 );
 
+-- Issue #3899: Automated Health & Safety Compliance Checks
+ALTER TABLE events ADD COLUMN category TEXT;
+ALTER TABLE events ADD COLUMN tags TEXT[] DEFAULT '{}';
+ALTER TABLE events ADD COLUMN compliance_permit_url TEXT;
 CREATE TABLE event_co_hosts (
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
@@ -782,10 +786,13 @@ AS $$
 DECLARE
     next_waitlist_record RECORD;
 BEGIN
-    SELECT id, event_id, user_id INTO next_waitlist_record
-    FROM public.event_waitlist
-    WHERE event_id = OLD.event_id
-    ORDER BY created_at ASC
+    SELECT w.id, w.event_id, w.user_id INTO next_waitlist_record
+    FROM public.event_waitlist w
+    JOIN public.profiles p ON p.id = w.user_id
+    WHERE w.event_id = OLD.event_id
+    ORDER BY
+        CASE WHEN p.role = 'Premium' THEN 1 ELSE 2 END ASC,
+        w.created_at ASC
     LIMIT 1
     FOR UPDATE SKIP LOCKED;
 

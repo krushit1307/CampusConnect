@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: DemographicCharts
---Issue: #3238 - Build a 'Sponsorship ROI Dashboard' for Corporate Partners
---Description: Renders beautiful Recharts visualizations for the aggregated 
---demographic data.Displays a Pie Chart for Majors and a Bar Chart for 
---Graduation Years.Fully supports Dark / Light mode.
+//Issue: #3238 - Build a 'Sponsorship ROI Dashboard' for Corporate Partners
+//Description: Renders beautiful Recharts visualizations for the aggregated 
+//demographic data.Displays a Pie Chart for Majors and a Bar Chart for 
+//Graduation Years.Fully supports Dark / Light mode.
 // =============================================================================
 
 import React from 'react';

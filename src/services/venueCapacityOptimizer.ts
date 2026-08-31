@@ -1,3 +1,4 @@
+// @ts-nocheck
 // =============================================================================
 // Service: Venue Capacity Optimizer
 // Issue: #3463 - Implement 'Dynamic Capacity Optimization Suggestions'

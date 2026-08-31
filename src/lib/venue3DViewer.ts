@@ -2,7 +2,7 @@ export type ModelFormat = "gltf" | "glb" | "obj" | "primitive";
 
 export interface SpatialItem {
   id: string;
-  type: "round_table" | "rect_table" | "stage" | "chair" | "podium";
+  type: "round_table" | "rect_table" | "stage" | "chair" | "podium" | "speaker";
   label: string;
   x: number;
   y: number;
@@ -10,6 +10,10 @@ export interface SpatialItem {
   rotationY: number;
   width: number;
   depth: number;
+  speakerDb?: number;
+  speakerConeAngle?: number;
+  speakerPitch?: number;
+  speakerYaw?: number;
 }
 
 export interface Venue3DConfig {
@@ -61,7 +65,7 @@ export function calculateTableCapacityFit(
   venueWidthMeters: number,
   venueDepthMeters: number,
   tableDiameterMeters = 1.8, // standard 6ft / 1.8m round gala table (seats 8-10)
-  aisleSpacingMeters = 1.2
+  aisleSpacingMeters = 1.2,
 ): { maxTables: number; maxGuests: number; columns: number; rows: number } {
   const effectiveWidth = Math.max(1, venueWidthMeters);
   const effectiveDepth = Math.max(1, venueDepthMeters);
@@ -87,7 +91,7 @@ export function calculateTableCapacityFit(
 export function generateTableGridPrimitives(
   tableCount: number,
   venueWidthMeters = 30,
-  venueDepthMeters = 20
+  venueDepthMeters = 20,
 ): SpatialItem[] {
   const items: SpatialItem[] = [];
   const fit = calculateTableCapacityFit(venueWidthMeters, venueDepthMeters);

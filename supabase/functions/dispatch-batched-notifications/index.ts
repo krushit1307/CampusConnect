@@ -27,8 +27,9 @@ type PendingRow = {
   title: string;
   message: string;
   link: string | null;
+  notification_event_key: string;
+  attempt_count: number;
 };
-
 // Human-readable aggregation phrasing per notification_type. Falls back
 // to a generic phrase for any type not listed here, so a new
 // notification_type added later degrades gracefully instead of erroring.
@@ -78,15 +79,22 @@ async function dispatchGroup(
     throw new Error(`push dispatch failed with status ${response.status}`);
   }
 
-  const { error } = await supabase
-    .from("pending_notifications")
-    .update({ processed: true, processed_at: new Date().toISOString() })
-    .in(
-      "id",
-      rows.map((r) => r.id),
-    );
+for (const row of rows) {
+  const { data: marked, error } = await supabase.rpc(
+    "mark_notification_delivered",
+    {
+      p_notification_id: row.id,
+    },
+  );
+
   if (error) throw error;
-}
+
+  if (!marked) {
+    throw new Error(
+      `Notification ${row.notification_event_key} was not in processing state`,
+    );
+  }
+}}
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -98,15 +106,18 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: pending, error: fetchError } = await supabase
-      .from("pending_notifications")
-      .select("id, user_id, notification_type, entity_id, actor_name, title, message, link")
-      .eq("processed", false)
-      .order("created_at", { ascending: true })
-      .limit(BATCH_LIMIT);
+await supabase.rpc("recover_stale_notification_jobs", {
+  p_timeout: "10 minutes",
+});
 
-    if (fetchError) throw fetchError;
+const { data: pending, error: fetchError } = await supabase.rpc(
+  "claim_pending_notifications",
+  {
+    p_limit: BATCH_LIMIT,
+  },
+);
 
+if (fetchError) throw fetchError;
     if (!pending || pending.length === 0) {
       return new Response(JSON.stringify({ success: true, groups: 0, notifications: 0 }), {
         status: 200,
@@ -144,15 +155,32 @@ serve(async (req: Request) => {
         try {
           await dispatchGroup(supabase, supabaseUrl, supabaseServiceKey, rows);
           dispatchedGroups++;
-        } catch (err) {
-          // One group failing (a transient push-provider error, a
-          // deleted subscription, etc.) must never abort the whole run
-          // — leave these rows unprocessed and let the next
-          // invocation retry them.
-          console.error("[NotificationWorker] group dispatch failed:", err);
-          failedGroups++;
-        }
+} catch (err) {
+  const errorMessage = err instanceof Error ? err.message : String(err);
+
+  console.error("[NotificationWorker] group dispatch failed:", err);
+
+  await Promise.all(
+    rows.map(async (row) => {
+      const { error } = await supabase.rpc(
+        "mark_notification_delivery_failed",
+        {
+          p_notification_id: row.id,
+          p_error: errorMessage,
+        },
+      );
+
+      if (error) {
+        console.error(
+          `[NotificationWorker] failed to record retry state for ${row.id}:`,
+          error,
+        );
       }
+    }),
+  );
+
+  failedGroups++;
+}      }
     }
 
     await Promise.all(
