@@ -8,6 +8,7 @@ import Maximize from "lucide-react/dist/esm/icons/maximize";
 import Minimize from "lucide-react/dist/esm/icons/minimize";
 import PictureInPicture2 from "lucide-react/dist/esm/icons/picture-in-picture-2";
 import Languages from "lucide-react/dist/esm/icons/languages";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
 
 export interface SubtitleTrack {
   src: string;
@@ -22,6 +23,34 @@ interface VideoPlayerProps {
   title?: string;
   subtitleTracks?: SubtitleTrack[];
 }
+
+// Strip any VTT markup tags (<i>, <b>, <c>, <v>, etc.) that may already be
+// present in cue text before we run our own bold-fixation transform on it.
+const stripVttTags = (text: string): string => text.replace(/<[^>]+>/g, "");
+
+// Applies a "Bionic Reading" style bold-fixation to a single word: the first
+// portion of the word's letters are bolded so the eye can anchor on them and
+// let the brain complete the rest, which helps some dyslexic readers keep
+// pace with fast-moving text. Leading/trailing punctuation is preserved
+// outside the bold span so things like quotes and commas render normally.
+const bionicWord = (word: string): string => {
+  const match = word.match(/^([^a-zA-Z0-9]*)([a-zA-Z0-9]+)([^a-zA-Z0-9]*)$/);
+  if (!match) return word;
+  const [, prefix, core, suffix] = match;
+  if (core.length <= 1) return `${prefix}${core}${suffix}`;
+
+  const boldLength = Math.max(1, Math.ceil(core.length * 0.45));
+  const boldPart = core.slice(0, boldLength);
+  const restPart = core.slice(boldLength);
+  return `${prefix}<strong>${boldPart}</strong>${restPart}${suffix}`;
+};
+
+// Transforms a full line of subtitle text into bionic-reading-formatted HTML.
+const bionicText = (text: string): string =>
+  stripVttTags(text)
+    .split(" ")
+    .map((word) => (word ? bionicWord(word) : word))
+    .join(" ");
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
@@ -43,6 +72,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showControls, setShowControls] = useState<boolean>(true);
   const [selectedTrack, setSelectedTrack] = useState<string>("off");
   const [showCcMenu, setShowCcMenu] = useState<boolean>(false);
+  const [bionicReadingEnabled, setBionicReadingEnabled] = useState<boolean>(false);
+  const [activeCueText, setActiveCueText] = useState<string>("");
 
   const isPictureInPictureSupported =
     typeof document !== "undefined" &&
@@ -189,6 +220,58 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, []);
 
+  // Bionic Reading subtitle sync: when enabled, take the active track out of
+  // native "showing" mode (browser-rendered captions can't contain custom
+  // markup) and instead listen for cuechange to render our own bold-fixated
+  // overlay. When disabled, hand rendering back to the native track.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || selectedTrack === "off") {
+      setActiveCueText("");
+      return;
+    }
+
+    let activeTrack: TextTrack | null = null;
+    for (let i = 0; i < video.textTracks.length; i++) {
+      if (video.textTracks[i].language === selectedTrack) {
+        activeTrack = video.textTracks[i];
+        break;
+      }
+    }
+    if (!activeTrack) {
+      setActiveCueText("");
+      return;
+    }
+
+    if (!bionicReadingEnabled) {
+      activeTrack.mode = "showing";
+      setActiveCueText("");
+      return;
+    }
+
+    // Hide native rendering; we'll draw the cues ourselves.
+    activeTrack.mode = "hidden";
+
+    const handleCueChange = () => {
+      const activeCues = activeTrack!.activeCues;
+      if (activeCues && activeCues.length > 0) {
+        const cueTexts = Array.from(activeCues)
+          .map((cue) => (cue as VTTCue).text ?? "")
+          .join("\n");
+        setActiveCueText(cueTexts);
+      } else {
+        setActiveCueText("");
+      }
+    };
+
+    activeTrack.addEventListener("cuechange", handleCueChange);
+    handleCueChange();
+
+    return () => {
+      activeTrack?.removeEventListener("cuechange", handleCueChange);
+    };
+  }, [selectedTrack, bionicReadingEnabled]);
+
   return (
     <div
       ref={containerRef}
@@ -250,6 +333,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <Play className="w-12 h-12 sm:w-16 sm:h-16 text-white fill-current drop-shadow-lg" />
         </button>
       </div>
+
+      {/* Bionic Reading Subtitle Overlay (replaces native captions when enabled) */}
+      {bionicReadingEnabled && activeCueText && (
+        <div
+          className="absolute bottom-20 left-0 right-0 flex justify-center px-4 z-20 pointer-events-none"
+          aria-live="polite"
+        >
+          <div
+            className="bg-black/80 text-white text-lg sm:text-xl leading-relaxed px-4 py-2 rounded-md max-w-2xl text-center"
+            // Content is our own <strong>-wrapped output derived from the site's
+            // own VTT subtitle files (stripVttTags removes any pre-existing markup
+            // first), not arbitrary user input.
+            dangerouslySetInnerHTML={{
+              __html: activeCueText
+                .split("\n")
+                .map((line) => bionicText(line))
+                .join("<br />"),
+            }}
+          />
+        </div>
+      )}
 
       {/* Control Overlay Bar */}
       <div
@@ -400,6 +504,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       {track.label} ({track.srclang.toUpperCase()})
                     </button>
                   ))}
+                  <div className="border-t border-zinc-700 mt-1 pt-2 px-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-gray-200 py-1 select-none">
+                      <input
+                        type="checkbox"
+                        checked={bionicReadingEnabled}
+                        onChange={(e) => setBionicReadingEnabled(e.target.checked)}
+                        className="accent-indigo-500"
+                        aria-label="Enable Dyslexia-Optimized Subtitles"
+                      />
+                      <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                      Dyslexia-Optimized Subtitles
+                    </label>
+                  </div>
                 </div>
               )}
             </div>
