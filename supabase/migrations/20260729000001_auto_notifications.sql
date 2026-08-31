@@ -111,3 +111,14 @@ CREATE TRIGGER on_event_rsvp
   AFTER INSERT ON public.event_rsvps
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_event_rsvp_notification();
+  PERFORM public.queue_or_send_notification(
+    p_user_id => v_organizer_id,
+    p_notification_type => 'event_rsvp',
+    p_title => 'New RSVP',
+    p_message => COALESCE(v_rsvp_name, 'Someone') || ' RSVPed "' || COALESCE(NEW.status, 'yes') || '" to ' || COALESCE(v_event_title, 'your event') || '.',
+    p_link => '/events/' || NEW.event_id,
+    p_entity_id => NEW.event_id,
+    p_entity_type => 'event',
+    p_actor_id => NEW.user_id,
+    p_event_id => NEW.id::TEXT
+  );
