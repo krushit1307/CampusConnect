@@ -146,6 +146,8 @@
     "idb-keyval": "^6.3.0",
     "input-otp": "^1.4.2",
     "ioredis": "^6.0.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
     "leaflet.markercluster": "^1.5.3",
