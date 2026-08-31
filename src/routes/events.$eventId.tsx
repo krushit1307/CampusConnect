@@ -135,6 +135,7 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+import { EventTransitSyncWidget } from "@/components/events/EventTransitSyncWidget";
 
 /**
  * Hero banner for the event detail page.
@@ -2318,6 +2319,14 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                     >
                       Open in Google Maps ↗
                     </a>
+
+                    <div className="mt-6">
+                      <EventTransitSyncWidget
+                        venueLatitude={coordsCheck.lat}
+                        venueLongitude={coordsCheck.lng}
+                        venueName={event.title}
+                      />
+                    </div>
                   </>
                 ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                   <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
