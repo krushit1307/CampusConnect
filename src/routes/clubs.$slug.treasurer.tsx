@@ -3,8 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, ArrowLeft, DollarSign, TrendingDown, BookOpen } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ClubRevenueForecast } from "@/components/finance/ClubRevenueForecast";
+import { ClubBudgetZkProofPanel } from "@/components/finance/ClubBudgetZkProofPanel";
 
 export default function TreasurerDashboardRoute() {
   const { slug } = useParams();
@@ -81,6 +81,8 @@ export default function TreasurerDashboardRoute() {
 
         <ClubRevenueForecast clubId={club.id} />
 
+        <ClubBudgetZkProofPanel />
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-card border rounded-xl p-6 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -95,12 +97,16 @@ export default function TreasurerDashboardRoute() {
           <div className="bg-card border rounded-xl p-6 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-muted-foreground">
               <TrendingDown className="w-5 h-5 text-blue-500" />
-              <h2 className="font-semibold text-sm uppercase tracking-wider">Current Asset Value (Inventory)</h2>
+              <h2 className="font-semibold text-sm uppercase tracking-wider">
+                Current Asset Value (Inventory)
+              </h2>
             </div>
             <p className="text-4xl font-bold">
               ${(balanceSheet?.inventory_value ?? 0).toLocaleString()}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Calculated via Straight-Line Depreciation</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Calculated via Straight-Line Depreciation
+            </p>
           </div>
 
           <div className="bg-card border rounded-xl p-6 flex flex-col gap-2">
@@ -116,10 +122,12 @@ export default function TreasurerDashboardRoute() {
 
         <div className="mt-8 bg-card border rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-6 border-b pb-4">Balance Sheet (GAAP Compliant)</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Assets</h3>
+              <h3 className="text-lg font-semibold mb-4 text-muted-foreground uppercase tracking-wider">
+                Assets
+              </h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="font-medium">Cash & Equivalents</span>
@@ -137,7 +145,9 @@ export default function TreasurerDashboardRoute() {
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Liabilities & Equity</h3>
+              <h3 className="text-lg font-semibold mb-4 text-muted-foreground uppercase tracking-wider">
+                Liabilities & Equity
+              </h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="font-medium">Current Liabilities</span>
@@ -155,7 +165,6 @@ export default function TreasurerDashboardRoute() {
             </div>
           </div>
         </div>
-
       </div>
     </SiteShell>
   );
