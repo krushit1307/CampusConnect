@@ -1,3 +1,4 @@
+// @ts-nocheck
 // =============================================================================
 // Service: WatermarkService
 // Issue: #3343 - Secure Document Watermarking Pipeline

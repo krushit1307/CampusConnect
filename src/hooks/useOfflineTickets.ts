@@ -2,13 +2,13 @@
 // Hook: useOfflineTickets
 // Issue: #2899 - Implement 'Offline Mode' Ticket Caching with Service Workers
 // Description: Manages the local caching of user tickets using IndexedDB.
-// Fetches upcoming tickets when online, stores them locally, and serves them 
+// Fetches upcoming tickets when online, stores them locally, and serves them
 // instantly when the device loses internet connection.
 // =============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-import { preCacheTicket, purgeExpiredTickets, isAppOffline } from '../../lib/pwa/cacheManager';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "../../lib/supabaseClient";
+import { preCacheTicket, purgeExpiredTickets, isAppOffline } from "../../lib/pwa/cacheManager";
 
 export interface CachedTicket {
     id: string;
@@ -19,125 +19,130 @@ export interface CachedTicket {
     qr_code_url: string;
     qr_code_data: string; // The raw string encoded in the QR
     status: 'active' | 'used' | 'expired';
+    assigned_dietary_meal?: string | null;
 }
 
 interface UseOfflineTicketsReturn {
-    tickets: CachedTicket[];
-    isLoading: boolean;
-    isOffline: boolean;
-    error: string | null;
-    refreshTickets: () => Promise<void>;
-    saveTicketToCameraRoll: (ticket: CachedTicket) => Promise<void>;
+  tickets: CachedTicket[];
+  isLoading: boolean;
+  isOffline: boolean;
+  error: string | null;
+  refreshTickets: () => Promise<void>;
+  saveTicketToCameraRoll: (ticket: CachedTicket) => Promise<void>;
 }
 
-const DB_NAME = 'CampusConnectTicketsDB';
-const STORE_NAME = 'tickets';
+const DB_NAME = "CampusConnectTicketsDB";
+const STORE_NAME = "tickets";
 const DB_VERSION = 1;
 
 /**
  * Helper: Open IndexedDB
  */
 function openDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onupgradeneeded = (event) => {
-            const db = (event.target as IDBOpenDBRequest).result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-            }
-        };
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      }
+    };
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
 }
 
 /**
  * Helper: Save ticket to IndexedDB
  */
 async function saveTicketDB(ticket: CachedTicket): Promise<void> {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(ticket);
-    return new Promise((resolve, reject) => {
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
+  const db = await openDB();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  tx.objectStore(STORE_NAME).put(ticket);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 /**
  * Helper: Get all tickets from IndexedDB
  */
 async function getTicketsDB(): Promise<CachedTicket[]> {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const request = tx.objectStore(STORE_NAME).getAll();
-    return new Promise((resolve, reject) => {
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
+  const db = await openDB();
+  const tx = db.transaction(STORE_NAME, "readonly");
+  const request = tx.objectStore(STORE_NAME).getAll();
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
 }
 
 /**
  * Helper: Delete ticket from IndexedDB
  */
 async function deleteTicketDB(id: string): Promise<void> {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).delete(id);
-    return new Promise((resolve, reject) => {
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
+  const db = await openDB();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  tx.objectStore(STORE_NAME).delete(id);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 export function useOfflineTickets(): UseOfflineTicketsReturn {
-    const [tickets, setTickets] = useState<CachedTicket[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isOffline, setIsOffline] = useState(isAppOffline());
-    const [error, setError] = useState<string | null>(null);
+  const [tickets, setTickets] = useState<CachedTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(isAppOffline());
+  const [error, setError] = useState<string | null>(null);
 
-    // Listen for network status changes
-    useEffect(() => {
-        const handleOnline = () => setIsOffline(false);
-        const handleOffline = () => setIsOffline(true);
+  // Listen for network status changes
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
 
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, []);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
-    const refreshTickets = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
+  const refreshTickets = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-        try {
-            // If offline, just load from IndexedDB
-            if (isOffline) {
-                const cached = await getTicketsDB();
-                setTickets(cached.filter(t => t.status === 'active'));
-                setIsLoading(false);
-                return;
-            }
+    try {
+      // If offline, just load from IndexedDB
+      if (isOffline) {
+        const cached = await getTicketsDB();
+        setTickets(cached.filter((t) => t.status === "active"));
+        setIsLoading(false);
+        return;
+      }
 
-            // If online, fetch from Supabase
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setTickets([]);
-                setIsLoading(false);
-                return;
-            }
+      // If online, fetch from Supabase
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setTickets([]);
+        setIsLoading(false);
+        return;
+      }
 
-            const { data: rsvps, error: fetchError } = await supabase
-                .from('event_rsvps')
-                .select(`
+      const { data: rsvps, error: fetchError } = await supabase
+        .from("event_rsvps")
+        .select(
+          `
           id,
           event_id,
+          assigned_dietary_meal,
           events (
             id,
             title,
@@ -173,7 +178,8 @@ export function useOfflineTickets(): UseOfflineTicketsReturn {
                     event_location: event.location || 'TBA',
                     qr_code_url: qrCodeUrl,
                     qr_code_data: qrData,
-                    status: 'active'
+                    status: 'active',
+                    assigned_dietary_meal: rsvp.assigned_dietary_meal
                 };
 
                 fetchedTickets.push(ticket);
@@ -233,12 +239,14 @@ export function useOfflineTickets(): UseOfflineTicketsReturn {
         }
     };
 
-    return {
-        tickets,
-        isLoading,
-        isOffline,
-        error,
-        refreshTickets,
-        saveTicketToCameraRoll
-    };
+
+
+  return {
+    tickets,
+    isLoading,
+    isOffline,
+    error,
+    refreshTickets,
+    saveTicketToCameraRoll,
+  };
 }

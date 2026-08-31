@@ -1,3 +1,4 @@
+import { describe, test, expect, beforeEach } from 'vitest';
 import { ResearchGrantService } from '../../backend/src/services/ResearchGrantService';
 import { ResearchGrantRecord, GrantMilestone } from '../../src/types/researchGrant';
 

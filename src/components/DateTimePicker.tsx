@@ -21,6 +21,7 @@ interface DateTimePickerProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -32,7 +33,7 @@ const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
  * Tailwind design tokens (bg-popover, etc.), and is keyboard accessible
  * (arrow keys move focus between days, Enter/Space selects).
  */
-export function DateTimePicker({ value, onChange, className }: DateTimePickerProps) {
+export function DateTimePicker({ value, onChange, className, disabled }: DateTimePickerProps) {
   const selectedDate = value ? parseISO(value) : null;
   const [viewMonth, setViewMonth] = useState(() => selectedDate ?? new Date());
   const [open, setOpen] = useState(false);
@@ -105,6 +106,7 @@ export function DateTimePicker({ value, onChange, className }: DateTimePickerPro
         <Button
           type="button"
           variant="outline"
+          disabled={disabled}
           className={cn(
             "w-full justify-start text-left font-normal",
             !value && "text-muted-foreground",

@@ -59,6 +59,8 @@ export function EventRsvpButton({
   onRsvpChanged,
 }: EventRsvpButtonProps) {
   const [state, setState] = useState<EventRsvpState | null>(initialState ?? null);
+
+  const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
@@ -69,6 +71,8 @@ export function EventRsvpButton({
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [roundUp, setRoundUp] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
+
+  const [hideDietary, setHideDietary] = useState(false);
 
   const { processPayment, isProcessing } = useIdempotentPayment();
 
@@ -110,6 +114,15 @@ export function EventRsvpButton({
     const ref = new URLSearchParams(window.location.search).get("ref");
     const result = await joinEventOrWaitlist(eventId, userId, isAnonymous, resumePath, ref);
     setLoading(false);
+    // If they want to hide dietary restrictions, update the RSVP record immediately after joining
+    if (result.success && hideDietary) {
+      await supabase
+        .from("event_rsvps")
+        .update({ dietary_restrictions: [] })
+        .eq("event_id", eventId)
+        .eq("user_id", userId);
+    }
+
     if (!result.success) {
       setError(result.error);
       return;
@@ -320,7 +333,24 @@ export function EventRsvpButton({
             </p>
           </div>
         </div>
-        
+
+        <div className="flex items-start space-x-2 my-2 p-3 border rounded-md bg-slate-50 dark:bg-slate-900">
+          <Checkbox
+            id="hide-dietary"
+            checked={hideDietary}
+            onCheckedChange={(checked) => setHideDietary(checked as boolean)}
+          />
+          <div className="grid gap-1.5 leading-none mt-0.5">
+            <Label htmlFor="hide-dietary" className="font-semibold cursor-pointer">
+              Hide my dietary & accessibility needs for this event
+            </Label>
+            <p className="text-xs text-slate-500">
+              Your global dietary preferences will not be shared with the organizer for this
+              specific event.
+            </p>
+          </div>
+        </div>
+
         {state.max_attendees && (
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {state.attending_count} / {state.max_attendees} spots filled

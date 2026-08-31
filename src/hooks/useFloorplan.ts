@@ -1,105 +1,216 @@
 // =============================================================================
 // Hook: useFloorplan
-// Issue: #3675 - Build an 'Interactive "Event Layout" Floorplan Creator'
-// Description: Loads the venue bounds + persisted canvas, exposes CRUD ops
-// for draggable assets, recomputes fire-exit collisions on every mutation and
-// serializes the canvas back to events.floorplan_json.
+// Issues: #3675 / #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4420 - Real-Time "Accessibility Need" Venue Map
+// Description: Loads the persisted canvas from events.floorplan_json, exposes
+// CRUD ops for draggable assets (incl. sponsor assignment) and accessibility
+// POIs, recomputes fire-exit collisions on every mutation and serializes the
+// canvas back to the JSON contract requested by #4145.
 // =============================================================================
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-import { FloorplanAsset, FloorplanState, VenueBounds, AssetKind, makeAsset } from '../../lib/floorplan/types';
-import { findCollisions, clampToVenue } from '../../lib/floorplan/collision';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  AccessibilityPoi,
+  AccessibilityPoiKind,
+  AssetKind,
+  DEFAULT_VENUE,
+  FloorplanAsset,
+  SponsorAssignment,
+  VenueBounds,
+  makeAsset,
+  makePoi,
+} from "../lib/floorplan/types";
+import { findCollisions, clampToVenue } from "../lib/floorplan/collision";
+import { toFloorplanState } from "../lib/floorplan/serialize";
+import { loadFloorplan, saveFloorplan } from "../lib/floorplan/service";
 
 interface UseFloorplanReturn {
-    venue: VenueBounds | null;
-    assets: FloorplanAsset[];
-    collidingIds: Set<string>;
-    isLoading: boolean;
-    isSaving: boolean;
-    addAsset: (kind: AssetKind) => void;
-    moveAsset: (id: string, x: number, y: number) => void;
-    removeAsset: (id: string) => void;
-    save: () => Promise<boolean>;
+  eventTitle: string | null;
+  venue: VenueBounds;
+  assets: FloorplanAsset[];
+  collidingIds: Set<string>;
+  isLoading: boolean;
+  isSaving: boolean;
+  addAsset: (kind: AssetKind, at?: { x: number; y: number }) => void;
+  moveAsset: (id: string, x: number, y: number) => void;
+  updateAsset: (id: string, patch: Partial<Omit<FloorplanAsset, "id" | "kind">>) => void;
+  assignSponsor: (id: string, assignment: SponsorAssignment | null) => void;
+  removeAsset: (id: string) => void;
+  setVenueSize: (widthFt: number, heightFt: number) => void;
+  /** #4420 accessibility POI operations, stored inside the venue JSON. */
+  addPoi: (kind: AccessibilityPoiKind, at?: { x_ft: number; y_ft: number }) => void;
+  movePoi: (id: string, x_ft: number, y_ft: number) => void;
+  updatePoi: (id: string, patch: Partial<Omit<AccessibilityPoi, "id" | "kind">>) => void;
+  removePoi: (id: string) => void;
+  save: () => Promise<boolean>;
 }
 
-export function useFloorplan(eventId: string | null, venueId: string | null): UseFloorplanReturn {
-    const [venue, setVenue] = useState<VenueBounds | null>(null);
-    const [assets, setAssets] = useState<FloorplanAsset[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
+export function useFloorplan(eventId: string | null): UseFloorplanReturn {
+  const [eventTitle, setEventTitle] = useState<string | null>(null);
+  const [venue, setVenue] = useState<VenueBounds>(DEFAULT_VENUE);
+  const [assets, setAssets] = useState<FloorplanAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-    // Load venue bounds + any previously saved canvas
-    useEffect(() => {
-        const load = async () => {
-            if (!eventId || !venueId) { setIsLoading(false); return; }
-            setIsLoading(true);
-            try {
-                const [{ data: venueRow }, { data: eventRow }] = await Promise.all([
-                    supabase.from('venues').select('width_ft, height_ft, fire_exits').eq('id', venueId).single(),
-                    supabase.from('events').select('floorplan_json').eq('id', eventId).single(),
-                ]);
+  // Load the saved floorplan document
+  useEffect(() => {
+    const load = async () => {
+      if (!eventId) {
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const supabase = createClient();
+        const result = await loadFloorplan(supabase, eventId);
+        setEventTitle(result.meta?.title ?? null);
+        setAssets(result.assets);
+        setVenue(result.venue);
+      } catch (err) {
+        console.error("[useFloorplan] Load failed:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [eventId]);
 
-                if (venueRow) {
-                    setVenue({
-                        width_ft: Number(venueRow.width_ft),
-                        height_ft: Number(venueRow.height_ft),
-                        fire_exits: (venueRow.fire_exits as any[]) || [],
-                    });
-                }
-                const saved = (eventRow?.floorplan_json as FloorplanState | null);
-                setAssets(saved?.assets || []);
-            } catch (err) {
-                console.error('[useFloorplan] Load failed:', err);
-            } finally {
-                setIsLoading(false);
-            }
+  // Recompute collisions whenever geometry changes
+  const collidingIds = useMemo(() => findCollisions(assets, venue), [assets, venue]);
+
+  const addAsset = useCallback(
+    (kind: AssetKind, at?: { x: number; y: number }) => {
+      setAssets((prev) => {
+        const base = at ?? {
+          x: venue.width_ft / 2 - 3,
+          y: venue.height_ft / 2 - 2,
         };
-        load();
-    }, [eventId, venueId]);
+        const offset = (prev.length % 5) * 2;
+        return [...prev, makeAsset(kind, base.x + offset, base.y + offset, prev.length)];
+      });
+    },
+    [venue],
+  );
 
-    // Recompute collisions whenever geometry changes
-    const collidingIds = useMemo(
-        () => (venue ? findCollisions(assets, venue) : new Set<string>()),
-        [assets, venue]
-    );
+  const moveAsset = useCallback(
+    (id: string, x: number, y: number) => {
+      setAssets((prev) =>
+        prev.map((a) => {
+          if (a.id !== id || !venue) return a;
+          const clamped = clampToVenue({ ...a, x, y }, venue);
+          return { ...a, ...clamped };
+        }),
+      );
+    },
+    [venue],
+  );
 
-    const addAsset = useCallback((kind: AssetKind) => {
-        setAssets(prev => {
-            // Drop new assets near the center with a slight cascade offset
-            const base = venue ? { x: venue.width_ft / 2 - 3, y: venue.height_ft / 2 - 2 } : { x: 10, y: 10 };
-            const offset = (prev.length % 5) * 2;
-            return [...prev, makeAsset(kind, base.x + offset, base.y + offset, prev.length)];
-        });
-    }, [venue]);
+  const updateAsset = useCallback(
+    (id: string, patch: Partial<Omit<FloorplanAsset, "id" | "kind">>) => {
+      setAssets((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+    },
+    [],
+  );
 
-    const moveAsset = useCallback((id: string, x: number, y: number) => {
-        setAssets(prev => prev.map(a => {
-            if (a.id !== id || !venue) return a;
-            const clamped = clampToVenue({ ...a, x, y }, venue);
-            return { ...a, ...clamped };
-        }));
-    }, [venue]);
+  const assignSponsor = useCallback(
+    (id: string, assignment: SponsorAssignment | null) => {
+      updateAsset(id, { assignment });
+    },
+    [updateAsset],
+  );
 
-    const removeAsset = useCallback((id: string) => {
-        setAssets(prev => prev.filter(a => a.id !== id));
-    }, []);
+  const removeAsset = useCallback((id: string) => {
+    setAssets((prev) => prev.filter((a) => a.id !== id));
+  }, []);
 
-    const save = useCallback(async (): Promise<boolean> => {
-        if (!eventId) return false;
-        setIsSaving(true);
-        try {
-            const payload: FloorplanState = { assets, updatedAt: new Date().toISOString() };
-            const { error } = await supabase.from('events').update({ floorplan_json: payload }).eq('id', eventId);
-            if (error) throw error;
-            return true;
-        } catch (err) {
-            console.error('[useFloorplan] Save failed:', err);
-            return false;
-        } finally {
-            setIsSaving(false);
-        }
-    }, [assets, eventId]);
+  const setVenueSize = useCallback((widthFt: number, heightFt: number) => {
+    setVenue((prev) => ({
+      ...prev,
+      width_ft: Math.max(20, widthFt),
+      height_ft: Math.max(20, heightFt),
+    }));
+  }, []);
 
-    return { venue, assets, collidingIds, isLoading, isSaving, addAsset, moveAsset, removeAsset, save };
+  // #4420: POIs live inside the venue JSON, next to fire_exits.
+  const addPoi = useCallback((kind: AccessibilityPoiKind, at?: { x_ft: number; y_ft: number }) => {
+    setVenue((prev) => {
+      const existing = prev.accessibility_pois ?? [];
+      const base = at ?? {
+        x_ft: prev.width_ft / 2,
+        y_ft: prev.height_ft / 2,
+      };
+      const poi = makePoi(kind, base.x_ft, base.y_ft, existing.length);
+      return { ...prev, accessibility_pois: [...existing, poi] };
+    });
+  }, []);
+
+  const movePoi = useCallback((id: string, x_ft: number, y_ft: number) => {
+    setVenue((prev) => ({
+      ...prev,
+      accessibility_pois: (prev.accessibility_pois ?? []).map((p) =>
+        p.id === id
+          ? {
+              ...p,
+              x_ft: Math.min(Math.max(x_ft, 0), prev.width_ft),
+              y_ft: Math.min(Math.max(y_ft, 0), prev.height_ft),
+            }
+          : p,
+      ),
+    }));
+  }, []);
+
+  const updatePoi = useCallback(
+    (id: string, patch: Partial<Omit<AccessibilityPoi, "id" | "kind">>) => {
+      setVenue((prev) => ({
+        ...prev,
+        accessibility_pois: (prev.accessibility_pois ?? []).map((p) =>
+          p.id === id ? { ...p, ...patch } : p,
+        ),
+      }));
+    },
+    [],
+  );
+
+  const removePoi = useCallback((id: string) => {
+    setVenue((prev) => ({
+      ...prev,
+      accessibility_pois: (prev.accessibility_pois ?? []).filter((p) => p.id !== id),
+    }));
+  }, []);
+
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!eventId) return false;
+    setIsSaving(true);
+    try {
+      const supabase = createClient();
+      await saveFloorplan(supabase, eventId, toFloorplanState(assets, venue));
+      return true;
+    } catch (err) {
+      console.error("[useFloorplan] Save failed:", err);
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [assets, venue, eventId]);
+
+  return {
+    eventTitle,
+    venue,
+    assets,
+    collidingIds,
+    isLoading,
+    isSaving,
+    addAsset,
+    moveAsset,
+    updateAsset,
+    assignSponsor,
+    removeAsset,
+    setVenueSize,
+    addPoi,
+    movePoi,
+    updatePoi,
+    removePoi,
+    save,
+  };
 }
