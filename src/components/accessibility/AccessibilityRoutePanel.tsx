@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Navigation,
+  Compass,
   Clock,
   MapPin,
   Accessibility,
@@ -101,14 +103,16 @@ function RatingDisplay({
 }) {
   const starSize = size === "sm" ? "w-3 h-3" : "w-4 h-4";
   return (
-    <div className="flex items-center gap-1" role="img" aria-label={`${rating.toFixed(1)} out of 5 stars from ${total} ratings`}>
+    <div
+      className="flex items-center gap-1"
+      role="img"
+      aria-label={`${rating.toFixed(1)} out of 5 stars from ${total} ratings`}
+    >
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
           className={`${starSize} ${
-            i <= Math.round(rating)
-              ? "text-amber-400 fill-amber-400"
-              : "text-slate-600"
+            i <= Math.round(rating) ? "text-amber-400 fill-amber-400" : "text-slate-600"
           }`}
         />
       ))}
@@ -158,17 +162,26 @@ const AccessibilityRoutePanel: React.FC<AccessibilityRoutePanelProps> = ({
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
       {/* Panel Header */}
-      <div className="px-4 py-3 border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <Accessibility className="w-4 h-4 text-violet-400" />
-          <h3 className="text-sm font-bold text-white">Accessible Routes</h3>
-          <span className="text-[10px] px-2 py-0.5 bg-violet-900/50 text-violet-400 border border-violet-800 rounded-full">
-            {routes.length}
-          </span>
+      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Accessibility className="w-4 h-4 text-violet-400" />
+            <h3 className="text-sm font-bold text-white">Accessible Routes</h3>
+            <span className="text-[10px] px-2 py-0.5 bg-violet-900/50 text-violet-400 border border-violet-800 rounded-full">
+              {routes.length}
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Wheelchair-accessible paths from transit stops to venue entrances
+          </p>
         </div>
-        <p className="text-[11px] text-slate-500 mt-1">
-          Wheelchair-accessible paths from transit stops to venue entrances
-        </p>
+
+        <Link
+          to="/events/acoustic-wayfinding"
+          className="px-2.5 py-1.5 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(6,182,212,0.15)]"
+        >
+          <Compass className="w-3.5 h-3.5 text-cyan-400" /> LiDAR Acoustic
+        </Link>
       </div>
 
       {/* Route List */}
@@ -203,9 +216,7 @@ const AccessibilityRoutePanel: React.FC<AccessibilityRoutePanelProps> = ({
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-white truncate">
-                        {route.name}
-                      </span>
+                      <span className="text-sm font-bold text-white truncate">{route.name}</span>
                       {route.verified && (
                         <span className="text-[9px] px-1.5 py-0.5 bg-emerald-900/50 text-emerald-400 border border-emerald-800 rounded-full font-bold flex items-center gap-0.5">
                           <Shield className="w-2.5 h-2.5" />
@@ -236,10 +247,7 @@ const AccessibilityRoutePanel: React.FC<AccessibilityRoutePanelProps> = ({
                         {diffConfig.icon}
                         {diffConfig.label}
                       </span>
-                      <RatingDisplay
-                        rating={route.overallRating}
-                        total={route.totalRatings}
-                      />
+                      <RatingDisplay rating={route.overallRating} total={route.totalRatings} />
                     </div>
 
                     {/* Compatibility Badges */}
@@ -327,9 +335,7 @@ const AccessibilityRoutePanel: React.FC<AccessibilityRoutePanelProps> = ({
                           <span className="text-[11px] text-slate-300 truncate">{pw.name}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[9px] text-slate-500">
-                            {pw.widthMeters}m wide
-                          </span>
+                          <span className="text-[9px] text-slate-500">{pw.widthMeters}m wide</span>
                           {pw.hasRamp && <span className="text-[9px]">♿</span>}
                           {pw.hasTactilePaving && <span className="text-[9px]">🟫</span>}
                           {pw.hasHandrails && <span className="text-[9px]">🦯</span>}
@@ -354,9 +360,7 @@ const AccessibilityRoutePanel: React.FC<AccessibilityRoutePanelProps> = ({
                               className="flex items-center gap-2 text-[11px] px-2 py-1 bg-slate-800/50 rounded"
                             >
                               <span>{label.emoji}</span>
-                              <span className={`font-bold ${label.color}`}>
-                                {f.name}
-                              </span>
+                              <span className={`font-bold ${label.color}`}>{f.name}</span>
                               <span className="text-slate-500 ml-auto">
                                 {f.operational ? "✓" : "✕"}
                               </span>
@@ -384,9 +388,7 @@ const AccessibilityRoutePanel: React.FC<AccessibilityRoutePanelProps> = ({
                               key={o.id}
                               className="flex items-center gap-2 text-[11px] px-2 py-1 bg-red-950/30 rounded border border-red-900/50"
                             >
-                              <span className={`font-bold ${label.color}`}>
-                                {label.label}
-                              </span>
+                              <span className={`font-bold ${label.color}`}>{label.label}</span>
                               <span
                                 className={`text-[9px] px-1 py-0.5 rounded ${severity?.bgClass || ""}`}
                               >
@@ -430,16 +432,12 @@ const AccessibilityRoutePanel: React.FC<AccessibilityRoutePanelProps> = ({
                                 {i + 1}.
                               </span>
                               <div className="min-w-0">
-                                <span className="text-slate-300">
-                                  {turn.instruction}
-                                </span>
+                                <span className="text-slate-300">{turn.instruction}</span>
                                 <span className="text-slate-500 ml-1">
                                   ({turn.distanceMeters}m)
                                 </span>
                                 {turn.landmark && (
-                                  <span className="text-cyan-400 ml-1">
-                                    · Near {turn.landmark}
-                                  </span>
+                                  <span className="text-cyan-400 ml-1">· Near {turn.landmark}</span>
                                 )}
                                 {turn.caution && (
                                   <span className="block text-amber-400 text-[10px] mt-0.5">

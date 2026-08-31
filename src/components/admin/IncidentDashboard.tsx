@@ -1,8 +1,8 @@
 // =============================================================================
 // Component: IncidentDashboard
---Issue: #2969 - Build an 'Anonymous Incident Reporting' Workflow
---Description: Secure portal for the University Disciplinary Board to review
---anonymous claims, update statuses, leave internal notes, and manage escalations.
+//Issue: #2969 - Build an 'Anonymous Incident Reporting' Workflow
+//Description: Secure portal for the University Disciplinary Board to review
+//anonymous claims, update statuses, leave internal notes, and manage escalations.
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';

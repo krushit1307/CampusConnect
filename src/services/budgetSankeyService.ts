@@ -5,7 +5,7 @@
 //              and CSV/JSON export utilities for Budget vs Actual Sankey Diagrams.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import type {
   BudgetTransaction,
   BudgetSummaryKPIs,

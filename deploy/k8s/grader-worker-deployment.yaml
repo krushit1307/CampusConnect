@@ -1,0 +1,76 @@
+# deploy/k8s/grader-worker-deployment.yaml
+# Issue #5131: Automated "Event Series" GitHub Classroom Auto-Grader Load Balancer
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campusconnect-grader-worker
+  namespace: campusconnect-autograder
+  labels:
+    app.kubernetes.io/name: grader-worker
+    app.kubernetes.io/part-of: campusconnect
+    app.kubernetes.io/component: auto-grader-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grader-worker
+  template:
+    metadata:
+      labels:
+        app: grader-worker
+        tier: worker
+    spec:
+      serviceAccountName: grader-worker-sa
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: auto-grader-worker
+          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/campusconnect/auto-grader-worker:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: SQS_QUEUE_URL
+              value: "https://sqs.us-east-1.amazonaws.com/123456789012/campusconnect-grader-submissions-queue"
+            - name: SQS_DLQ_URL
+              value: "https://sqs.us-east-1.amazonaws.com/123456789012/campusconnect-grader-submissions-dlq"
+            - name: MAX_CONCURRENT_GRADES
+              value: "5"
+            - name: CONTAINER_TIMEOUT_SECONDS
+              value: "10"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          securityContext:
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 4040
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 4040
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grader-worker-sa
+  namespace: campusconnect-autograder
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/CampusConnectGraderWorkerRole

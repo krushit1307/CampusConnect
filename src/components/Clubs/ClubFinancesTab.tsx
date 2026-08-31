@@ -7,6 +7,7 @@ import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 import { DuesRosterPanel } from "@/components/Clubs/DuesRosterPanel";
 import { ContractWarningAlert } from "@/components/Clubs/ContractWarningAlert";
+import { VendorEscrowViewer } from "@/components/vendors/VendorEscrowViewer";
 
 export function ClubFinancesTab({ clubId }: { clubId: string }) {
   const supabase = createClient();
@@ -78,6 +79,7 @@ export function ClubFinancesTab({ clubId }: { clubId: string }) {
       </h2>
       
       <ContractWarningAlert clubId={clubId} />
+      <VendorEscrowViewer clubId={clubId} />
 
       {/* Membership dues: standing, arrears and the reminder due next. */}
       <DuesRosterPanel clubId={clubId} />

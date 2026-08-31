@@ -1,10 +1,11 @@
 // src/components/EventCreationWizard/steps/DateLocationStepForm.tsx
+import { useState } from "react";
 import { useEventWizardStore } from "../../../store/useEventWizardStore";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import { Checkbox } from "../../ui/checkbox";
 import { LocationAutocomplete } from "../../LocationAutocomplete";
-
+import { useRestrictedDateCheck } from "../../../hooks/useRestrictedDateCheck";
 /**
  * Step 2: Date & Location.
  * Collects start/end date-times, physical/virtual location, and capacity.
@@ -13,9 +14,10 @@ export function DateLocationStepForm() {
   const formData = useEventWizardStore((s) => s.formData);
   const updateFormData = useEventWizardStore((s) => s.updateFormData);
   const validationErrors = useEventWizardStore((s) => s.validationErrors);
+  const [dismissedWarning, setDismissedWarning] = useState(false);
+  const { warningMessage } = useRestrictedDateCheck(formData.startDate, formData.endDate);
 
-  return (
-    <div className="space-y-6">
+  return (    <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="startDate">Start Date & Time *</Label>
@@ -46,6 +48,18 @@ export function DateLocationStepForm() {
         </div>
       </div>
 
+      {warningMessage && !dismissedWarning && (
+        <div className="rounded-md border-2 border-red-600 bg-red-50 p-4 dark:bg-red-950">
+          <p className="text-sm font-bold text-red-700 dark:text-red-300">{warningMessage}</p>
+          <button
+            type="button"
+            onClick={() => setDismissedWarning(true)}
+            className="mt-2 text-sm font-semibold underline text-red-700 dark:text-red-300"
+          >
+            Yes, I'm sure - continue anyway
+          </button>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="location">Location *</Label>
         <LocationAutocomplete

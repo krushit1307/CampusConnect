@@ -4,6 +4,7 @@ import {
   getOptimizedImageUrl,
   isSafeImageSrc,
   isSupabasePublicImage,
+  DEFAULT_RESPONSIVE_WIDTHS,
 } from "@/lib/imageOptimization";
 
 interface OptimizedImageProps extends Omit<
@@ -17,6 +18,7 @@ interface OptimizedImageProps extends Omit<
   priority?: boolean;
   quality?: number;
   responsiveWidths?: number[];
+  sizes?: string;
   fallback?: React.ReactNode;
 }
 
@@ -56,12 +58,14 @@ export function OptimizedImage({
     [src, width, height, quality],
   );
 
+  const computedWidths = responsiveWidths || (isPublic ? DEFAULT_RESPONSIVE_WIDTHS : undefined);
+
   const fallbackSrcSet = useMemo(
     () =>
-      responsiveWidths
-        ? buildResponsiveImageSrcSet(src, responsiveWidths, { height, quality, resize: "cover" })
+      computedWidths
+        ? buildResponsiveImageSrcSet(src, computedWidths, { height, quality, resize: "cover" })
         : undefined,
-    [src, responsiveWidths, height, quality],
+    [src, computedWidths, height, quality],
   );
 
   const isSrcSafe = useMemo(() => isSafeImageSrc(fallbackSrc), [fallbackSrc]);
@@ -99,6 +103,10 @@ export function OptimizedImage({
     setLoaded(true);
   };
 
+  const appliedSizes = fallbackSrcSet
+    ? sizes || (isPublic ? "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" : undefined)
+    : undefined;
+
   if (isPublic) {
     return (
       <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
@@ -108,7 +116,7 @@ export function OptimizedImage({
             {...cleanImageProps}
             src={fallbackSrc}
             srcSet={fallbackSrcSet}
-            sizes={fallbackSrcSet ? sizes : undefined}
+            sizes={appliedSizes}
             alt={alt}
             width={width}
             height={height}
@@ -133,7 +141,7 @@ export function OptimizedImage({
         {...cleanImageProps}
         src={fallbackSrc}
         srcSet={fallbackSrcSet}
-        sizes={fallbackSrcSet ? sizes : undefined}
+        sizes={appliedSizes}
         alt={alt}
         width={width}
         height={height}

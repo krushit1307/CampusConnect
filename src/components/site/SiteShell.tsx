@@ -10,10 +10,13 @@ const JoyrideComponent =
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BugReportWidget } from "@/components/BugReportWidget";
+import { NoiseComplaintWidget } from "@/components/events/NoiseComplaintWidget";
 import { AutoBreadcrumbs } from "@/components/ui/AutoBreadcrumbs";
 import { LiveAnnouncer } from "@/components/events/LiveAnnouncer";
 import { StaleProfileNudgeModal } from "@/components/profile/StaleProfileNudgeModal";
 import { isProfileDataStale } from "@/services/profileFreshnessService";
+
+import { getDeviceFingerprint } from "@/lib/fingerprint";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -40,6 +43,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    getDeviceFingerprint();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUser(user);
       if (user) {
@@ -212,6 +216,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       </main>
       <Footer />
       <BugReportWidget />
+      <NoiseComplaintWidget />
       <StaleProfileNudgeModal
         isOpen={showStaleNudge}
         onClose={() => {

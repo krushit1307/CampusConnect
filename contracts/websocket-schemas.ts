@@ -88,6 +88,66 @@ export const EventUpdateSchema = z.object({
 export type EventUpdatePayload = z.infer<typeof EventUpdateSchema>;
 
 /**
+ * Schema for attendee_sentiment_submit event payload (Issue #5128)
+ * Emitted when an event attendee moves the Engagement Meter slider
+ */
+export const AttendeeSentimentSubmitSchema = z.object({
+  eventId: z.string().min(1),
+  attendeeId: z.string().min(1),
+  sentiment: z.number().min(0).max(100),
+  timestamp: z.string().optional(),
+});
+
+export type AttendeeSentimentSubmitPayload = z.infer<typeof AttendeeSentimentSubmitSchema>;
+
+/**
+ * Schema for presenter_sentiment_aggregate event payload (Issue #5128)
+ * Broadcast every 5 seconds to authorized presenters with crowd aggregate percentage
+ */
+export const PresenterSentimentAggregateSchema = z.object({
+  eventId: z.string().min(1),
+  engagement: z.number().min(0).max(100),
+  status: z.enum(["healthy", "low"]),
+  activeCount: z.number().min(0),
+  timestamp: z.string(),
+});
+
+export type PresenterSentimentAggregatePayload = z.infer<typeof PresenterSentimentAggregateSchema>;
+
+/**
+ * Schema for jury_duty_notification event payload (Issue #5129)
+ * Emitted when a user is randomly selected for Jury Duty
+ */
+export const JuryDutyNotificationSchema = z.object({
+  caseId: z.string().min(1),
+  jurorId: z.string().min(1),
+  reason: z.string(),
+  assignedAt: z.string(),
+});
+
+export type JuryDutyNotificationPayload = z.infer<typeof JuryDutyNotificationSchema>;
+
+/**
+ * Schema for jury_case_update event payload (Issue #5129)
+ * Emitted when a jury case reaches 4-of-5 consensus resolution
+ */
+export const JuryCaseUpdateSchema = z.object({
+  caseId: z.string().min(1),
+  status: z.enum([
+    "PENDING",
+    "ASSIGNED",
+    "VOTING",
+    "RESOLVED_VIOLATION",
+    "RESOLVED_FINE",
+    "EXPIRED",
+  ]),
+  consensusDecision: z.enum(["violates_policy", "looks_fine"]).nullable().optional(),
+  resolvedAt: z.string().optional(),
+});
+
+export type JuryCaseUpdatePayload = z.infer<typeof JuryCaseUpdateSchema>;
+
+/**
  * Master registry of all WebSocket event contracts
  * Used by both backend emission and frontend validation
  */
@@ -97,6 +157,10 @@ export const WebSocketContracts = {
   user_joined: UserJoinedSchema,
   user_left: UserLeftSchema,
   event_update: EventUpdateSchema,
+  attendee_sentiment_submit: AttendeeSentimentSubmitSchema,
+  presenter_sentiment_aggregate: PresenterSentimentAggregateSchema,
+  jury_duty_notification: JuryDutyNotificationSchema,
+  jury_case_update: JuryCaseUpdateSchema,
 } as const;
 
 export type WebSocketEventName = keyof typeof WebSocketContracts;
