@@ -28,8 +28,10 @@ import Save from "lucide-react/dist/esm/icons/save";
 import Download from "lucide-react/dist/esm/icons/download";
 import TriangleAlert from "lucide-react/dist/esm/icons/triangle-alert";
 import Accessibility from "lucide-react/dist/esm/icons/accessibility";
+import Users from "lucide-react/dist/esm/icons/users";
 
 import { FloorplanCanvas } from "./FloorplanCanvas";
+import { CrowdSimulationOverlay } from "../crowdSimulation/CrowdSimulationOverlay";
 import {
   AccessibilityPoiKind,
   AssetKind,
@@ -171,6 +173,7 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
 }) => {
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showCrowdSim, setShowCrowdSim] = useState<boolean>(false);
 
   // Sponsor assignment form state for the selected asset
   const pois = venue.accessibility_pois ?? [];
@@ -389,6 +392,23 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
 
         {/* Canvas */}
         <div className="space-y-3">
+          {showCrowdSim && (
+            <CrowdSimulationOverlay
+              layoutElements={assets.map((a) => ({
+                id: a.id,
+                type: a.kind,
+                x: a.x * 8, // scale feet to px (FT_TO_PX = 8)
+                y: a.y * 8,
+                width: a.width * 8,
+                height: a.height * 8,
+                label: a.label,
+              }))}
+              width={venue.width_ft * 8}
+              height={venue.height_ft * 8}
+              onClose={() => setShowCrowdSim(false)}
+            />
+          )}
+
           <div
             ref={(node) => {
               setDropRef(node);
@@ -421,6 +441,17 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCrowdSim(!showCrowdSim)}
+              data-testid="floorplan-crowd-sim-toggle"
+              className={`neu-border neu-press flex h-10 items-center gap-2 px-4 font-mono text-xs font-bold uppercase tracking-wider shadow-[2px_2px_0_0_#000] ${
+                showCrowdSim ? "bg-amber-300" : "bg-sky"
+              }`}
+            >
+              <Users size={14} />
+              {showCrowdSim ? "Hide Simulation" : "Crowd Flow Sim"}
+            </button>
             <button
               type="button"
               onClick={handleSave}

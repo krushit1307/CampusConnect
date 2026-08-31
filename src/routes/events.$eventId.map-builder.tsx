@@ -11,6 +11,7 @@ import Maximize2 from "lucide-react/dist/esm/icons/maximize-2";
 import Layout from "lucide-react/dist/esm/icons/layout";
 import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Users from "lucide-react/dist/esm/icons/users";
 
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
@@ -20,6 +21,7 @@ import {
   isAccessibilityNode,
   type MapNodeType,
 } from "@/lib/accessibilityMap";
+import { CrowdSimulationOverlay } from "@/components/events/crowdSimulation/CrowdSimulationOverlay";
 
 // Snap coordinates helper
 const snapToGrid = (val: number, gridSize: number): number => {
@@ -265,6 +267,7 @@ export default function CampusMapBuilder() {
 
   const [loading, setLoading] = useState(true);
   const [eventTitle, setEventTitle] = useState("");
+  const [showCrowdSim, setShowCrowdSim] = useState(false);
   const [ticketTiers, setTicketTiers] = useState<
     { id: string; name: string; is_early_bird: boolean }[]
   >([]);
@@ -585,6 +588,15 @@ export default function CampusMapBuilder() {
 
             <div className="flex gap-2">
               <button
+                onClick={() => setShowCrowdSim(!showCrowdSim)}
+                data-testid="toggle-crowd-sim-btn"
+                className={`flex items-center gap-2 border-2 border-black px-4 py-2 font-mono text-sm font-bold uppercase shadow-[3px_3px_0_0_#000] active:translate-x-0.5 active:translate-y-0.5 ${
+                  showCrowdSim ? "bg-amber-300 hover:bg-amber-400" : "bg-sky hover:bg-sky-400"
+                }`}
+              >
+                <Users size={16} /> {showCrowdSim ? "Hide Crowd Sim" : "Crowd Flow Sim"}
+              </button>
+              <button
                 onClick={saveLayoutToDatabase}
                 className="flex items-center gap-2 border-2 border-black bg-lime px-4 py-2 font-mono text-sm font-bold uppercase shadow-[3px_3px_0_0_#000] hover:bg-emerald-400 active:translate-x-0.5 active:translate-y-0.5"
               >
@@ -767,7 +779,16 @@ export default function CampusMapBuilder() {
               </div>
 
               {/* Grid Canvas Area */}
-              <div className="flex flex-col items-center justify-start lg:col-span-3">
+              <div className="flex flex-col items-center justify-start lg:col-span-3 space-y-4">
+                {showCrowdSim && (
+                  <CrowdSimulationOverlay
+                    layoutElements={elements}
+                    width={canvasWidth}
+                    height={canvasHeight}
+                    onClose={() => setShowCrowdSim(false)}
+                  />
+                )}
+
                 <DroppableCanvas>
                   {elements.map((element) => (
                     <CanvasElement key={element.id} element={element} />

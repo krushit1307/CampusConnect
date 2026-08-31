@@ -1,5 +1,3 @@
-import { scaleLinear } from "d3";
-
 /** Issue #4722: fire-code threshold that turns a zone deep red and pages security. */
 export const ZONE_RESTRICT_RATIO = 0.95;
 export const LAYOUT_HEATMAP_DEEP_RED = "#7f1d1d";
@@ -41,11 +39,9 @@ export function isZoneAtRestrictThreshold(occupancy: number, maxCapacity: number
 export function getLayoutHeatmapFill(occupancy: number, maxCapacity: number): string {
   const ratio = getZoneOccupancyRatio(occupancy, maxCapacity);
   if (ratio >= ZONE_RESTRICT_RATIO) return LAYOUT_HEATMAP_DEEP_RED;
-
-  const color = scaleLinear<string>()
-    .domain([0, 0.5, 0.75, ZONE_RESTRICT_RATIO])
-    .range(["#93c5fd", "#fde047", "#fb923c", LAYOUT_HEATMAP_DEEP_RED]);
-  return color(ratio);
+  if (ratio < 0.5) return "#93c5fd";
+  if (ratio < 0.75) return "#fde047";
+  return "#fb923c";
 }
 
 export function buildCampusSecurityRestrictMessage(
