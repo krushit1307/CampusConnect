@@ -43,6 +43,15 @@ contract HalalProvenanceLedger is Ownable {
         address submittedBy;
     }
 
+    struct RecallRecord {
+        uint256 recallId;
+        string upcCode;
+        string lotNumber;
+        string reason;
+        uint256 timestamp;
+        bool active;
+    }
+
     /// @dev Accredited boards, keyed by slug hash (e.g. keccak256("ifanca")).
     mapping(bytes32 => CertificationBoard) public boards;
 
@@ -55,6 +64,12 @@ contract HalalProvenanceLedger is Ownable {
     /// @dev Caterers permitted to anchor. The registry is the trust boundary.
     mapping(address => bool) public authorizedCaterers;
 
+    /// @dev Monotonically increasing identifier for on-chain recall records.
+    uint256 private recallCounter;
+
+    /// @dev Active or historic food safety recalls keyed by lot number.
+    mapping(string => RecallRecord) public lotRecalls;
+
     event BoardAccredited(bytes32 indexed boardId, string name, DietaryStandard standard);
     event BoardRevoked(bytes32 indexed boardId);
     event CatererAuthorized(address indexed caterer);
@@ -66,6 +81,13 @@ contract HalalProvenanceLedger is Ownable {
         string lotNumber,
         bytes32 certificateHash,
         bytes32 previousHash
+    );
+    event FoodSafetyRecallIssued(
+        uint256 indexed recallId,
+        string upcCode,
+        string lotNumber,
+        string reason,
+        uint256 timestamp
     );
 
     error NotAuthorizedCaterer();
@@ -186,5 +208,44 @@ contract HalalProvenanceLedger is Ownable {
 
     function getLotCount(bytes32 eventId) external view returns (uint256) {
         return eventChain[eventId].length;
+    }
+
+    /**
+     * @notice Registers an on-chain food safety recall (FDA/USDA or Campus Health).
+     * @param _upcCode The product barcode / Universal Product Code.
+     * @param _lotNumber The manufacturer batch or carton lot number under recall.
+     * @param _reason Description of the hazard (e.g. E. Coli, Salmonella, Listeria).
+     * @return recallId The unique monotonically increasing identifier for this recall event.
+     */
+    function issueRecall(
+        string memory _upcCode,
+        string memory _lotNumber,
+        string memory _reason
+    ) external returns (uint256) {
+        if (bytes(_lotNumber).length == 0) revert EmptyLotNumber();
+
+        recallCounter++;
+        uint256 recallId = recallCounter;
+
+        lotRecalls[_lotNumber] = RecallRecord({
+            recallId: recallId,
+            upcCode: _upcCode,
+            lotNumber: _lotNumber,
+            reason: _reason,
+            timestamp: block.timestamp,
+            active: true
+        });
+
+        emit FoodSafetyRecallIssued(recallId, _upcCode, _lotNumber, _reason, block.timestamp);
+        return recallId;
+    }
+
+    /**
+     * @notice Checks if a given food inventory lot is currently flagged as actively recalled.
+     * @param _lotNumber The manufacturer lot number to verify.
+     * @return bool True if an active recall exists for this lot.
+     */
+    function isLotRecalled(string memory _lotNumber) external view returns (bool) {
+        return lotRecalls[_lotNumber].active;
     }
 }
