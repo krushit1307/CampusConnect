@@ -1,26 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   CampusAlumniEndowmentService,
   EndowmentCampaign,
   AlumniDonationTransaction,
-} from '../../backend/src/services/CampusAlumniEndowmentService';
+} from "../../backend/src/services/CampusAlumniEndowmentService";
+import { AlumniEstateTrustSimulatorCard } from "../components/endowment/AlumniEstateTrustSimulatorCard";
 
 export const CampusAlumniEndowmentStudioPage: React.FC = () => {
   const [campaigns, setCampaigns] = useState<EndowmentCampaign[]>(
-    CampusAlumniEndowmentService.getActiveCampaigns()
+    CampusAlumniEndowmentService.getActiveCampaigns(),
   );
   const [transactions, setTransactions] = useState<AlumniDonationTransaction[]>(
-    CampusAlumniEndowmentService.getDonationHistory()
+    CampusAlumniEndowmentService.getDonationHistory(),
   );
 
   const [selectedCampaign, setSelectedCampaign] = useState<EndowmentCampaign | null>(null);
   const [donationAmount, setDonationAmount] = useState<number>(250);
-  const [donorName, setDonorName] = useState<string>('Alex Rivera');
+  const [donorName, setDonorName] = useState<string>("Alex Rivera");
   const [gradYear, setGradYear] = useState<number>(2018);
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<
-    'CREDIT_CARD' | 'BANK_TRANSFER' | 'CRYPTO' | 'STOCK_TRANSFER'
-  >('CREDIT_CARD');
+    "CREDIT_CARD" | "BANK_TRANSFER" | "CRYPTO" | "STOCK_TRANSFER"
+  >("CREDIT_CARD");
 
   const metrics = CampusAlumniEndowmentService.calculateTotalImpactMetrics();
 
@@ -34,7 +35,7 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
       gradYear,
       donationAmount,
       isAnonymous,
-      paymentMethod
+      paymentMethod,
     );
 
     setCampaigns([...CampusAlumniEndowmentService.getActiveCampaigns()]);
@@ -59,7 +60,8 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
             Campus Alumni Endowment Studio
           </h1>
           <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-            Empower student scholarships, research lab equipment, and athletic facilities through alumni gift matching and crowdfunding.
+            Empower student scholarships, research lab equipment, and athletic facilities through
+            alumni gift matching and crowdfunding.
           </p>
         </div>
       </div>
@@ -67,7 +69,9 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Endowment Raised</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Total Endowment Raised
+          </span>
           <div className="text-2xl md:text-3xl font-black text-emerald-400 mt-1">
             ${metrics.totalRaised.toLocaleString()}
           </div>
@@ -75,7 +79,9 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
         </div>
 
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Alumni Donors</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Alumni Donors
+          </span>
           <div className="text-2xl md:text-3xl font-black text-blue-400 mt-1">
             {metrics.totalDonors.toLocaleString()}
           </div>
@@ -83,7 +89,9 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
         </div>
 
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fully Funded Campaigns</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Fully Funded Campaigns
+          </span>
           <div className="text-2xl md:text-3xl font-black text-purple-400 mt-1">
             {metrics.fundedCount} / {metrics.activeCampaignsCount}
           </div>
@@ -91,11 +99,18 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
         </div>
 
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Average Match Ratio</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Average Match Ratio
+          </span>
           <div className="text-2xl md:text-3xl font-black text-amber-400 mt-1">1.75x</div>
-          <span className="text-[11px] text-slate-500 mt-1 block">Corporate Sponsor Multiplier</span>
+          <span className="text-[11px] text-slate-500 mt-1 block">
+            Corporate Sponsor Multiplier
+          </span>
         </div>
       </div>
+
+      {/* Alumni Estate Donation Trust Smart Contract Simulator */}
+      <AlumniEstateTrustSimulatorCard />
 
       {/* Campaigns Grid */}
       <div className="space-y-4">
@@ -123,7 +138,9 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
 
                   {c.matchingSponsorName && (
                     <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl mb-4 text-xs text-slate-300">
-                      <span className="text-slate-400 font-bold block mb-0.5">Matching Sponsor:</span>
+                      <span className="text-slate-400 font-bold block mb-0.5">
+                        Matching Sponsor:
+                      </span>
                       🤝 {c.matchingSponsorName}
                     </div>
                   )}
@@ -131,8 +148,12 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
                   {/* Progress Bar */}
                   <div className="space-y-1.5 mb-4">
                     <div className="flex justify-between text-xs font-bold">
-                      <span className="text-emerald-400">${c.raisedAmount.toLocaleString()} Raised</span>
-                      <span className="text-slate-400">Target: ${c.targetAmount.toLocaleString()} ({pct}%)</span>
+                      <span className="text-emerald-400">
+                        ${c.raisedAmount.toLocaleString()} Raised
+                      </span>
+                      <span className="text-slate-400">
+                        Target: ${c.targetAmount.toLocaleString()} ({pct}%)
+                      </span>
                     </div>
                     <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
                       <div
@@ -167,11 +188,17 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
               <div>
                 <span className="font-bold text-white text-sm">{t.donorName}</span>
                 <span className="text-slate-400 ml-2">Class of {t.donorGraduationYear}</span>
-                <p className="text-slate-500 text-[11px] mt-0.5">Payment Method: {t.paymentMethod} • {t.timestamp}</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">
+                  Payment Method: {t.paymentMethod} • {t.timestamp}
+                </p>
               </div>
               <div className="text-right">
-                <span className="text-emerald-400 font-bold text-sm block">+${t.amount.toLocaleString()}</span>
-                <span className="text-blue-400 text-[11px] block">+${t.matchedAmount.toLocaleString()} Corporate Match</span>
+                <span className="text-emerald-400 font-bold text-sm block">
+                  +${t.amount.toLocaleString()}
+                </span>
+                <span className="text-blue-400 text-[11px] block">
+                  +${t.matchedAmount.toLocaleString()} Corporate Match
+                </span>
               </div>
             </div>
           ))}
@@ -246,7 +273,9 @@ export const CampusAlumniEndowmentStudioPage: React.FC = () => {
                 onChange={(e) => setIsAnonymous(e.target.checked)}
                 className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0"
               />
-              <label htmlFor="anon" className="text-xs text-slate-400">Keep donor identity anonymous on public leaderboard</label>
+              <label htmlFor="anon" className="text-xs text-slate-400">
+                Keep donor identity anonymous on public leaderboard
+              </label>
             </div>
 
             <div className="flex gap-3 pt-4 border-t border-slate-800">
