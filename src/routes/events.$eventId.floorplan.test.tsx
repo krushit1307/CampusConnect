@@ -61,6 +61,8 @@ const sb = vi.hoisted(() => ({
   profilesMaybeSingle: vi.fn(),
   updateEq: vi.fn(),
   rpc: vi.fn(),
+  corporateSponsorships: vi.fn(),
+  sponsorTableBids: vi.fn(),
 }));
 
 let updatePayload: unknown;
@@ -88,6 +90,26 @@ vi.mock("@/lib/supabase/client", () => {
       return {
         select: () => ({
           eq: () => ({ maybeSingle: sb.profilesMaybeSingle }),
+        }),
+      };
+    }
+    if (table === "corporate_sponsorships") {
+      return {
+        select: () => ({
+          eq: sb.corporateSponsorships,
+        }),
+      };
+    }
+    if (table === "sponsor_table_bids") {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: sb.sponsorTableBids,
+              }),
+            }),
+          }),
         }),
       };
     }
@@ -148,6 +170,8 @@ describe("EventFloorplanPage (#4145)", () => {
     // #4420: default profile has no accessibility flag
     sb.profilesMaybeSingle.mockResolvedValue({ data: null, error: null });
     sb.updateEq.mockResolvedValue({ error: null });
+    sb.corporateSponsorships.mockResolvedValue({ data: [], error: null });
+    sb.sponsorTableBids.mockResolvedValue({ data: null, error: null });
     // #4375 introduced an organizer RPC check; the mocked user organizes this
     // event. Every other RPC (e.g. the capacity thermal map) returns rows.
     sb.rpc.mockImplementation((fn: string) =>
@@ -367,5 +391,28 @@ describe("EventFloorplanPage accessibility overlay (#4420)", () => {
     const doc = (updatePayload as { floorplan_json: { venue: { accessibility_pois: unknown[] } } })
       .floorplan_json.venue;
     expect(doc.accessibility_pois).toHaveLength(3);
+  });
+
+  it("renders the bidding section when an attendee selects a table node", async () => {
+    sb.corporateSponsorships.mockResolvedValue({
+      data: [
+        {
+          id: "spon-123",
+          company_name: "TacoCorp",
+          company_logo_url: "logo.png",
+          company_website_url: "taco.com",
+        },
+      ],
+      error: null,
+    });
+    await loadPage();
+
+    const table = await screen.findByTestId("floorplan-asset-asset_1");
+    fireEvent.pointerDown(table);
+
+    expect(await screen.findByTestId("bidding-section")).toBeInTheDocument();
+    expect(screen.getByText(/Booth Bidding/i)).toBeInTheDocument();
+    expect(screen.getByTestId("bid-amount-input")).toBeInTheDocument();
+    expect(screen.getByTestId("place-bid-btn")).toBeInTheDocument();
   });
 });

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AlertTriangle, ShieldCheck, PhoneCall } from "lucide-react";
-
+import { DroneDispatchPanel } from "@/components/events/DroneDispatchPanel";
 interface SafetyRollCallDashboardProps {
   eventId: string;
 }
@@ -27,9 +27,10 @@ interface SafetyCheckResponse {
   user_id: string;
   status: string;
   responded_at: string | null;
+  last_known_latitude: number | null;
+  last_known_longitude: number | null;
   profiles: ResponseUser;
 }
-
 export function SafetyRollCallDashboard({ eventId }: SafetyRollCallDashboardProps) {
   const [supabase] = useState(() => createClient());
   const [activeCheck, setActiveCheck] = useState<SafetyCheck | null>(null);
@@ -62,9 +63,8 @@ export function SafetyRollCallDashboard({ eventId }: SafetyRollCallDashboardProp
     const { data } = await supabase
       .from("safety_check_responses")
       .select(
-        "id, user_id, status, responded_at, profiles(id, first_name, last_name, emergency_contact_name, emergency_contact_phone)",
-      )
-      .eq("safety_check_id", checkId);
+        "id, user_id, status, responded_at, last_known_latitude, last_known_longitude, profiles(id, first_name, last_name, emergency_contact_name, emergency_contact_phone)",
+      )      .eq("safety_check_id", checkId);
     if (data) {
       // Supabase type workaround
       setResponses(data as any as SafetyCheckResponse[]);
@@ -193,9 +193,15 @@ export function SafetyRollCallDashboard({ eventId }: SafetyRollCallDashboardProp
                   <div className="flex items-center gap-3">
                     {isSafe && <ShieldCheck className="text-green-600" size={20} />}
                     {isOverdue && (
-                      <AlertTriangle className="text-red-600 animate-pulse" size={20} />
-                    )}
-                    {!isSafe && !isOverdue && (
+                      <>
+                        <AlertTriangle className="text-red-600 animate-pulse" size={20} />
+                        <DroneDispatchPanel
+                          safetyCheckResponseId={r.id}
+                          studentName={`${r.profiles.first_name} ${r.profiles.last_name}`}
+                          dispatchedByUserId={r.user_id}
+                        />
+                      </>
+                    )}                    {!isSafe && !isOverdue && (
                       <div className="w-5 h-5 rounded-full border-2 border-gray-400 border-t-black animate-spin" />
                     )}
 

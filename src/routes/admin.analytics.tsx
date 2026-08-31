@@ -618,6 +618,12 @@ export default function AnalyticsAdmin() {
                 Dead Letter Queue
               </Link>
               <Link
+                to="/admin/trends"
+                className="neu-border bg-white px-4 py-2 text-center font-mono text-xs font-bold uppercase hover:bg-cream"
+              >
+                Trend Forecasting
+              </Link>
+              <Link
                 to="/admin/clubs/pending"
                 className="neu-border bg-white px-4 py-2 text-center font-mono text-xs font-bold uppercase hover:bg-cream"
               >

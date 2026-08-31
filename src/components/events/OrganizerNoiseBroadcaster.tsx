@@ -5,7 +5,7 @@ import Volume2 from "lucide-react/dist/esm/icons/volume-2";
 import Mic from "lucide-react/dist/esm/icons/mic";
 import MicOff from "lucide-react/dist/esm/icons/mic-off";
 import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
-import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import { shouldTriggerSensoryAlert, updateSustainedLoudWindow } from "@/lib/quietRoomLocator";
 
 interface OrganizerNoiseBroadcasterProps {
   eventId: string;
@@ -18,7 +18,9 @@ export function OrganizerNoiseBroadcaster({ eventId }: OrganizerNoiseBroadcaster
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [lastDecibel, setLastDecibel] = useState<number | null>(null);
   const [lastBroadcastTime, setLastBroadcastTime] = useState<string | null>(null);
-  
+  const loudSinceRef = useRef<number | null>(null);
+  const alertSentRef = useRef(false);
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const channelRef = useRef<any>(null);
 
@@ -128,14 +130,40 @@ export function OrganizerNoiseBroadcaster({ eventId }: OrganizerNoiseBroadcaster
       stream.getTracks().forEach((track) => track.stop());
       await audioContext.close();
 
-      const finalAvgDb = Math.round(
-        samples.reduce((a, b) => a + b, 0) / (samples.length || 1)
-      );
+      const finalAvgDb = Math.round(samples.reduce((a, b) => a + b, 0) / (samples.length || 1));
 
       setLastDecibel(finalAvgDb);
       const nowStr = new Date().toLocaleTimeString();
       setLastBroadcastTime(nowStr);
       setIsSampling(false);
+
+      const nowMs = Date.now();
+      loudSinceRef.current = updateSustainedLoudWindow(loudSinceRef.current, finalAvgDb, nowMs);
+      if (loudSinceRef.current == null) {
+        alertSentRef.current = false;
+      } else if (!alertSentRef.current && shouldTriggerSensoryAlert(loudSinceRef.current, nowMs)) {
+        alertSentRef.current = true;
+        const { error: alertError } = await supabase.functions.invoke("dispatch-sensory-alert", {
+          body: { eventId, decibels: finalAvgDb },
+        });
+        if (alertError) {
+          console.error("Sensory alert dispatch failed:", alertError);
+          alertSentRef.current = false;
+        } else {
+          toast.warning("Sensory Alert sent to attendees.");
+          if (channelRef.current) {
+            await channelRef.current.send({
+              type: "broadcast",
+              event: "sensory_alert",
+              payload: {
+                message:
+                  "The Main Hall is very loud right now. Click here for routing to the Quiet Room.",
+                route: `/events/${eventId}?quietRoute=1`,
+              },
+            });
+          }
+        }
+      }
 
       // Broadcast update over Supabase Realtime channel
       if (channelRef.current) {
@@ -164,7 +192,8 @@ export function OrganizerNoiseBroadcaster({ eventId }: OrganizerNoiseBroadcaster
             Live Crowd Noise Monitor (Study Sessions)
           </h2>
           <p className="font-mono text-xs text-zinc-500/80 mt-1 dark:text-zinc-400">
-            Broadcasting ambient room volume to public view. Web Audio API samples sound locally; actual audio is never stored or transmitted.
+            Broadcasting ambient room volume to public view. Web Audio API samples sound locally;
+            actual audio is never stored or transmitted.
           </p>
         </div>
 
@@ -215,7 +244,10 @@ export function OrganizerNoiseBroadcaster({ eventId }: OrganizerNoiseBroadcaster
         {lastDecibel !== null && (
           <div className="flex items-center gap-4">
             <div className="border border-black bg-zinc-50 px-3 py-1 font-mono text-xs dark:bg-zinc-800 dark:border-white">
-              LAST RECORDED: <span className="font-bold text-purple-600 dark:text-purple-400">{lastDecibel} dB</span>
+              LAST RECORDED:{" "}
+              <span className="font-bold text-purple-600 dark:text-purple-400">
+                {lastDecibel} dB
+              </span>
             </div>
             <div className="text-[10px] font-mono text-zinc-400">
               Broadcasted at {lastBroadcastTime}

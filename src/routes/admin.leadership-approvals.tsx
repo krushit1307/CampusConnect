@@ -8,6 +8,7 @@ import { ShieldAlert, Check, X, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FundingRequestKanban } from "@/components/funding/FundingRequestKanban";
 import { LeadershipBackgroundCheckWidget } from "@/components/admin/LeadershipBackgroundCheckWidget";
+import { LeadershipBackgroundCheckReviewQueue } from "@/components/admin/LeadershipBackgroundCheckReviewQueue";
 import { clubLeadershipBackgroundCheckService } from "@/services/clubLeadershipBackgroundCheckService";
 
 export default function AdminLeadershipApprovals() {
@@ -235,7 +236,9 @@ export default function AdminLeadershipApprovals() {
                           disabled={
                             approveMutation.isPending ||
                             rejectMutation.isPending ||
-                            !clubLeadershipBackgroundCheckService.isCandidateClearedForLeadership(t.id)
+                            !clubLeadershipBackgroundCheckService.isCandidateClearedForLeadership(
+                              t.id,
+                            )
                           }
                           className="neu-border bg-[#a3e635] text-black hover:bg-lime-400 rounded-none shadow-[2px_2px_0_0_#000] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -268,6 +271,12 @@ export default function AdminLeadershipApprovals() {
               </p>
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="bg-cream px-4 py-12 md:px-6 text-black">
+        <div className="mx-auto max-w-7xl">
+          <LeadershipBackgroundCheckReviewQueue />
         </div>
       </section>
 

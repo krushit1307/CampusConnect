@@ -1,4 +1,39 @@
 /**
+ * Redis Client Configuration for CampusConnect
+ * Initializes and exports a singleton Redis client for high-performance operations.
+ */
+
+import { createClient } from 'redis';
+
+let redisClient: ReturnType<typeof createClient> | null = null;
+
+export function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      socket: {
+        reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+      },
+    });
+
+    redisClient.on('error', (err) => {
+      console.error('Redis Client Error:', err);
+    });
+
+    redisClient.connect().catch(console.error);
+  }
+
+  return redisClient;
+}
+
+export async function closeRedisClient() {
+  if (redisClient) {
+    await redisClient.quit();
+    redisClient = null;
+  }
+}
+
+/**
  * Redis Client Adapter Configuration for CampusConnect
  * Provides a resilient Redis client interface with seamless in-memory fallback for browser/jsdom environments.
  */

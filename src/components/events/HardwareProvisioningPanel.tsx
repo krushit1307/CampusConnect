@@ -33,12 +33,15 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
+      if (error && error.code !== "PGRST116") throw error;
 
       if (error && error.code !== "PGRST116") throw error; // PGRST116 is not found
       return data;
     },
   });
 
+  useEffect(() => {
+    if (!request) return;
   // Real-time subscription to track provisioning progress
   useEffect(() => {
     if (!request) return;
@@ -78,6 +81,8 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
 
   const provisionMutation = useMutation({
     mutationFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      const res = await fetch(
       setIsProvisioning(true);
       const { data: session } = await supabase.auth.getSession();
       const response = await fetch(
@@ -98,6 +103,15 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
           }),
         },
       );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Provisioning failed");
+      return json;
+    },
+    onSuccess: () => {
+      toast.success("Provisioning started");
+      queryClient.invalidateQueries({ queryKey: ["hardware_request", eventId] });
+    },
+    onError: (e: any) => toast.error(e.message),
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Provisioning failed");
       return result;
@@ -115,6 +129,8 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
   const terminateMutation = useMutation({
     mutationFn: async () => {
       if (!request) return;
+      const { data: session } = await supabase.auth.getSession();
+      const res = await fetch(
       setIsTerminating(true);
       const { data: session } = await supabase.auth.getSession();
       const response = await fetch(
@@ -125,6 +141,18 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.session?.access_token}`,
           },
+          body: JSON.stringify({ action: "terminate_manual", requestId: request.id }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Termination failed");
+      return json;
+    },
+    onSuccess: () => {
+      toast.success("Termination started");
+      queryClient.invalidateQueries({ queryKey: ["hardware_request", eventId] });
+    },
+    onError: (e: any) => toast.error(e.message),
           body: JSON.stringify({
             action: "terminate_manual",
             requestId: request.id,
@@ -149,6 +177,7 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
     mutationFn: async () => {
       if (!request) return;
       const { data: session } = await supabase.auth.getSession();
+      const res = await fetch(
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/hardware-provisioning`,
         {
@@ -157,6 +186,21 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.session?.access_token}`,
           },
+          body: JSON.stringify({ action: "assign_attendees", requestId: request.id, eventId }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Assignment failed");
+      return json;
+    },
+    onSuccess: (d) => {
+      toast.success(`Assigned ${d.assignedCount} VMs`);
+      queryClient.invalidateQueries({ queryKey: ["hardware_request", eventId] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  if (isLoading)
           body: JSON.stringify({
             action: "assign_attendees",
             requestId: request.id,
@@ -196,6 +240,10 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
             Cloud Hardware Provisioning
           </h3>
           <p className="text-xs font-sans text-indigo-800">
+            Provision temporary compute environments for hackathons.
+          </p>
+        </div>
+      </div>
             Provision temporary compute environments for hackathons or workshops.
           </p>
         </div>
@@ -223,6 +271,15 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
               </div>
               <button
                 onClick={() => {
+                  if (window.confirm("Are you sure?")) terminateMutation.mutate();
+                }}
+                disabled={terminateMutation.isPending || request.status === "terminating"}
+                className="px-3 py-1.5 border-2 border-black bg-rose-500 text-white font-bold text-xs uppercase rounded hover:bg-rose-600 disabled:opacity-50 flex items-center gap-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {terminateMutation.isPending ? "Terminating..." : "Terminate Resources"}
+              </button>
+            </div>
                   if (
                     window.confirm(
                       "Are you sure you want to terminate these resources manually? This cannot be undone.",
@@ -245,6 +302,7 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
                 <div>
                   <div className="font-bold text-sm uppercase">Attendee Assignment</div>
                   <div className="text-xs text-gray-600">
+                    Automatically map VMs to checked-in attendees.
                     Automatically map VMs to checked-in attendees securely.
                   </div>
                 </div>
@@ -274,6 +332,11 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
+                <label htmlFor="hw-provider" className="text-xs font-bold uppercase block mb-1">
+                  Provider
+                </label>
+                <select
+                  id="hw-provider"
                 <label className="text-xs font-bold uppercase block mb-1">Provider</label>
                 <select
                   value={provider}
@@ -283,17 +346,33 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
                   <option value="aws_ec2">AWS EC2 (Linux)</option>
                   <option value="aws_workspaces">AWS WorkSpaces</option>
                   <option value="gcp_compute" disabled>
+                    GCP Compute
                     GCP Compute (Coming Soon)
                   </option>
                 </select>
               </div>
               <div>
+                <label htmlFor="hw-type" className="text-xs font-bold uppercase block mb-1">
+                  Type
+                </label>
+                <select
+                  id="hw-type"
                 <label className="text-xs font-bold uppercase block mb-1">Resource Type</label>
                 <select
                   value={resourceType}
                   onChange={(e) => setResourceType(e.target.value)}
                   className="w-full px-3 py-2 border-2 border-black rounded-md text-xs bg-white font-sans"
                 >
+                  <option value="t3.micro">t3.micro</option>
+                  <option value="t3.medium">t3.medium</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="hw-qty" className="text-xs font-bold uppercase block mb-1">
+                  Quantity
+                </label>
+                <input
+                  id="hw-qty"
                   <option value="t3.micro">t3.micro (2 vCPU, 1GB RAM)</option>
                   <option value="t3.medium">t3.medium (2 vCPU, 4GB RAM)</option>
                 </select>
@@ -312,6 +391,16 @@ export const HardwareProvisioningPanel: React.FC<HardwareProvisioningPanelProps>
                   className="w-full px-3 py-2 border-2 border-black rounded-md text-xs bg-white font-sans"
                 />
               </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => provisionMutation.mutate()}
+                disabled={provisionMutation.isPending || quantity < 1 || quantity > 100}
+                className="px-4 py-2 border-2 border-black bg-indigo-600 text-white font-bold text-xs uppercase rounded-md hover:bg-indigo-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <Zap className="w-4 h-4" />
+                {provisionMutation.isPending ? "Provisioning..." : `Provision ${quantity} VMs`}
+              </button>
             </div>
 
             <div className="flex justify-end pt-2">

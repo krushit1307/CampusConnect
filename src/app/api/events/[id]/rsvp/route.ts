@@ -36,14 +36,34 @@ export async function POST(
         // 2. Check score
         if (verification.score >= 0.7) {
             // Approve normally
-            const { error: rsvpError } = await supabase
-                .from('event_registrations')
-                .insert({ event_id: eventId, user_id: userId, status: 'confirmed' });
+const { data, error: rsvpError } = await supabase.rpc('join_event_or_waitlist', {
+    p_event_id: eventId,
+    p_user_id: userId,
+    p_is_anonymous: false,
+    p_resume_path: null,
+    p_referred_by: null,
+});
 
-            if (rsvpError) throw new Error(rsvpError.message);
+if (rsvpError) {
+    throw new Error(rsvpError.message);
+}
 
-            return NextResponse.json({ success: true, requiresOtp: false, message: 'RSVP successful' });
-        } else {
+if (!data?.success) {
+    return NextResponse.json(
+        { error: data?.error || 'Failed to reserve an RSVP slot' },
+        { status: 409 }
+    );
+}
+
+return NextResponse.json({
+    success: true,
+    requiresOtp: false,
+    status: data.status,
+    position: data.position,
+    message: data.status === 'waitlisted'
+        ? 'Event is full. You have been added to the waitlist.'
+        : 'RSVP successful',
+});        } else {
             // 3. Score < 0.7: Trigger Step-Up Authentication
             if (!phoneNumber) {
                 return NextResponse.json(

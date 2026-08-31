@@ -2,6 +2,7 @@ import { GraphQLError } from "graphql";
 import { pubsub, RedisPubSub } from "../pubsub";
 import { createClient } from "../../src/lib/supabase/client";
 import { query as pgQuery } from "../db";
+import { interceptChatPayload } from "../../src/lib/doxxingRedaction";
 const supabase = createClient();
 
 // Redis-backed PubSub (with in-memory fallback) used across all subscriptions.
@@ -263,9 +264,7 @@ export const createProfileLoader = () =>
 export const createClubLoader = () =>
   new SimpleDataLoader<string, ClubRecord>(async (clubIds) => {
     // Same array-binding optimization as createProfileLoader above.
-    const { rows } = await pgQuery<ClubRecord>("SELECT * FROM clubs WHERE id = ANY($1)", [
-      clubIds,
-    ]);
+    const { rows } = await pgQuery<ClubRecord>("SELECT * FROM clubs WHERE id = ANY($1)", [clubIds]);
 
     const clubMap = new Map<string, ClubRecord>(rows.map((c) => [c.id, c]));
 
@@ -768,10 +767,21 @@ export const resolvers = {
         throw new GraphQLError("Message cannot exceed 500 characters");
       }
 
+      const redaction = await interceptChatPayload(text);
+      if (redaction.detected) {
+        const { error: flagError } = await supabase.rpc("flag_doxxing_sender", {
+          p_user_id: context.user.id,
+          p_flagged_content: text,
+        });
+        if (flagError) {
+          console.error("[doxxing] failed to flag sender:", flagError);
+        }
+      }
+
       const { data, error } = await supabase.rpc("send_event_chat_message", {
         p_event_id: eventId,
         p_user_id: context.user.id,
-        p_content: text,
+        p_content: redaction.redacted,
       });
 
       if (error) throw new Error(error.message);
@@ -859,12 +869,18 @@ export const resolvers = {
       }),
     },
     messageAdded: {
-      subscribe: async function* (_: unknown, { eventId }: { eventId: string }, context: GraphQLContext) {
+      subscribe: async function* (
+        _: unknown,
+        { eventId }: { eventId: string },
+        context: GraphQLContext,
+      ) {
         const iterator = pubsub.subscribe<MessageRecord>("MESSAGE_ADDED", eventId);
         for await (const message of iterator) {
           if (message.isShadowbanned) {
             const isAuthor = context.user?.id === message.userId;
-            const isAdmin = context.user && ["admin", "moderator", "club_admin", "system_admin"].includes(context.user.role);
+            const isAdmin =
+              context.user &&
+              ["admin", "moderator", "club_admin", "system_admin"].includes(context.user.role);
             if (isAuthor || isAdmin) {
               yield message;
             }

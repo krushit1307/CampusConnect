@@ -106,8 +106,9 @@ interface LocalEventFormValues extends EventFormValues {
   maxAttendees?: number;
   offCampusSpeaker?: boolean;
   requiresApproval?: boolean;
+  requiresSignature?: boolean;
+  ndaTemplateUrl?: string;
 }
-
 const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
@@ -131,11 +132,12 @@ const defaultValues: LocalEventFormValues = {
   maxAttendees: undefined,
   offCampusSpeaker: false,
   requiresApproval: false,
+  requiresSignature: false,
+  ndaTemplateUrl: undefined,
   isPrivate: false,
   tags: [],
   faqs: [],
 };
-
 const DRAFT_KEY = "event_draft";
 const DRAFT_AUTOSAVE_INTERVAL_MS = 5000;
 
@@ -1110,10 +1112,69 @@ export function CreateEventDialog({
                   )}
                 />
 
+                <FormField
+                  control={control}
+                  name="requiresSignature"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Requires NDA Signature
+                        </FormLabel>
+                        <p className="text-xs text-black/50">
+                          Attendees must digitally sign an NDA before their RSVP is confirmed.
+                          Recommended for talks involving unreleased products or confidential
+                          material.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("requiresSignature") && (
+                  <FormField
+                    control={control}
+                    name="ndaTemplateUrl"
+                    render={({ field }) => (
+                      <FormItem className="rounded-md border-2 border-black bg-white p-4">
+                        <FormLabel className="font-bold">NDA Template (PDF)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const path = `${Date.now()}-${file.name}`;
+                              const { error: uploadError } = await supabase.storage
+                                .from("event_nda_templates")
+                                .upload(path, file);
+                              if (uploadError) {
+                                toast.error("Failed to upload NDA template");
+                                return;
+                              }
+                              const { data: publicUrlData } = supabase.storage
+                                .from("event_nda_templates")
+                                .getPublicUrl(path);
+                              field.onChange(publicUrlData.publicUrl);
+                            }}
+                          />
+                        </FormControl>
+                        <p className="mt-1 text-xs text-black/50">
+                          Attendees will be shown this document to review and sign before RSVP.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 {watchedGeofencingEnabled && (
                   <div className="space-y-3 rounded-md border-2 border-black bg-white p-4">
-                    <GeofenceMapPicker
-                      latitude={watchedLatitude}
+                    <GeofenceMapPicker                      latitude={watchedLatitude}
                       longitude={watchedLongitude}
                       radiusMeters={watchedGeofenceRadius || DEFAULT_GEOFENCE_RADIUS_METERS}
                       onChange={({ latitude, longitude }) => {

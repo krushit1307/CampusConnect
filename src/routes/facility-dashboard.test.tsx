@@ -172,6 +172,43 @@ describe("Real-Time Accessibility Need Dashboard for Venues", () => {
         };
       }
 
+      if (table === "thermostat_telemetry") {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: () =>
+                  Promise.resolve({
+                    data: [
+                      {
+                        id: "tel-1",
+                        venue_id: "venue-1",
+                        temperature_fahrenheit: 72.5,
+                        recorded_at: new Date().toISOString(),
+                      },
+                    ],
+                    error: null,
+                  }),
+              }),
+            }),
+          }),
+        };
+      }
+
+      if (table === "thermal_alerts") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () =>
+                Promise.resolve({
+                  data: [],
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+
       return {};
     });
 
@@ -212,5 +249,12 @@ describe("Real-Time Accessibility Need Dashboard for Venues", () => {
 
     // Expect toast success to be called
     expect(mockToastSuccess).toHaveBeenCalledWith("Deployment status updated successfully!");
+
+    // Verify environmental telemetry panel renders
+    const hvacHeader = screen.getByText("HVAC & Thermostat Telemetry");
+    expect(hvacHeader).toBeInTheDocument();
+    
+    const tempReading = screen.getByText("72.5°F");
+    expect(tempReading).toBeInTheDocument();
   });
 });

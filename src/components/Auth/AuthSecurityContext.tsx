@@ -33,15 +33,11 @@ export const useAuthSecurity = (): AuthSecurityContextType => {
   const token = useAuthSecurityStore((s) => s.token);
   const isLeaderTab = useAuthSecurityStore((s) => s.isLeaderTab);
   const mfaVerified = useAuthSecurityStore((s) => s.mfaVerified);
-  const sessionTimeoutWarning = useAuthSecurityStore(
-    (s) => s.sessionTimeoutWarning,
-  );
+  const sessionTimeoutWarning = useAuthSecurityStore((s) => s.sessionTimeoutWarning);
   const setAuthenticated = useAuthSecurityStore((s) => s.setAuthenticated);
   const setIsLeaderTab = useAuthSecurityStore((s) => s.setIsLeaderTab);
   const setMfaVerified = useAuthSecurityStore((s) => s.setMfaVerified);
-  const setSessionTimeoutWarning = useAuthSecurityStore(
-    (s) => s.setSessionTimeoutWarning,
-  );
+  const setSessionTimeoutWarning = useAuthSecurityStore((s) => s.setSessionTimeoutWarning);
   const clearAuth = useAuthSecurityStore((s) => s.clearAuth);
 
   const triggerLogout = () => {
@@ -82,9 +78,7 @@ export const useAuthSecurity = (): AuthSecurityContextType => {
 /**
  * Backward-compat wrapper. No Context. Just mounts the side-effects.
  */
-export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const setAuthenticated = useAuthSecurityStore((s) => s.setAuthenticated);
   const setIsLeaderTab = useAuthSecurityStore((s) => s.setIsLeaderTab);
   const clearAuth = useAuthSecurityStore((s) => s.clearAuth);
@@ -107,6 +101,7 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
     const supabase = createClient();
 
     // Initial auth check with Supabase
+    const supabase = createClient();
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         setAuthenticated(session.access_token);
@@ -131,6 +126,7 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
         setAuthenticated(session.access_token);
+
         
         // Ensure the user has a local cryptographic key pair for decentralized ticketing
         try {

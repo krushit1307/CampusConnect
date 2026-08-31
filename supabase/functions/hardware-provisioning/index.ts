@@ -44,6 +44,10 @@ serve(async (req: Request) => {
 
     const { action, requestId, eventId, clubId, provider, resourceType, quantity } =
       await req.json();
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const cloudProvider = getCloudProvider();
+
+    if (action === "provision") {
 
     // Client for admin operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -240,6 +244,7 @@ serve(async (req: Request) => {
           .update({
             attendee_id: attendees[i].id,
             connection_metadata: {
+              ssh_command: `ssh attendee@${resources[i].public_ip || "10.0.0." + i} -i ~/.ssh/id_rsa`,
               ssh_command: `ssh attendee@${resources[i].public_ip || "machine-ip"} -i ~/.ssh/id_rsa`,
               instructions: "Use this connection for the hackathon.",
             },

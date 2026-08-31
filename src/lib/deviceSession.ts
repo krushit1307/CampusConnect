@@ -34,7 +34,13 @@ export async function registerDeviceSession(
       options.userAgent ?? (typeof navigator !== "undefined" ? navigator.userAgent : undefined);
 
     const { error } = await supabase.functions.invoke("register-device-session", {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "x-device-fingerprint":
+          typeof window !== "undefined"
+            ? window.localStorage.getItem("device_fingerprint") || ""
+            : "",
+      },
       body: { user_agent: userAgent },
     });
 

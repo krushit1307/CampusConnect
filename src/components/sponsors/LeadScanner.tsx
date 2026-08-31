@@ -149,6 +149,38 @@ export const LeadScanner: React.FC<LeadScannerProps> = ({
           }
           playSuccessBeep();
 
+          try {
+            const { data, error } = await supabase.rpc("scan_sponsor_lead", {
+              p_ticket_id: decodedText,
+              p_sponsor_id: sponsorId,
+              p_event_id: eventId,
+              p_notes: notes,
+            });
+
+            if (error) throw error;
+
+            setScanResult(data);
+            if (data.success) {
+              if (onLeadCaptured) {
+                onLeadCaptured(data);
+              }
+              // Asynchronously dispatch webhook
+              if (data.lead_id) {
+                supabase.functions
+                  .invoke("dispatch-sponsor-webhook", {
+                    body: { lead_id: data.lead_id },
+                  })
+                  .catch((err) => console.error("Webhook dispatch error:", err));
+              }
+            }
+          } catch (err: any) {
+            console.error("Lead scan error:", err);
+            setScanResult({
+              success: false,
+              message: err.message || "Failed to process lead scan.",
+            });
+          } finally {
+            setIsProcessing(false);
           // 🔥 INTERCEPT LOGIC 🔥
           if (customQuestions && customQuestions.length > 0) {
             // Setup blank answers and open modal

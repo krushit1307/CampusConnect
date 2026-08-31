@@ -7,7 +7,8 @@ export type MapNodeType =
   | "entrance"
   | "elevator"
   | "ramp"
-  | "restroom";
+  | "restroom"
+  | "Quiet_Space";
 
 export type AccessibilityNodeType = "entrance" | "elevator" | "ramp" | "restroom";
 
@@ -49,6 +50,7 @@ export const ACCESSIBILITY_NODE_LABELS: Record<MapNodeType, string> = {
   elevator: "Elevator",
   ramp: "Accessible ramp",
   restroom: "Accessible restroom",
+  Quiet_Space: "Quiet Room",
 };
 
 export const DEFAULT_MAP_PIXELS_PER_FOOT = 4;

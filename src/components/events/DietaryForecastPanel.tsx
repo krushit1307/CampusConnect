@@ -17,7 +17,16 @@ import {
 } from "@/lib/dietaryForecast";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { CatererExportModal } from "./CatererExportModal";
+import Bluetooth from "lucide-react/dist/esm/icons/bluetooth";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import AlertOctagon from "lucide-react/dist/esm/icons/alert-octagon";
+import Thermometer from "lucide-react/dist/esm/icons/thermometer";
+
+import {
+  CatererTempLoggingService,
+  type CatererContract,
+  type CatererTempLog,
+} from "@/services/catererTempLoggingService";
 
 export interface DietaryForecastPanelProps {
   eventId: string;
@@ -87,6 +96,87 @@ function ForecastContent({
   const [editingConstraints, setEditingConstraints] = useState<Record<string, string>>({});
   const [assigning, setAssigning] = useState<string | null>(null);
   const [assignedResult, setAssignedResult] = useState<{ tag: string; count: number; names: string[] } | null>(null);
+  
+  // States for IoT Temperature logging
+  const [contract, setContract] = useState<CatererContract | null>(null);
+  const [tempLogs, setTempLogs] = useState<CatererTempLog[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const loadCatererData = useCallback(async () => {
+    const c = await CatererTempLoggingService.fetchContractForEvent(forecast.event_id);
+    setContract(c);
+    if (c) {
+      const logs = await CatererTempLoggingService.fetchTempLogs(c.id);
+      setTempLogs(logs);
+    }
+  }, [forecast.event_id]);
+
+  useEffect(() => {
+    void loadCatererData();
+  }, [loadCatererData]);
+
+  useEffect(() => {
+    if (!contract) return;
+    const channel = supabase
+      .channel(`caterer-realtime-${contract.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "event_caterer_contracts", filter: `id=eq.${contract.id}` },
+        () => { void loadCatererData(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "caterer_iot_temp_logs", filter: `contract_id=eq.${contract.id}` },
+        () => { void loadCatererData(); }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [contract, loadCatererData, supabase]);
+
+  const handleSimulateSafeUpload = async () => {
+    if (!contract) return;
+    setUploading(true);
+    const mockSafeReadings = [
+      { recorded_at: new Date(Date.now() - 4 * 3600000).toISOString(), temperature_fahrenheit: 38.2 },
+      { recorded_at: new Date(Date.now() - 3 * 3600000).toISOString(), temperature_fahrenheit: 39.5 },
+      { recorded_at: new Date(Date.now() - 2 * 3600000).toISOString(), temperature_fahrenheit: 37.8 },
+      { recorded_at: new Date(Date.now() - 1 * 3600000).toISOString(), temperature_fahrenheit: 38.0 }
+    ];
+    const res = await CatererTempLoggingService.uploadTempLogs(contract.id, mockSafeReadings);
+    setUploading(false);
+    if (res.success) {
+      toast.success(res.message || "Safe logs uploaded successfully.");
+      void loadCatererData();
+    } else {
+      toast.error(res.error || "Failed to upload safe logs.");
+    }
+  };
+
+  const handleSimulateDangerUpload = async () => {
+    if (!contract) return;
+    setUploading(true);
+    const mockDangerReadings = [
+      { recorded_at: new Date(Date.now() - 4 * 3600000).toISOString(), temperature_fahrenheit: 38.0 },
+      { recorded_at: new Date(Date.now() - 3 * 3600000).toISOString(), temperature_fahrenheit: 42.5 },
+      { recorded_at: new Date(Date.now() - 2 * 3600000).toISOString(), temperature_fahrenheit: 43.1 },
+      { recorded_at: new Date(Date.now() - 1 * 3600000).toISOString(), temperature_fahrenheit: 41.8 }
+    ];
+    const res = await CatererTempLoggingService.uploadTempLogs(contract.id, mockDangerReadings);
+    setUploading(false);
+    if (res.success) {
+      if (res.shipment_status === 'CONDEMNED') {
+        toast.error("ALERT: Food shipment condemned! FDA Danger Zone exceeded. Stripe payment blocked.");
+      } else {
+        toast.success(res.message);
+      }
+      void loadCatererData();
+    } else {
+      toast.error(res.error || "Failed to upload danger logs.");
+    }
+  };
   
   const supabase = useMemo(() => createClient(), []);
 
@@ -345,6 +435,104 @@ function ForecastContent({
           <p className="font-mono text-[10px] text-emerald-800 leading-relaxed">
             {assignedResult.names.join(", ")}
           </p>
+        </div>
+      )}
+
+      {/* Bluetooth IoT Temperature Logging Section */}
+      {contract && (
+        <div
+          className="border-4 border-black bg-purple-100 p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] rounded-none text-black font-mono mt-6"
+          data-testid="caterer-temp-logging-section"
+        >
+          <div className="flex items-center gap-2 border-b-2 border-black pb-2 mb-4">
+            <Bluetooth className="h-5 w-5 text-black animate-pulse" />
+            <h3 className="font-display text-sm font-black uppercase text-black">
+              Catering Food Safety & IoT Telemetry
+            </h3>
+          </div>
+
+          <div className="space-y-4">
+            {/* Shipment Status & Stripe Payment block display */}
+            {contract.shipment_status === "PENDING" && (
+              <div className="border-2 border-black bg-yellow-50 p-3 shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-2" data-testid="status-box-pending">
+                <Thermometer className="h-5 w-5 text-yellow-600 animate-bounce" />
+                <div>
+                  <span className="font-black text-xs uppercase block text-yellow-800">Status: PENDING SYNC</span>
+                  <span className="text-[10px] text-zinc-600 font-bold">
+                    Caterer: {contract.caterer_name} | Waiting for arrival Bluetooth IoT data sync.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {contract.shipment_status === "SAFE" && (
+              <div className="border-2 border-black bg-emerald-50 p-3 shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-2" data-testid="status-box-safe">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <div>
+                  <span className="font-black text-xs uppercase block text-emerald-800">Status: SAFE (FDA Verified)</span>
+                  <span className="text-[10px] text-emerald-700 font-bold">
+                    Shipment ambient temp maintained under 40°F. Stripe payment authorized.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {contract.shipment_status === "CONDEMNED" && (
+              <div className="border-2 border-red-600 bg-red-100 p-3 shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-2 animate-pulse" data-testid="status-box-condemned">
+                <AlertOctagon className="h-6 w-6 text-red-600 shrink-0" />
+                <div>
+                  <span className="font-black text-xs uppercase block text-red-800">🚨 Status: CONDEMNED (FDA Danger Zone Breached)</span>
+                  <span className="text-[10px] text-red-700 font-bold">
+                    Temp exceeded 40°F for > 2 consecutive hours. Stripe payment BLOCKED. Throw the food in the trash.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Time series charts/log overview */}
+            {tempLogs.length > 0 && (
+              <div className="border-2 border-black bg-white p-3 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                <span className="font-black text-[10px] uppercase text-zinc-500 block mb-2">Transit Temperature logs</span>
+                <div className="max-h-24 overflow-y-auto space-y-1">
+                  {tempLogs.map((log) => (
+                    <div key={log.id} className="flex justify-between items-center text-[10px]">
+                      <span className="text-zinc-500">
+                        {new Date(log.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className={`font-bold ${log.temperature_fahrenheit > 40.0 ? "text-red-600" : "text-black"}`}>
+                        {log.temperature_fahrenheit.toFixed(1)}°F
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mock Bluetooth Syncer Tool */}
+            <div className="border-2 border-black border-dashed p-3 bg-zinc-50 flex flex-col sm:flex-row gap-2 justify-between items-center">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase">TempTale BLE IoT Logger</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSimulateSafeUpload}
+                  disabled={uploading}
+                  className="border-2 border-black bg-white hover:bg-zinc-100 px-3 py-1 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0_0_#000] cursor-pointer active:translate-y-0.5"
+                  data-testid="caterer-sync-safe-btn"
+                >
+                  Sync Safe Logs
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSimulateDangerUpload}
+                  disabled={uploading}
+                  className="border-2 border-black bg-black text-white hover:bg-zinc-800 px-3 py-1 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0_0_#000] cursor-pointer active:translate-y-0.5"
+                  data-testid="caterer-sync-danger-btn"
+                >
+                  Sync Danger Logs
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

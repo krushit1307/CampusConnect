@@ -4,6 +4,8 @@ export interface DonationRecord {
   donorName: string;
   amount: number;
   createdAt: string;
+  dropped?: boolean;
+  status?: "credited" | "dropped_dust" | "dropped_scam";
 }
 
 export interface DonationCampaignSummary {
@@ -32,7 +34,7 @@ export function formatDonationCurrency(amount: number): string {
  */
 export function calculateCampaignProgress(
   targetAmount: number,
-  currentAmount: number
+  currentAmount: number,
 ): { progressPercentage: number; isGoalReached: boolean } {
   const target = Math.max(1, targetAmount);
   const current = Math.max(0, currentAmount);
@@ -51,7 +53,7 @@ export function calculateCampaignProgress(
 export function addDonationToCampaign(
   summary: DonationCampaignSummary,
   donorName: string,
-  amount: number
+  amount: number,
 ): DonationCampaignSummary {
   const newDonation: DonationRecord = {
     id: `don-${Date.now()}-${Math.floor(Math.random() * 1000)}`,

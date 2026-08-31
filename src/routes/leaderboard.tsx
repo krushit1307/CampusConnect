@@ -5,7 +5,7 @@
 // Features beautiful podium UI for top 3, tabs, and neubrutalist styling.
 // =============================================================================
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import {
@@ -23,10 +23,73 @@ import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
 import Zap from "lucide-react/dist/esm/icons/zap";
 import Flame from "lucide-react/dist/esm/icons/flame";
 import { UnderdogLeaderboardToggle } from "@/components/leaderboard/UnderdogLeaderboardToggle";
+import { UnderdogCatchUpPanel } from "@/components/leaderboard/UnderdogCatchUpPanel";
+import { createClient } from "@/lib/supabase/client";
 
 export default function GamificationLeaderboard() {
   const [activeTab, setActiveTab] = useState<"students" | "clubs">("students");
   const [clubMode, setClubMode] = useState<LeaderboardMode>("underdog");
+
+  // -----------------------------------------------------------------------
+  // Underdog Catch-Up Engine: user multiplier + active bounty
+  // -----------------------------------------------------------------------
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userMultiplier, setUserMultiplier] = useState<number>(1.0);
+  const [activeBounty, setActiveBounty] = useState<{
+    id: string;
+    club_id: string;
+    club_name?: string;
+    target_checkins: number;
+    current_checkins: number;
+    reward_points: number;
+    expires_at: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setCurrentUserId(user.id);
+
+      // Fetch multiplier via RPC
+      const { data: multiplierData } = await supabase
+        .rpc("get_user_underdog_multiplier", { p_user_id: user.id });
+      if (multiplierData != null) setUserMultiplier(Number(multiplierData));
+
+      // Fetch the user's club active bounty (if any)
+      const { data: memberRows } = await supabase
+        .from("club_members")
+        .select("club_id")
+        .eq("user_id", user.id)
+        .eq("status", "approved");
+
+      if (memberRows && memberRows.length > 0) {
+        const clubIds = memberRows.map((r: { club_id: string }) => r.club_id);
+        const { data: bountyRow } = await supabase
+          .from("underdog_bounties")
+          .select("id, club_id, target_checkins, current_checkins, reward_points, expires_at, clubs(name)")
+          .in("club_id", clubIds)
+          .is("claimed_at", null)
+          .gt("expires_at", new Date().toISOString())
+          .order("expires_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (bountyRow) {
+          setActiveBounty({
+            id: bountyRow.id,
+            club_id: bountyRow.club_id,
+            club_name: (bountyRow as any).clubs?.name,
+            target_checkins: bountyRow.target_checkins,
+            current_checkins: bountyRow.current_checkins,
+            reward_points: bountyRow.reward_points,
+            expires_at: bountyRow.expires_at,
+          });
+        }
+      }
+    })();
+  }, []);
 
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ["monthly_users_leaderboard"],
@@ -48,6 +111,10 @@ export default function GamificationLeaderboard() {
   }, [rawClubs, clubMode]);
 
   const isLoading = activeTab === "students" ? loadingUsers : loadingClubs;
+
+  // The Underdog Catch-Up Panel is only shown to users whose multiplier > 1.0
+  // (i.e. they are in the bottom 50% of the leaderboard).
+  const showCatchUpPanel = userMultiplier > 1.0 && activeTab === "clubs";
 
   // Split top 3 for the podium
   const currentList = activeTab === "students" ? users : (processedClubs as any[]);
@@ -116,6 +183,15 @@ export default function GamificationLeaderboard() {
           {/* Underdog Multiplier Mode Toggle (Visible when Clubs tab is active) */}
           {activeTab === "clubs" && (
             <UnderdogLeaderboardToggle mode={clubMode} onModeChange={setClubMode} />
+          )}
+
+          {/* Underdog Catch-Up Panel – shown only for boosted members in clubs tab */}
+          {showCatchUpPanel && (
+            <UnderdogCatchUpPanel
+              multiplier={userMultiplier}
+              activeBounty={activeBounty}
+              data-testid="underdog-catchup-panel"
+            />
           )}
 
           {isLoading ? (

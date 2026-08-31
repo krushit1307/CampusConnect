@@ -15,6 +15,7 @@ import UserMinus from "lucide-react/dist/esm/icons/user-minus";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { ClassroomDependencyAuditor } from "./ClassroomDependencyAuditor";
 
 type SeriesEvent = {
   week: number;
@@ -449,8 +450,9 @@ export default function EventSeriesAnalyticsDashboard({
                   ))}
                 </div>
               )}
-            </div>
           </div>
+          {/* GitHub Classroom Dependency Auditor */}
+          <ClassroomDependencyAuditor seriesId={seriesId} />
         </>
       )}
 

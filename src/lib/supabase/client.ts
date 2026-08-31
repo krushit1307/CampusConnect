@@ -111,7 +111,16 @@ export function createClient() {
     throw new Error(`Invalid Supabase URL: "${supabaseUrl}". Please check your .env.local file.`);
   }
 
-  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        "x-device-fingerprint":
+          typeof window !== "undefined"
+            ? window.localStorage.getItem("device_fingerprint") || ""
+            : "",
+      },
+    },
+  });
 }
 
 // Export singleton instance for direct imports

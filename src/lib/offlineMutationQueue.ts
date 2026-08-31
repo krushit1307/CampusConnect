@@ -206,23 +206,24 @@ export async function replayOfflineMutations(): Promise<{
 
       if (item.type === "like" && item.payload?.postId) {
         const emoji = (item.payload.emoji as string) || "❤️";
-        if (item.action === "add") {
-          const { error } = await supabase.from("post_reactions").insert({
-            post_id: item.payload.postId,
-            user_id: userId,
-            emoji,
-          });
-          isSuccess = !error;
-        } else {
-          const { error } = await supabase
-            .from("post_reactions")
-            .delete()
-            .eq("post_id", item.payload.postId)
-            .eq("user_id", userId)
-            .eq("emoji", emoji);
-          isSuccess = !error;
-        }
-      } else if (item.type === "rsvp" && item.payload?.eventId) {
+if (item.action === "add") {
+  const { data, error } = await supabase.rpc("join_event_or_waitlist", {
+    p_event_id: item.payload.eventId,
+    p_user_id: userId,
+    p_is_anonymous: false,
+    p_resume_path: null,
+    p_referred_by: null,
+  });
+
+  isSuccess = !error && data?.success === true;
+} else {
+  const { data, error } = await supabase.rpc("cancel_event_rsvp", {
+    p_event_id: item.payload.eventId,
+    p_user_id: userId,
+  });
+
+  isSuccess = !error && data?.success === true;
+}      } else if (item.type === "rsvp" && item.payload?.eventId) {
         if (item.action === "add") {
           const { error } = await supabase.from("event_rsvps").insert({
             event_id: item.payload.eventId,

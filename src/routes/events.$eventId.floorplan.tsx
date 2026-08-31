@@ -50,6 +50,81 @@ export default function EventFloorplanPage() {
   const [wheelchairRequired, setWheelchairRequired] = useState(false);
   const [a11yManual, setA11yManual] = useState<boolean | null>(null);
 
+  // Bidding states (#4268)
+  const [highestBid, setHighestBid] = useState<any>(null);
+  const [bidAmount, setBidAmount] = useState<string>("");
+  const [sponsorships, setSponsorships] = useState<any[]>([]);
+  const [selectedSponsorshipId, setSelectedSponsorshipId] = useState<string>("");
+  const [bidError, setBidError] = useState<string>("");
+  const [isBidding, setIsBidding] = useState<boolean>(false);
+
+  useEffect(() => {
+    async function fetchSponsorships() {
+      const { data } = await supabase
+        .from("corporate_sponsorships")
+        .select("*")
+        .eq("status", "active");
+      setSponsorships(data || []);
+      if (data && data.length > 0) {
+        setSelectedSponsorshipId(data[0].id);
+      }
+    }
+    fetchSponsorships();
+  }, []);
+
+  useEffect(() => {
+    if (!selected || (selected.kind !== "rect_table" && selected.kind !== "round_table")) {
+      setHighestBid(null);
+      return;
+    }
+    async function fetchBid() {
+      const { data } = await supabase
+        .from("sponsor_table_bids")
+        .select("*")
+        .eq("event_id", eventId)
+        .eq("table_node_id", selected.id)
+        .eq("status", "active")
+        .maybeSingle();
+      setHighestBid(data);
+    }
+    fetchBid();
+  }, [selected, eventId]);
+
+  const handlePlaceBid = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBidError("");
+    setIsBidding(true);
+    try {
+      const selectedSpon = sponsorships.find((s) => s.id === selectedSponsorshipId);
+      if (!selectedSpon) throw new Error("Please select a valid corporate sponsorship.");
+
+      const { data, error } = await supabase.functions.invoke("place-layout-bid", {
+        body: {
+          event_id: eventId,
+          sponsorship_id: selectedSponsorshipId,
+          table_node_id: selected!.id,
+          bid_amount: Number(bidAmount),
+          logo_url: selectedSpon.company_logo_url,
+          target_link_url: selectedSpon.company_website_url || "",
+        },
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error);
+
+      setHighestBid({
+        winning_bid_amount: Number(bidAmount),
+        company_name: selectedSpon.company_name,
+      });
+      setBidAmount("");
+      alert("Bid placed successfully!");
+    } catch (err: any) {
+      setBidError(err.message || "Failed to place bid.");
+    } finally {
+      setIsBidding(false);
+    }
+  };
+
   // Editing is available to signed-in users (organizers); attendees get the map.
   useEffect(() => {
     let cancelled = false;
@@ -212,9 +287,7 @@ export default function EventFloorplanPage() {
                 onUpdatePoi={floorplan.updatePoi}
                 onRemovePoi={floorplan.removePoi}
                 heatmapZones={heatmap.zones}
-                onZoneDoorClick={(zone) =>
-                  navigate(`/events/${eventId}/zones/${zone.id}/check-in`)
-                }
+                onZoneDoorClick={(zone) => navigate(`/events/${eventId}/zones/${zone.id}/check-in`)}
               />
               <EventCapacityThermalMap eventId={eventId} />
             </div>
@@ -330,6 +403,79 @@ export default function EventFloorplanPage() {
                           </Link>
                         </div>
                       </>
+                    )}
+
+                    {(selected.kind === "rect_table" || selected.kind === "round_table") && (
+                      <div
+                        className="mt-4 border-t-2 border-dashed pt-4"
+                        data-testid="bidding-section"
+                      >
+                        <h4 className="font-bold uppercase text-gray-700">Booth Bidding</h4>
+                        <div className="mt-2 space-y-1 text-xs text-gray-600">
+                          <p>Base Price: ${selected.base_price || 0}</p>
+                          {highestBid ? (
+                            <p className="text-indigo-600 font-bold" data-testid="highest-bid-info">
+                              Highest Bid: ${highestBid.winning_bid_amount} (
+                              {highestBid.company_name})
+                            </p>
+                          ) : (
+                            <p className="text-gray-500">No active bids placed yet.</p>
+                          )}
+                        </div>
+
+                        {sponsorships.length > 0 ? (
+                          <form onSubmit={handlePlaceBid} className="mt-4 space-y-3">
+                            {sponsorships.length > 1 && (
+                              <label className="block text-xs font-bold text-gray-700">
+                                Select Sponsorship:
+                                <select
+                                  value={selectedSponsorshipId}
+                                  onChange={(e) => setSelectedSponsorshipId(e.target.value)}
+                                  className="neu-border mt-1 w-full bg-white px-2 py-1"
+                                >
+                                  {sponsorships.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.company_name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
+                            <label className="block text-xs font-bold text-gray-700">
+                              Your Bid Amount ($):
+                              <input
+                                type="number"
+                                required
+                                min={
+                                  (highestBid
+                                    ? highestBid.winning_bid_amount
+                                    : selected.base_price || 0) + 1
+                                }
+                                value={bidAmount}
+                                onChange={(e) => setBidAmount(e.target.value)}
+                                placeholder="e.g. 700"
+                                className="neu-border mt-1 w-full px-2 py-1"
+                                data-testid="bid-amount-input"
+                              />
+                            </label>
+                            {bidError && (
+                              <p className="text-xs font-bold text-red-600">{bidError}</p>
+                            )}
+                            <button
+                              type="submit"
+                              disabled={isBidding}
+                              className="neu-border neu-press w-full bg-yellow-400 py-1.5 font-bold uppercase shadow-[2px_2px_0_0_#000]"
+                              data-testid="place-bid-btn"
+                            >
+                              {isBidding ? "Placing Bid..." : "Place Bid"}
+                            </button>
+                          </form>
+                        ) : (
+                          <p className="mt-3 text-xs text-gray-400 italic">
+                            Only active club sponsors can bid on layout tables.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 ) : (

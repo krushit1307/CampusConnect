@@ -35,6 +35,8 @@ import {
   Layers,
   Compass,
 } from "lucide-react";
+import { AutonomousShuttlePlatoonWidget } from "@/components/shuttle/AutonomousShuttlePlatoonWidget";
+
 
 // ─── Types ──────────────────────────────────────────────────────────
 type ShuttleStatus = "on-time" | "delayed" | "arriving" | "departed" | "offline";
@@ -519,8 +521,14 @@ export default function ShuttleTracker() {
             </div>
           </div>
 
+          {/* Autonomous Shuttle Convoy Platooning Optimizer */}
+          <div className="mb-6">
+            <AutonomousShuttlePlatoonWidget />
+          </div>
+
           {/* Vehicle Health */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5">
+
             <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
               <Gauge className="w-4 h-4 text-purple-400" /> Fleet Status
             </h3>

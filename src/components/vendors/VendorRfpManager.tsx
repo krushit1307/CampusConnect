@@ -1,19 +1,13 @@
 import React, { useState } from "react";
-import { toast } from "sonner";
 import {
   Briefcase,
   Plus,
-  CheckCircle2,
-  DollarSign,
-  Calendar,
   FileText,
   ExternalLink,
   Award,
-  TrendingDown,
   Building,
   Send,
   Check,
-  XCircle,
   X,
   RefreshCw,
 } from "lucide-react";
@@ -30,9 +24,9 @@ import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { createTransferEscrow } from "@/lib/ticketTransfer";
-import { createClient } from "@/lib/supabase/client";
 import { VendorPortfolioViewer } from "./VendorPortfolioViewer";
+import { VendorW9Form } from "./VendorW9Form";
+import { Vendor1099MiscPanel } from "./Vendor1099MiscPanel";
 
 export interface VendorRfpManagerProps {
   clubId?: string;
@@ -89,15 +83,13 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
   isVendorView = false,
   className,
 }) => {
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
 
   const [selectedRfpId, setSelectedRfpId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showVendorBidModal, setShowVendorBidModal] = useState<boolean>(false);
-  const [awardedNotice, setAwardedNotice] = useState<string | null>(null);
   const [portfolioBid, setPortfolioBid] = useState<RfpBid | null>(null);
-  const [supabase] = useState(() => createClient());
 
   // New RFP Form State
   const [title, setTitle] = useState("");
@@ -141,6 +133,17 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
     enabled: !!selectedRfpId,
   });
 
+  const { data: requiresW9 } = useQuery({
+    queryKey: ["vendor_requires_w9_to_bid"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("vendor_requires_w9_to_bid");
+      if (error) throw error;
+      return data === true;
+    },
+    enabled: isVendorView,
+  });
+  const biddingFrozen = requiresW9 === true;
+
   // Ensure selectedRfpId is valid or set it to first RFP
   React.useEffect(() => {
     if (rfps.length > 0 && !selectedRfpId) {
@@ -177,7 +180,14 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
 
   const submitBidMutation = useMutation({
     mutationFn: async (newBid: any) => {
-      const { data, error } = await supabase.from("rfp_bids").insert(newBid).select().single();
+      const { data, error } = await supabase.rpc("submit_vendor_rfp_bid", {
+        p_rfp_id: newBid.rfp_id,
+        p_vendor_name: newBid.vendor_name,
+        p_vendor_email: newBid.vendor_email,
+        p_quoted_price: newBid.quoted_price,
+        p_proposal_pdf_url: newBid.proposal_pdf_url,
+        p_notes: newBid.notes,
+      });
       if (error) throw error;
       return data;
     },
@@ -198,15 +208,15 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       rfpId,
       bidId,
       amount,
+      vendorUserId,
+      vendorName,
     }: {
       rfpId: string;
       bidId: string;
       amount: number;
+      vendorUserId?: string | null;
+      vendorName: string;
     }) => {
-      // Begin escrow integration simulation
-      // TODO (#4225 integration boundary): Escrow system for vendor bidding should be integrated here.
-      // E.g., await createTransferEscrow(bidId, "organizer-id", "vendor@example.com", amount);
-
       const { error: rfpError } = await supabase
         .from("vendor_rfps")
         .update({ status: "awarded", accepted_bid_id: bidId })
@@ -226,6 +236,21 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
         .eq("rfp_id", rfpId)
         .neq("id", bidId);
       if (rejectError) throw rejectError;
+
+      const escrowClubId = clubId || rfps.find((r) => r.id === rfpId)?.club_id;
+      if (escrowClubId) {
+        const expiration = new Date();
+        expiration.setUTCFullYear(expiration.getUTCFullYear() + 1);
+        const { error: escrowError } = await supabase.from("vendor_contracts").insert({
+          club_id: escrowClubId,
+          vendor_id: vendorUserId || null,
+          vendor_name: vendorName,
+          amount,
+          escrow_locked_at: new Date().toISOString(),
+          expiration_date: expiration.toISOString().slice(0, 10),
+        });
+        if (escrowError) throw escrowError;
+      }
     },
     onSuccess: () => {
       toast.success(`Bid accepted! Escrow payment workflow initiated.`);
@@ -252,18 +277,6 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       budget_max: budgetMax,
       deadline: deadline || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
     });
-      status: "open",
-      created_at: new Date().toISOString(),
-    };
-
-    const updated = [newRfp, ...rfps];
-    setRfps(updated);
-    setSelectedRfpId(newRfp.id);
-    if (onRfpCreated) onRfpCreated(newRfp);
-
-    setTitle("");
-    setDescription("");
-    setShowCreateModal(false);
   };
 
   const handleSubmitVendorBid = async (e: React.FormEvent) => {
@@ -281,6 +294,12 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       toast.error("Your bid exceeds the maximum budget. Please adjust your quote.");
       return;
     }
+    if (biddingFrozen) {
+      toast.error(
+        "W-9 required: Total_Paid is at least $600 for this fiscal year. Submit a digital W-9 before bidding on new gigs.",
+      );
+      return;
+    }
 
     submitBidMutation.mutate({
       rfp_id: selectedRfpId,
@@ -294,8 +313,50 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
 
   const handleAcceptBid = (bid: RfpBid) => {
     if (window.confirm(`Are you sure you want to accept this bid for $${bid.quoted_price}?`)) {
-      acceptBidMutation.mutate({ rfpId: selectedRfpId!, bidId: bid.id, amount: bid.quoted_price });
+      acceptBidMutation.mutate({
+        rfpId: selectedRfpId!,
+        bidId: bid.id,
+        amount: bid.quoted_price,
+        vendorUserId: bid.vendor_user_id,
+        vendorName: bid.vendor_name,
+      });
     }
+  };
+
+  const handleRejectBid = async (bid: RfpBid) => {
+    const { error } = await supabase
+      .from("rfp_bids")
+      .update({ status: "rejected" })
+      .eq("id", bid.id);
+    if (error) {
+      toast.error(error.message || "Failed to reject bid");
+      return;
+    }
+    toast.success(`Bid from ${bid.vendor_name} rejected.`);
+    queryClient.invalidateQueries({ queryKey: ["rfp_bids", selectedRfpId] });
+  };
+
+  const handleOpenCounterOffer = (bid: RfpBid) => {
+    setCounterBidTarget(bid);
+    setCounterPrice(bid.quoted_price);
+  };
+
+  const submitCounterOffer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!counterBidTarget || counterPrice <= 0 || !counterMessage.trim()) return;
+
+    const { error } = await supabase
+      .from("rfp_bids")
+      .update({ quoted_price: counterPrice, notes: `[Counter-Offer]: ${counterMessage.trim()}` })
+      .eq("id", counterBidTarget.id);
+    if (error) {
+      toast.error(error.message || "Failed to send counter-offer");
+      return;
+    }
+    toast.success(`Counter-offer sent to ${counterBidTarget.vendor_name}.`);
+    queryClient.invalidateQueries({ queryKey: ["rfp_bids", selectedRfpId] });
+    setCounterBidTarget(null);
+    setCounterMessage("");
   };
 
   if (isLoadingRfps) {
@@ -305,103 +366,6 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
       </div>
     );
   }
-
-    const isPersistedRfp = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedRfpId);
-    if (isPersistedRfp) {
-      const { data, error } = await supabase.rpc("submit_vendor_rfp_bid", {
-        p_rfp_id: selectedRfpId,
-        p_vendor_name: vendorName.trim(),
-        p_vendor_email: vendorEmail.trim(),
-        p_quoted_price: quotedPrice,
-        p_proposal_pdf_url: proposalPdfUrl.trim() || null,
-        p_notes: notes.trim() || null,
-      });
-      if (error || !data) {
-        toast.error(error?.message || "Could not submit the vendor bid.");
-        return;
-      }
-      setBidsByRfp({
-        ...bidsByRfp,
-        [selectedRfpId]: [...(bidsByRfp[selectedRfpId] || []), data],
-      });
-    } else {
-      const newBid: RfpBid = {
-        id: `bid-${Date.now()}`,
-        rfp_id: selectedRfpId,
-        vendor_name: vendorName.trim(),
-        vendor_email: vendorEmail.trim(),
-        quoted_price: quotedPrice,
-        proposal_pdf_url: proposalPdfUrl.trim() || null,
-        notes: notes.trim() || null,
-        status: "pending",
-      };
-      const currentBids = bidsByRfp[selectedRfpId] || [];
-      setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: [...currentBids, newBid] });
-    }
-
-    toast.success("Vendor bid submitted.");
-    setVendorName("");
-    setVendorEmail("");
-    setProposalPdfUrl("");
-    setNotes("");
-    setShowVendorBidModal(false);
-  };
-
-  const handleAcceptBid = (bid: RfpBid) => {
-    const updatedRfps = rfps.map((r) =>
-      r.id === selectedRfpId ? { ...r, status: "awarded" as const, accepted_bid_id: bid.id } : r,
-    );
-    setRfps(updatedRfps);
-
-    const currentBids = (bidsByRfp[selectedRfpId] || []).map((b) =>
-      b.id === bid.id
-        ? { ...b, status: "accepted" as const }
-        : { ...b, status: "rejected" as const },
-    );
-    setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: currentBids });
-
-    setAwardedNotice(
-      `Contract Finalized! Escrow captured for ${bid.vendor_name} at $${bid.quoted_price.toLocaleString()}.`,
-    );
-    if (onBidAccepted) onBidAccepted(selectedRfpId, bid.id);
-  };
-
-  const handleRejectBid = (bid: RfpBid) => {
-    const currentBids = (bidsByRfp[selectedRfpId] || []).map((b) =>
-      b.id === bid.id ? { ...b, status: "rejected" as any } : b,
-    );
-    setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: currentBids });
-    toast.error(`Bid from ${bid.vendor_name} rejected.`);
-  };
-
-  const handleOpenCounterOffer = (bid: RfpBid) => {
-    setCounterBidTarget(bid);
-    setCounterPrice(bid.quoted_price);
-  };
-
-  const submitCounterOffer = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!counterBidTarget) return;
-
-    const currentBids = (bidsByRfp[selectedRfpId] || []).map((b) =>
-      b.id === counterBidTarget.id
-        ? {
-            ...b,
-            status: "pending_vendor_review" as any,
-            quoted_price: counterPrice,
-            notes: `[Counter-Offer from Organizer]: ${counterMessage}\n\nOriginal Notes: ${b.notes}`,
-          }
-        : b,
-    );
-
-    setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: currentBids });
-    toast.success(
-      `Counter-offer of $${counterPrice} dispatched to ${counterBidTarget.vendor_name}!`,
-    );
-
-    setCounterBidTarget(null);
-    setCounterMessage("");
-  };
 
   return (
     <div
@@ -427,12 +391,12 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
           {isVendorView ? (
             <button
               type="button"
-              disabled={!activeRfp || activeRfp.status !== "open"}
+              disabled={!activeRfp || activeRfp.status !== "open" || biddingFrozen}
               onClick={() => setShowVendorBidModal(true)}
               className="px-3.5 py-2 border-2 border-black bg-white hover:bg-gray-100 disabled:opacity-50 font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5"
             >
               <Send className="w-4 h-4 text-emerald-600" />
-              Submit Vendor Quote
+              {biddingFrozen ? "W-9 Required to Bid" : "Submit Vendor Quote"}
             </button>
           ) : (
             <button
@@ -463,6 +427,7 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
             <div className="space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
               {rfps.map((rfp) => {
                 const isSelected = rfp.id === selectedRfpId;
+                const bidsCount = rfp.id === selectedRfpId ? bids.length : 0;
 
                 return (
                   <div
@@ -499,46 +464,8 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                       <span>
                         Budget: <strong>${rfp.budget_max.toLocaleString()}</strong>
                       </span>
+                      <span>{bidsCount} Bids</span>
                     </div>
-          <div className="space-y-2.5">
-            {rfps.map((rfp) => {
-              const isSelected = rfp.id === selectedRfpId;
-              const bidsCount = (bidsByRfp[rfp.id] || []).length;
-
-              return (
-                <div
-                  key={rfp.id}
-                  onClick={() => setSelectedRfpId(rfp.id)}
-                  className={cn(
-                    "p-3.5 border-2 rounded-lg cursor-pointer transition-all space-y-1.5",
-                    isSelected
-                      ? "border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ring-1 ring-emerald-400"
-                      : "border-gray-300 bg-gray-50/70 hover:border-gray-500",
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
-                      {formatRfpCategoryLabel(rfp.category)}
-                    </span>
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border",
-                        rfp.status === "awarded"
-                          ? "bg-purple-100 text-purple-900 border-purple-400"
-                          : "bg-emerald-100 text-emerald-900 border-emerald-400",
-                      )}
-                    >
-                      {rfp.status}
-                    </span>
-                  </div>
-
-                  <h5 className="font-bold text-xs text-black">{rfp.title}</h5>
-
-                  <div className="flex items-center justify-between text-[11px] font-sans text-gray-600 pt-1">
-                    <span>
-                      Budget: <strong>${rfp.budget_max.toLocaleString()}</strong>
-                    </span>
-                    <span>{bidsCount} Bids</span>
                   </div>
                 );
               })}
@@ -597,7 +524,6 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                       const savings = calculateBidSavings(activeRfp.budget_max, bid.quoted_price);
                       const isAccepted = bid.status === "accepted";
                       const isRejected = bid.status === "rejected";
-                      const isRejected = (bid.status as any) === "rejected";
                       const isPendingReview = (bid.status as any) === "pending_vendor_review";
 
                       return (
@@ -609,7 +535,6 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                               ? "bg-emerald-50 border-emerald-600 ring-2 ring-emerald-400"
                               : isRejected
                                 ? "bg-gray-100 opacity-70"
-                                ? "bg-gray-100 opacity-60"
                                 : "bg-white",
                           )}
                         >
@@ -659,34 +584,6 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                             </p>
                           )}
 
-                          <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-                            {bid.proposal_pdf_url ? (
-                              <a
-                                href={bid.proposal_pdf_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-bold text-purple-700 underline flex items-center gap-1 hover:text-purple-900"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                View Proposal PDF <ExternalLink className="w-3 h-3" />
-                              </a>
-                            ) : (
-                              <span className="text-[11px] text-gray-400">No PDF attached</span>
-                            )}
-
-                            {!isVendorView &&
-                              activeRfp.status === "open" &&
-                              bid.status === "pending" && (
-                                <button
-                                  type="button"
-                                  disabled={acceptBidMutation.isPending}
-                                  onClick={() => handleAcceptBid(bid)}
-                                  className="px-3.5 py-1.5 border-2 border-black bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1 disabled:opacity-50"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                  Accept Bid
-                                </button>
-                              )}
                           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                             <div className="flex gap-2">
                               <button
@@ -1078,6 +975,18 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {isVendorView && (
+        <div className="p-5 space-y-4 border-t-2 border-black bg-white">
+          {biddingFrozen && (
+            <p className="font-mono text-xs font-bold text-red-700">
+              Bidding is frozen until you submit a digital W-9. Fiscal-year escrow payouts are at
+              least $600.
+            </p>
+          )}
+          <VendorW9Form />
+          <Vendor1099MiscPanel isVendorView />
         </div>
       )}
       <VendorPortfolioViewer bid={portfolioBid} onClose={() => setPortfolioBid(null)} />

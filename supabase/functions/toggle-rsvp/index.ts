@@ -260,27 +260,36 @@ serve(async (req: Request) => {
     }
 
     if (hasRsvpd) {
-      // 1. Cancel RSVP: delete from RSVPs and waitlist
-      const { error: rsvpErr } = await supabase
-        .from("event_rsvps")
-        .delete()
-        .match({ event_id: eventId, user_id: user.id });
+// Cancel through the same transactional path used by the
+// main RSVP flow. This also releases the capacity slot exactly once
+// and allows the database trigger to promote the next waitlisted user.
+const { data: cancelResult, error: cancelError } = await supabase.rpc(
+  "cancel_event_rsvp",
+  {
+    p_event_id: eventId,
+    p_user_id: user.id,
+  },
+);
 
-      if (rsvpErr) {
-        throw rsvpErr;
-      }
+if (cancelError) {
+  throw cancelError;
+}
 
-      const { error: waitlistErr } = await supabase
-        .from("event_waitlist")
-        .delete()
-        .match({ event_id: eventId, user_id: user.id });
+if (!cancelResult?.success) {
+  return respond(
+    { error: cancelResult?.error || "Unable to cancel RSVP." },
+    409,
+  );
+}
 
-      if (waitlistErr) {
-        throw waitlistErr;
-      }
-
-      return respond({ success: true, status: "cancelled" }, 200);
-    } else {
+return respond(
+  {
+    success: true,
+    status: "cancelled",
+    wasAttending: cancelResult.was_attending,
+  },
+  200,
+);    } else {
       // 1.4 Automated Fraud Detection Pipeline (#4252)
       let fraudScore = 0;
       const email = user.email || "";
@@ -323,40 +332,8 @@ serve(async (req: Request) => {
       }
 
       // 1.5 Pre-flight Prerequisite Verification
-      const { data: eventData, error: eventErr } = await supabase.from("events");
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-      feature / election - coi - detector - 3952;
-
-      feature / double - booking - penalty - 4045;
-      feature / double - booking - penalty - 4045;
-      feature / double - booking - penalty - 4045;
-      main;
-
-      feature / design - marketplace - 4049 / design - marketplace - 4049;
-      main;
-
-      feature / membership - trial - period - 4406;
-      main;
-
-      main;
-
-      feature / rsvp - prereq - blocker - 3946;
-      feature / rsvp - prereq - blocker - 3946;
-      feature / rsvp - prereq - blocker - 3946;
-      main;
-
-      feature / geofenced - checkin - 4035;
-      feature / geofenced - checkin - 4035;
-      main;
-
-      feature / assistant - persistence - 2044;
-      main
-
+      const { data: eventData, error: eventErr } = await supabase
+        .from("events")
         .select("prerequisite_event_id, title, has_photography, is_high_demand")
         .eq("id", eventId)
         .single();
@@ -435,9 +412,6 @@ serve(async (req: Request) => {
           );
         }
       }
-
-      main;
-      main;
       if (eventData?.has_photography && noMediaConsent == null) {
         return respond(
           { error: "Media consent choice is required for this photography event." },
@@ -456,73 +430,7 @@ serve(async (req: Request) => {
             {
               error: `You must attend the prerequisite event before registering for this event.`,
             },
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-            //  feature/election-coi-detector-3952
-
-            //  feature/double-booking-penalty-4045
-            //  feature/double-booking-penalty-4045
-            //  feature/double-booking-penalty-4045
-            //  main
-
-            //  feature/design-marketplace-4049
-            //  feature/design-marketplace-4049
-            //  main
-
-            //  feature/membership-trial-period-4406
-            //  main
-            //  HEAD
-
-            //  main
-
-            //  feature/rsvp-prereq-blocker-3946
-            //  feature/rsvp-prereq-blocker-3946
-            //  feature/rsvp-prereq-blocker-3946
-            //  main
-
-            //  feature/geofenced-checkin-4035
-            //  feature/geofenced-checkin-4035
-            //  main
-
-            //  feature/assistant-persistence-2044
-            //  main
-            //  HEAD
-
-            //  main
-            //  feature/waitlist-churn-predictor
-            //  feature/waitlist-churn-predictor
-
-            //  feature/club-lifecycle-monitor-3610
-            //  feature/club-lifecycle-monitor-3610
-            //  feature/club-lifecycle-monitor-3610
-
-            //  main
-            //  feature/vendor-contract-nudges
-            //  main
-            //             403
-
-            //  main
-            //  feature/double-booking-penalty-4045
-            //  feature/double-booking-penalty-4045
-            //  feature/double-booking-penalty-4045
-
-            //  feature/design-marketplace-4049
-            //  feature/design-marketplace-4049
-            //  main
-
-            //  feature/membership-trial-period-4406
-            //  main
-            //  upstream/main
-
-            //  upstream/main
-
-            //  main
-            //  main
-            //             403,
+            403,
           );
         }
       }

@@ -85,6 +85,28 @@ export function SafetyCheckPrompt({ eventId, userId }: SafetyCheckPromptProps) {
     };
   }, [eventId, userId, supabase]);
 
+  const captureLastKnownLocation = () => {
+    if (!pendingResponse || !("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition((position) => {
+      supabase
+        .from("safety_check_responses")
+        .update({
+          last_known_latitude: position.coords.latitude,
+          last_known_longitude: position.coords.longitude,
+          location_updated_at: new Date().toISOString(),
+        })
+        .eq("id", pendingResponse.id);
+    });
+  };
+
+  useEffect(() => {
+    if (!pendingResponse) return;
+    captureLastKnownLocation();
+    const locationInterval = setInterval(captureLastKnownLocation, 60000);
+    return () => clearInterval(locationInterval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingResponse?.id]);
+
   const markSafe = async () => {
     if (!pendingResponse) return;
 
@@ -92,7 +114,6 @@ export function SafetyCheckPrompt({ eventId, userId }: SafetyCheckPromptProps) {
       .from("safety_check_responses")
       .update({ status: "SAFE", responded_at: new Date().toISOString() })
       .eq("id", pendingResponse.id);
-
     if (error) {
       toast.error("Failed to mark as safe.");
     } else {

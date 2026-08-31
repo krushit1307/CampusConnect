@@ -12,6 +12,7 @@ export interface MapBuilderElement {
   label: string;
   accessibilityNotes?: string;
   zIndex?: number;
+  requiredTicketTierId?: string;
 }
 
 interface MapBuilderState {

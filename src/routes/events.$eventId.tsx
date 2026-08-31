@@ -13,6 +13,13 @@ import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
+import { AslAvatarPip } from "@/components/events/AslAvatarPip";
+import { AudioDescriptionSyncWidget } from "@/components/events/AudioDescriptionSyncWidget";
+import { LiveTranslationEarpiecePanel } from "@/components/events/LiveTranslationEarpiecePanel";
+import { EscrowDonationWidget } from "@/components/events/EscrowDonationWidget";
+import { SkillMatcherWidget } from "@/components/events/SkillMatcherWidget";
+import { OfacCompliancePanel } from "@/components/events/OfacCompliancePanel";
+import { HoneyPotTrapWidget } from "@/components/events/HoneyPotTrapWidget";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
 import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
@@ -26,10 +33,12 @@ import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
-import { LiveCapacityMeter } from "@/components/events/LiveCapacityMeter";import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
+import { LiveCapacityMeter } from "@/components/events/LiveCapacityMeter";
+import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
 import { FlashSaleBanner } from "@/components/events/FlashSaleBanner";
 import { FlashSaleControl } from "@/components/events/FlashSaleControl";
-import { FlashSaleTriggerRules } from "@/components/events/FlashSaleTriggerRules";
+import { DutchAuctionPanel } from "@/components/events/DutchAuctionPanel";
+import { TicketSliceMarketplace } from "@/components/tickets/TicketSliceMarketplace";
 import { formatDateLong } from "@/lib/dateFormatter";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
@@ -96,6 +105,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SeatingCanvas } from "@/components/events/SeatingCanvas";
 import { SponsorManager } from "@/components/events/SponsorManager";
 import { EventGuestList } from "@/components/events/EventGuestList";
+import { SongRequestSection } from "@/components/events/SongRequestSection";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
@@ -107,6 +117,7 @@ import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccess
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { EventSeriesCatchUpCard } from "@/components/events/EventSeriesCatchUpCard";
+import { VendingMachineIntegration } from "@/components/events/VendingMachineIntegration";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import {
@@ -145,7 +156,9 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+import { EventTransitSyncWidget } from "@/components/events/EventTransitSyncWidget";
 import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
+import { WaitlistBiddingLeaderboard } from "@/components/events/WaitlistBiddingLeaderboard";
 
 /**
  * Hero banner for the event detail page.
@@ -294,6 +307,8 @@ function SimilarEvents({
                 alt={evt.title}
                 aspectRatio="video"
                 className="border-2 border-black mb-3"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                responsiveWidths={[300, 600, 1200]}
               />
             ) : (
               <div className="w-full h-32 bg-peach/30 border-2 border-black mb-3 flex items-center justify-center font-mono text-xs font-bold text-black/50">
@@ -685,11 +700,11 @@ export default function EventDetailsPage() {
           venues (
             name, building, capacity, accessibility_features, latitude, longitude, geofence_radius_meters
           ),
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code, base_price, surge_multiplier,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code, base_price, surge_multiplier, is_bidding_enabled, audio_description_url, audio_description_enabled,
           profiles (full_name, email),
           event_metrics (views)
         `,
-      )
+        )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
         .single();
 
@@ -804,7 +819,9 @@ export default function EventDetailsPage() {
 
       const { data: nodesData, error: nodesError } = await supabase
         .from("map_nodes")
-        .select("id, entity_name, type, x_coord, y_coord, width, height, rotation")
+        .select(
+          "id, entity_name, type, x_coord, y_coord, width, height, rotation, required_ticket_tier_id",
+        )
         .eq("map_id", mapData.id);
 
       if (nodesError) throw nodesError;
@@ -820,6 +837,7 @@ export default function EventDetailsPage() {
           width: Number(node.width),
           height: Number(node.height),
           rotation: node.rotation,
+          required_ticket_tier_id: node.required_ticket_tier_id,
         })),
       };
     },
@@ -871,7 +889,7 @@ export default function EventDetailsPage() {
     queryFn: async () => {
       if (!user?.id || eventId.startsWith("mock-")) return null;
 
-      if (event && 'is_remote' in event && event.is_remote) {
+      if (event && "is_remote" in event && event.is_remote) {
         const { data, error } = await supabase
           .from("remote_event_rsvps")
           .select("*")
@@ -1127,7 +1145,7 @@ export default function EventDetailsPage() {
         return;
       }
 
-      if (event && 'is_remote' in event && event.is_remote) {
+      if (event && "is_remote" in event && event.is_remote) {
         const { data: sessionData } = await supabase.auth.getSession();
         const { error } = await supabase.functions.invoke("proxy-rsvp", {
           body: { eventId, hasRsvpd, action: "toggle" },
@@ -1315,28 +1333,30 @@ export default function EventDetailsPage() {
         return { alreadyCheckedIn: true };
       }
 
-      const { error } = await supabase
-        .from("event_rsvps")
-        .update({ checked_in: true })
-        .eq("id", rsvpId)
-        .eq("event_id", eventId);
+const { data: transition, error } = await supabase.rpc(
+  "transition_event_attendance",
+  {
+    p_rsvp_id: rsvpId,
+    p_to_state: "checked_in",
+    p_reason: "Organizer check-in",
+  },
+);
 
-      if (error) throw error;
+if (error) throw error;
 
-      try {
-        await supabase.from("event_attendance_logs").insert({
-          rsvp_id: rsvpId,
-          recorded_by: user.id,
-          // Distinguishes this manual/QR-adjacent organizer action from an
-          // attendee's own GPS-verified self check-in (see check_in_via_geofence).
-          verification_method: "organizer_override",
-        });
-      } catch {
-        // Attendance logging is optional if the table is unavailable in the current environment.
-      }
+if (!transition?.success) {
+  if (transition?.code === "ALREADY_CHECKED_IN") {
+    return { alreadyCheckedIn: true };
+  }
 
-      return { alreadyCheckedIn: false };
-    },
+  throw new Error(
+    transition?.message ||
+      transition?.code ||
+      "Unable to check in attendee.",
+  );
+}
+
+return { alreadyCheckedIn: false };    },
     onSuccess: (result) => {
       if (result?.alreadyCheckedIn) {
         toast.success("This attendee is already checked in.");
@@ -1699,7 +1719,9 @@ export default function EventDetailsPage() {
 
     // --- ISSUE #4249: BLOCK RSVP IF ASSET OVERDUE ---
     if (hasOverdueAssets) {
-      toast.error("Action Blocked: Please return your overdue photography equipment to RSVP for events.");
+      toast.error(
+        "Action Blocked: Please return your overdue photography equipment to RSVP for events.",
+      );
       return;
     }
     // ------------------------------------------------
@@ -1892,15 +1914,17 @@ export default function EventDetailsPage() {
               >
                 Hosted by: {event.host_institution}
               </p>
-            ) : club && (
-              <p
-                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
-              >
-                Organized by:{" "}
-                <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
-                  {club.name}
-                </Link>
-              </p>
+            ) : (
+              club && (
+                <p
+                  className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
+                >
+                  Organized by:{" "}
+                  <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
+                    {club.name}
+                  </Link>
+                </p>
+              )
             )}
 
             {/* Live Scoreboard */}
@@ -1969,10 +1993,9 @@ export default function EventDetailsPage() {
               />
             </div>
 
-            <div className="mt-4 max-w-md">
-              <LiveCapacityMeter eventId={event.id} />
-            </div>
-            <div id="ticket-pricing-section" className="mt-6 max-w-2xl">
+            <div id="ticket-pricing-section" className="mt-6 max-w-2xl space-y-4">
+              <DutchAuctionPanel eventId={event.id} />
+              <TicketSliceMarketplace eventId={event.id} />
               <FlashSaleBanner eventId={event.id} />
               <TicketPricingTimeline eventId={event.id} isOrganizer={isOrganizer} />
               {isOrganizer && (
@@ -2001,16 +2024,17 @@ export default function EventDetailsPage() {
                 geofencingEnabled={Boolean((event as Record<string, unknown>).geofencing_enabled)}
                 latitude={
                   ((event as Record<string, unknown>).latitude as number | null) ??
-                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)?.latitude as
-                    number | null)
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
+                    ?.latitude as number | null)
                 }
                 longitude={
                   ((event as Record<string, unknown>).longitude as number | null) ??
-                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)?.longitude as
-                    number | null)
+                  (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
+                    ?.longitude as number | null)
                 }
                 radiusMeters={
-                  ((event as Record<string, unknown>).geofence_radius_meters as number | undefined) ??
+                  ((event as Record<string, unknown>).geofence_radius_meters as
+                    number | undefined) ??
                   (((event as Record<string, unknown>).venues as Record<string, unknown> | null)
                     ?.geofence_radius_meters as number | undefined) ??
                   500
@@ -2051,7 +2075,9 @@ export default function EventDetailsPage() {
 
                       // --- ISSUE #4249: BLOCK WAITLIST IF ASSET OVERDUE ---
                       if (hasOverdueAssets) {
-                        toast.error("Action Blocked: Please return your overdue photography equipment to join waitlists.");
+                        toast.error(
+                          "Action Blocked: Please return your overdue photography equipment to join waitlists.",
+                        );
                         return;
                       }
                       // ----------------------------------------------------
@@ -2069,87 +2095,98 @@ export default function EventDetailsPage() {
                         : "Join Waitlist"}
                   </Button>
                   {isOnWaitlist && (
-                    <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
-                      <p className="font-mono text-sm font-bold text-amber-900">
-                        Priority Score: {waitlistScore?.total_score || "..."}
-                      </p>
-                      <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
-                        Your position is determined by:
-                        <br />
-                        • Time on waitlist
-                        <br />
-                        • Club membership
-                        <br />
-                        • Attendance streak
-                        <br />• Graduation status
-                      </p>
+                    <>
+                      <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
+                        <p className="font-mono text-sm font-bold text-amber-900">
+                          Priority Score: {waitlistScore?.total_score || "..."}
+                        </p>
+                        <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
+                          Your position is determined by:
+                          <br />
+                          • Time on waitlist
+                          <br />
+                          • Club membership
+                          <br />
+                          • Attendance streak
+                          <br />• Graduation status
+                        </p>
 
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
-                          >
-                            View Score Breakdown
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
-                          <DialogHeader>
-                            <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
-                              Priority Score Breakdown
-                            </DialogTitle>
-                            <DialogDescription className="font-mono text-gray-600">
-                              How your waitlist priority is calculated.
-                            </DialogDescription>
-                          </DialogHeader>
-                          {waitlistScore ? (
-                            <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
-                                <span className="font-bold text-blue-600">
-                                  +{waitlistScore.time_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Active club member</span>
-                                <span className="font-bold text-lime-600">
-                                  +{waitlistScore.membership_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Attendance streak</span>
-                                <span className="font-bold text-orange-600">
-                                  +{waitlistScore.streak_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-black pb-2">
-                                <span>Graduating senior</span>
-                                <span className="font-bold text-purple-600">
-                                  +{waitlistScore.senior_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
-                                <span>Total Score</span>
-                                <span>{waitlistScore.total_score}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="p-4 text-center font-mono text-gray-500">
-                              Loading score...
-                            </div>
-                          )}
-                          <DialogFooter className="sm:justify-start">
+                        <Dialog>
+                          <DialogTrigger asChild>
                             <Button
                               variant="outline"
-                              className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
+                              size="sm"
+                              className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
                             >
-                              Close
+                              View Score Breakdown
                             </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
+                            <DialogHeader>
+                              <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
+                                Priority Score Breakdown
+                              </DialogTitle>
+                              <DialogDescription className="font-mono text-gray-600">
+                                How your waitlist priority is calculated.
+                              </DialogDescription>
+                            </DialogHeader>
+                            {waitlistScore ? (
+                              <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
+                                <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                  <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
+                                  <span className="font-bold text-blue-600">
+                                    +{waitlistScore.time_score}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                  <span>Active club member</span>
+                                  <span className="font-bold text-lime-600">
+                                    +{waitlistScore.membership_score}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                  <span>Attendance streak</span>
+                                  <span className="font-bold text-orange-600">
+                                    +{waitlistScore.streak_score}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center border-b-2 border-black pb-2">
+                                  <span>Graduating senior</span>
+                                  <span className="font-bold text-purple-600">
+                                    +{waitlistScore.senior_score}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
+                                  <span>Total Score</span>
+                                  <span>{waitlistScore.total_score}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-4 text-center font-mono text-gray-500">
+                                Loading score...
+                              </div>
+                            )}
+                            <DialogFooter className="sm:justify-start">
+                              <Button
+                                variant="outline"
+                                className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
+                              >
+                                Close
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      {/* Issue #4257: Waitlist Bidding Leaderboard */}
+                      {(event as any)?.is_bidding_enabled && (
+                        <div className="mt-4 w-full">
+                          <WaitlistBiddingLeaderboard
+                            eventId={eventId}
+                            userRsvpId={myRsvp?.status === "waitlisted" ? myRsvp.id : null}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ) : hasTiersOrSurge ? null : (
@@ -2467,6 +2504,11 @@ export default function EventDetailsPage() {
               <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
             </div>
 
+            {/* Collaborative Event Soundtrack */}
+            <div className="mt-8">
+              <SongRequestSection eventId={eventId} isOrganizer={isOrganizer} />
+            </div>
+
             {/* Transportation / Carpool Matching (Issue #2877) */}
             <div className="mt-8">
               <CarpoolMatchingSection eventId={eventId} user={user} />
@@ -2543,6 +2585,17 @@ export default function EventDetailsPage() {
                 <AttendeeVenueMap
                   nodes={venueMapData.nodes}
                   backgroundImageUrl={venueMapData.map?.background_image_url}
+                  userTicketTierId={myRsvp?.ticket_tier_id}
+                  assignedSeatNodeId={myRsvp?.assigned_map_node_id}
+                  onSeatSelected={async (nodeId) => {
+                    if (myRsvpId) {
+                      const { error } = await supabase
+                        .from("event_rsvps")
+                        .update({ assigned_map_node_id: nodeId })
+                        .eq("id", myRsvpId);
+                      if (!error) refetchMyRsvp();
+                    }
+                  }}
                   venueId={event.venue_id}
                   eventId={event.id}
                 />
@@ -2664,6 +2717,58 @@ export default function EventDetailsPage() {
                     >
                       Open in Google Maps ↗
                     </a>
+
+                    <div className="mt-6">
+                      <EventTransitSyncWidget
+                        venueLatitude={coordsCheck.lat}
+                        venueLongitude={coordsCheck.lng}
+                        venueName={event.title}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Event Series Catch-Up Hub */}
+              <EventSeriesCatchUpCard
+                eventId={event.id}
+                eventTitle={event.title}
+                recordingUrl={(event as any).recording_url}
+                materialsUrl={(event as any).materials_url}
+                seriesId={(event as any).series_id}
+              />
+
+              {/* Vending Machine Smart Credits */}
+              {user && (
+                <VendingMachineIntegration
+                  eventId={event.id}
+                  userId={user.id}
+                  isOrganizer={isOrganizer}
+                />
+              )}
+
+              {/* Event Feedback (Only if ended and user RSVP'd) */}
+              {user &&
+                hasRsvpd &&
+                event.end_date &&
+                new Date(event.end_date).getTime() < Date.now() && (
+                  <div className="mt-10">
+                    <EventFeedbackForm eventId={event.id} user={user} />
+                  </div>
+                )}
+
+              {/* Event Gallery */}
+              <div className="mt-8 border-t-2 border-black pt-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                      Event Gallery
+                    </h2>
+                    <p className="font-mono text-xs text-black/60 mt-1">
+                      Photos shared from this event
+                    </p>
+                  </div>
+                  {isOrganizer && (
                   </>
                 ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                   <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
@@ -3362,10 +3467,12 @@ export default function EventDetailsPage() {
                   toast.error("Please log in to join waitlist");
                   return;
                 }
-                
+
                 // --- ISSUE #4249: BLOCK WAITLIST IF ASSET OVERDUE ---
                 if (hasOverdueAssets) {
-                  toast.error("Action Blocked: Please return your overdue photography equipment to join waitlists.");
+                  toast.error(
+                    "Action Blocked: Please return your overdue photography equipment to join waitlists.",
+                  );
                   return;
                 }
                 // ----------------------------------------------------
@@ -3664,6 +3771,30 @@ export default function EventDetailsPage() {
             />
           </div>
         )}
+        <AudioDescriptionSyncWidget
+          eventId={eventId || ""}
+          audioDescriptionUrl={event?.audio_description_url || null}
+          videoElement={null}
+        />
+        <LiveTranslationEarpiecePanel
+          eventId={eventId || ""}
+          userId={user?.id ?? null}
+          isOrganizer={isOrganizer}
+          isCheckedIn={Boolean(myRsvp?.checked_in)}
+        />
+        <EscrowDonationWidget
+          clubId={event?.clubs?.name || ""}
+          clubWalletAddress="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+          userRole={user?.id === event?.created_by ? "club" : "donor"}
+        />
+        <SkillMatcherWidget
+          userRole={user?.id === event?.created_by ? "recruiter" : "student"}
+          sponsorId={event?.created_by || ""}
+          companyName={event?.clubs?.name || ""}
+        />
+        <OfacCompliancePanel />
+        <HoneyPotTrapWidget />
+        <AslAvatarPip eventId={eventId || ""} />
       </SiteShell>
     </>
   );

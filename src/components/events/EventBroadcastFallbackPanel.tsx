@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/broadcastFailover";
 import { CaptionsOverlay } from "@/components/audio/CaptionsOverlay";
 import { TranscriptionControls } from "@/components/audio/TranscriptionControls";
+import { HardwareCaptionEncoderPanel } from "@/components/events/HardwareCaptionEncoderPanel";
 import { usePresenterPing } from "@/hooks/usePresenterPing";
 import { PresenterPingModal } from "@/components/events/PresenterPingModal";
 import { GreenRoomPresenterPingDashboard } from "@/components/events/GreenRoomPresenterPingDashboard";
@@ -505,8 +506,9 @@ export function EventBroadcastFallbackPanel({
               <RefreshCw className="mr-2 h-4 w-4" /> Refresh
             </Button>
           </div>
-          <div className="w-full">
+          <div className="w-full space-y-4">
             <TranscriptionControls eventId={eventId} />
+            <HardwareCaptionEncoderPanel eventId={eventId} />
           </div>
         </div>
       )}

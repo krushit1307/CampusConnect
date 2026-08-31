@@ -32,6 +32,7 @@ export class MockAwsProvider implements CloudProvider {
 }
 
 export class RealAwsProvider implements CloudProvider {
+  async provisionInstances(count: number, instanceType: string, tags: Record<string, string>) {
   // In a real implementation, this would use the AWS SDK for Deno (e.g., via esm.sh)
   // and credentials from Deno.env.get('AWS_ACCESS_KEY_ID'), etc.
   // For the scope of this PR, the framework is here and relies on the mock for dev.
