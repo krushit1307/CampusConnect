@@ -3,8 +3,17 @@ import {
   getVerificationEmailText,
   type VerificationEmailParams,
 } from "./templates";
+import {
+  getMissingPhotoEmailHtml,
+  getMissingPhotoEmailText,
+  type MissingPhotoEmailParams,
+} from "./missingPhotoTemplate";
 
 export interface SendVerificationEmailOptions extends VerificationEmailParams {
+  to: string;
+}
+
+export interface SendMissingPhotoEmailOptions extends MissingPhotoEmailParams {
   to: string;
 }
 
@@ -55,29 +64,17 @@ function getFromAddress(): string {
   );
 }
 
-/**
- * Sends an email verification link using Resend, SendGrid, or fallback Mock Logger.
- */
-export async function sendVerificationEmail({
-  to,
-  recipientName,
-  verificationUrl,
-}: SendVerificationEmailOptions): Promise<EmailServiceResult> {
+async function sendEmailBase(to: string, subject: string, html: string, text: string, recipientName: string = ""): Promise<EmailServiceResult> {
   const provider = getEmailProvider();
   const apiKey = getApiKey();
   const from = getFromAddress();
-  const subject = "Verify your CampusConnect email address";
-  const html = getVerificationEmailHtml({ recipientName, verificationUrl });
-  const text = getVerificationEmailText({ recipientName, verificationUrl });
 
-  // If no API key is set or provider is explicitly 'mock', log link & return mock success
   if (provider === "mock" || !apiKey) {
     console.log("--------------------------------------------------");
     console.log("✉️  [CampusConnect Email Service] Mock Email Sent!");
     console.log(`Provider: ${provider} (Fallback mode)`);
     console.log(`To: ${to}`);
     console.log(`Subject: ${subject}`);
-    console.log(`Verification URL: ${verificationUrl}`);
     console.log("--------------------------------------------------");
 
     return {
@@ -87,7 +84,6 @@ export async function sendVerificationEmail({
     };
   }
 
-  // Resend API integration
   if (provider === "resend") {
     try {
       const response = await fetch("https://api.resend.com/emails", {
@@ -129,7 +125,6 @@ export async function sendVerificationEmail({
     }
   }
 
-  // SendGrid API integration
   if (provider === "sendgrid") {
     try {
       const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
@@ -180,4 +175,31 @@ export async function sendVerificationEmail({
     provider: "mock",
     error: "Unsupported email provider.",
   };
+}
+
+/**
+ * Sends an email verification link using Resend, SendGrid, or fallback Mock Logger.
+ */
+export async function sendVerificationEmail({
+  to,
+  recipientName,
+  verificationUrl,
+}: SendVerificationEmailOptions): Promise<EmailServiceResult> {
+  const html = getVerificationEmailHtml({ recipientName, verificationUrl });
+  const text = getVerificationEmailText({ recipientName, verificationUrl });
+  return sendEmailBase(to, "Verify your CampusConnect email address", html, text, recipientName);
+}
+
+/**
+ * Sends a missing photo reminder link.
+ */
+export async function sendMissingPhotoReminderEmail({
+  to,
+  organizerName,
+  eventTitle,
+  uploadUrl,
+}: SendMissingPhotoEmailOptions): Promise<EmailServiceResult> {
+  const html = getMissingPhotoEmailHtml({ organizerName, eventTitle, uploadUrl });
+  const text = getMissingPhotoEmailText({ organizerName, eventTitle, uploadUrl });
+  return sendEmailBase(to, `Action Required: Upload Photos for ${eventTitle}`, html, text, organizerName);
 }

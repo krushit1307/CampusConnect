@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CrisisAbTestDashboard } from "@/components/wellness-tracker/CrisisAbTestDashboard";
 import {
   CampusMentalHealthService,
   MentalHealthMoodLog,
@@ -53,6 +54,8 @@ export const CampusMentalHealthStudioPage: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <CrisisAbTestDashboard />
 
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

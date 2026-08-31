@@ -11,7 +11,14 @@ declare let self: ServiceWorkerGlobalScope;
 precacheAndRoute(self.__WB_MANIFEST || []);
 
 // ── Workbox Background Sync Plugin for RSVP Mutations ──
-
+const rsvpSyncPlugin = new BackgroundSyncPlugin("rsvp-mutations-queue", {
+  maxRetentionTime: 24 * 60,
+  onSync: async (options) => {
+    try {
+      await options.queue.replayRequests();
+      console.log("[SW] RSVP Workbox Background Sync completed replaying queued requests.");
+      const clients = await self.clients.matchAll();
+      for (const client of clients) {
         client.postMessage({ type: "OFFLINE_EVENTS_SYNC" });
       }
     } catch (err) {

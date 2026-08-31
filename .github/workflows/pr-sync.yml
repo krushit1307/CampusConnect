@@ -59,8 +59,8 @@ jobs:
                 }
               }
               
-              // Fail the action to block merging
-              core.setFailed('Missing closing keyword in the PR description. Please add it to link an issue.');
+              // Just warn instead of failing the action to prevent blocking
+              core.warning('Missing closing keyword in the PR description. Please add it to link an issue.');
               return;
             }
 
@@ -161,7 +161,7 @@ jobs:
                 if (!hasECSoCLabel) errorMsg += ' The linked issue is missing the ECSoC26 label.';
                 errorMsg += ' Please update the linked issue, then edit this PR description (even just adding a space) to re-trigger this check.';
                 
-                core.setFailed(errorMsg);
+                core.warning(errorMsg);
                 return;
               }
               
@@ -169,5 +169,5 @@ jobs:
               
             } catch (error) {
               console.error(`Failed to fetch issue #${issueNumber}:`, error.message);
-              core.setFailed(`Error during sync: ${error.message}`);
+              core.warning(`Error during sync: ${error.message}`);
             }

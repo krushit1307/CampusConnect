@@ -34,7 +34,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import type { FestivalDaySchedule, FestivalSession, FestivalTrack } from "@/types/festivalRoadmap";
+import type {
+  FestivalDaySchedule,
+  FestivalSession,
+  FestivalTrack,
+} from "@/types/festivalRoadmap";
 import {
   STANDARD_FESTIVAL_TRACKS,
   getMockFestivalSchedule,
@@ -59,7 +63,7 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
   currentUserId = "usr-demo",
 }) => {
   const [schedules] = useState<FestivalDaySchedule[]>(
-    initialSchedules || getMockFestivalSchedule(festivalId),
+    initialSchedules || getMockFestivalSchedule(festivalId)
   );
 
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
@@ -67,12 +71,10 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showOnlyBookmarked, setShowOnlyBookmarked] = useState<boolean>(false);
   const [bookmarkedSessionIds, setBookmarkedSessionIds] = useState<Set<string>>(
-    new Set(["sess-101", "sess-102", "sess-103"]), // default sample bookmarks with 1 deliberate conflict
+    new Set(["sess-101", "sess-102", "sess-103"]) // default sample bookmarks with 1 deliberate conflict
   );
 
-  const [selectedSessionForModal, setSelectedSessionForModal] = useState<FestivalSession | null>(
-    null,
-  );
+  const [selectedSessionForModal, setSelectedSessionForModal] = useState<FestivalSession | null>(null);
   const [isItineraryModalOpen, setIsItineraryModalOpen] = useState<boolean>(false);
 
   // Active day schedule
@@ -170,8 +172,7 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
               </h2>
             </div>
             <p className="mt-1 font-mono text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-              Interactive Conference Grid, Conflict Resolution Engine & Personalized Itinerary
-              Builder
+              Interactive Conference Grid, Conflict Resolution Engine & Personalized Itinerary Builder
             </p>
           </div>
 
@@ -361,7 +362,7 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
                       (s) =>
                         s.trackId === track.id &&
                         s.startMinutesFromMidnight >= slotMin &&
-                        s.startMinutesFromMidnight < nextSlotMin,
+                        s.startMinutesFromMidnight < nextSlotMin
                     );
 
                     return (
@@ -378,17 +379,16 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
                                 hasConflict
                                   ? "border-rose-500 bg-rose-50/80 dark:bg-rose-950/40"
                                   : isBookmarked
-                                    ? "border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30"
-                                    : session.isKeynote
-                                      ? "bg-amber-50/80 dark:bg-amber-950/30 border-amber-500"
-                                      : "bg-white dark:bg-zinc-800"
+                                  ? "border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30"
+                                  : session.isKeynote
+                                  ? "bg-amber-50/80 dark:bg-amber-950/30 border-amber-500"
+                                  : "bg-white dark:bg-zinc-800"
                               }`}
                             >
                               {/* Keynote / Conflict Badge */}
                               <div className="flex items-center justify-between gap-1 mb-1">
                                 <span className="font-mono text-[10px] font-black uppercase text-zinc-500">
-                                  {session.startTime} - {session.endTime} ({session.durationMinutes}
-                                  m)
+                                  {session.startTime} - {session.endTime} ({session.durationMinutes}m)
                                 </span>
 
                                 <div className="flex items-center gap-1">
@@ -460,7 +460,7 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
                     style={{
                       backgroundColor:
                         STANDARD_FESTIVAL_TRACKS.find(
-                          (t) => t.id === selectedSessionForModal.trackId,
+                          (t) => t.id === selectedSessionForModal.trackId
                         )?.colorHex || "#000",
                     }}
                   >
@@ -559,8 +559,7 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
               </Button>
             </div>
             <DialogDescription className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
-              {bookmarkedSessions.length} sessions bookmarked across {schedules.length} festival
-              days.
+              {bookmarkedSessions.length} sessions bookmarked across {schedules.length} festival days.
             </DialogDescription>
           </DialogHeader>
 
@@ -573,8 +572,8 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
               <ul className="mt-1 list-disc pl-4 space-y-1 text-rose-700 dark:text-rose-300">
                 {conflictPairs.map((pair, idx) => (
                   <li key={idx}>
-                    <strong>"{pair.sessionA.title}"</strong> ({pair.sessionA.startTime}) overlaps
-                    with <strong>"{pair.sessionB.title}"</strong> ({pair.sessionB.startTime})
+                    <strong>"{pair.sessionA.title}"</strong> ({pair.sessionA.startTime}) overlaps with{" "}
+                    <strong>"{pair.sessionB.title}"</strong> ({pair.sessionB.startTime})
                   </li>
                 ))}
               </ul>
@@ -585,8 +584,7 @@ export const InteractiveFestivalRoadmap: React.FC<InteractiveFestivalRoadmapProp
           <div className="mt-4 max-h-96 space-y-2 overflow-y-auto pr-1">
             {bookmarkedSessions.length === 0 ? (
               <div className="neu-border bg-zinc-50 p-8 text-center font-mono text-xs text-zinc-500">
-                No sessions bookmarked yet. Click the bookmark icon on any session card in the
-                roadmap to build your personal itinerary!
+                No sessions bookmarked yet. Click the bookmark icon on any session card in the roadmap to build your personal itinerary!
               </div>
             ) : (
               bookmarkedSessions.map((session) => (

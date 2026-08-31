@@ -1,3 +1,4 @@
+import { describe, test, expect, beforeEach } from 'vitest';
 import { IncubatorStudioService } from '../../backend/src/services/IncubatorStudioService';
 import { IncubatorStartupRecord, IncubatorMilestone } from '../../src/types/campusIncubator';
 

@@ -1,7 +1,6 @@
 // src/services/newsletterService.ts
 import { createClient } from "@/lib/supabase/client";
-import { Newsletter, NewsletterDesign, NewsletterAnalyticsSummary } from "@/types/newsletter";
-
+import { Newsletter, NewsletterDesign, NewsletterBlock, NewsletterAnalyticsSummary } from "@/types/newsletter";
 export class NewsletterService {
   private static getSupabase() {
     return createClient();
@@ -272,5 +271,89 @@ export class NewsletterService {
 
     html += `</div></body></html>`;
     return html;
+  }
+
+  /**
+   * One-click "Generate Weekly Newsletter" (#3896): pulls the club's
+   * upcoming events (next 14 days) and its most recent event photos, and
+   * compiles them straight into a previewable design + HTML.
+   */
+  static async generateWeeklyNewsletter(
+    clubId: string,
+    clubName = "Your Club",
+  ): Promise<{
+    title: string;
+    subject: string;
+    design: NewsletterDesign;
+    contentHtml: string;
+    eventMap: Record<string, any>;
+  }> {
+    const supabase = this.getSupabase();
+    const now = new Date();
+    const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+    const { data: events, error: eventsError } = await supabase
+      .from("events")
+      .select("id, title, event_date, start_date, location, banner_url")
+      .eq("club_id", clubId)
+      .gte("start_date", now.toISOString())
+      .lte("start_date", twoWeeksOut.toISOString())
+      .order("start_date", { ascending: true });
+
+    if (eventsError) {
+      console.error("Failed to fetch upcoming events for newsletter:", eventsError);
+      throw eventsError;
+    }
+
+    const eventIds = (events || []).map((event) => event.id);
+    let photoUrls: string[] = [];
+    if (eventIds.length > 0) {
+      const { data: photos } = await supabase
+        .from("event_photos")
+        .select("url")
+        .in("event_id", eventIds)
+        .order("created_at", { ascending: false })
+        .limit(6);
+      photoUrls = (photos || []).map((photo) => photo.url);
+    }
+
+    const eventMap: Record<string, any> = {};
+    (events || []).forEach((event) => (eventMap[event.id] = event));
+
+    const blocks: NewsletterBlock[] = [
+      {
+        id: "auto_heading",
+        type: "heading",
+        content: `This Week at ${clubName}`,
+      },
+      {
+        id: "auto_intro",
+        type: "text",
+        content: `Here's what's coming up over the next two weeks - don't miss out!`,
+      },
+      ...(events || []).map((event, index) => ({
+        id: `auto_event_${index}`,
+        type: "event_card" as const,
+        eventId: event.id,
+      })),
+    ];
+
+    if (photoUrls.length > 0) {
+      blocks.push({ id: "auto_photos_heading", type: "heading", content: "Recent Photos" });
+      photoUrls.forEach((url, index) => {
+        blocks.push({ id: `auto_photo_${index}`, type: "image", url });
+      });
+    }
+
+    const design: NewsletterDesign = { blocks, backgroundColor: "#ffffff" };
+    const contentHtml = this.compileDesignToHtml(design, eventMap);
+
+    return {
+      title: `${clubName} Weekly Newsletter - ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+      subject: `What's happening at ${clubName} this week`,
+      design,
+      contentHtml,
+      eventMap,
+    };
   }
 }

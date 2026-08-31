@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { broadcastTicketPurchased } from "../_shared/ticketPurchasedBroadcast.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -31,29 +32,90 @@ serve(async (req) => {
           console.error("Error calling process-bundle-checkout:", errorData);
           throw new Error("Bundle checkout processing failed");
         }
-      } else if (metadata.seatIds) {
-        // Handle seat purchases
-        const seatIds = metadata.seatIds.split(",");
+      } else if (metadata.seatIds || (metadata.event_id && metadata.user_id && metadata.tier_id)) {
+        // Handle seat/ticket purchases
         const orderId = metadata.orderId;
+        const eventId = metadata.event_id;
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Call RPC to confirm
-        const { error } = await supabase.rpc("confirm_seat_purchase", {
-          p_seat_ids: seatIds,
-          p_order_id: orderId,
-        });
+        let confirmError = null;
 
-        if (error) {
-          console.error("RPC Error:", error);
-          throw error;
+        if (metadata.seatIds) {
+          const seatIds = metadata.seatIds.split(",");
+          // Call RPC to confirm seat checkout
+          const { error } = await supabase.rpc("confirm_seat_purchase", {
+            p_seat_ids: seatIds,
+            p_order_id: orderId,
+          });
+          confirmError = error;
+        } else if (metadata.event_id && metadata.user_id && metadata.tier_id) {
+          // Standard ticket purchase logic that should have been here
+          const { error } = await supabase.from("event_rsvps").insert({
+            event_id: metadata.event_id,
+            user_id: metadata.user_id,
+            ticket_tier_id: metadata.tier_id,
+            status: "PAID",
+          });
+          confirmError = error;
         }
+
+        if (confirmError) {
+          console.error("RPC/Insert Error:", confirmError);
+          throw confirmError;
+        }
+
+        if (eventId) {
+          try {
+            const { data: event } = await supabase
+              .from("events")
+              .select("available_spots, max_attendees")
+              .eq("id", eventId)
+              .maybeSingle();
+            const remaining = event?.available_spots ?? event?.max_attendees ?? 0;
+            await broadcastTicketPurchased(supabase, eventId, remaining, metadata.user_id);
+          } catch (broadcastError) {
+            console.error("[ticket_purchased] broadcast failed:", broadcastError);
+          }
+        }
+
+        // --- TRACK SALES VELOCITY FOR SURGE PRICING ---
+        if (eventId) {
+          try {
+            const redisUrl = Deno.env.get("UPSTASH_REDIS_REST_URL");
+            const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
+            if (redisUrl && redisToken) {
+              // We use dynamic import for Redis to keep it isolated
+              const { Redis } = await import("https://esm.sh/@upstash/redis@1.30.0");
+              const redis = new Redis({ url: redisUrl, token: redisToken });
+
+              const now = Date.now();
+              const key = `sales_velocity:${eventId}`;
+
+              // We add a unique entry for this purchase. Use the stripe session id or just a random UUID to avoid collisions
+              const memberId = payload.data.id || crypto.randomUUID();
+
+              await redis.zadd(key, { score: now, member: memberId });
+
+              // Set an expiry on the key itself to prevent infinite buildup of dead keys
+              // 60 seconds + a little buffer
+              await redis.expire(key, 120);
+
+              console.log(`[Surge Tracking] Added purchase ${memberId} to ${key} at ${now}`);
+            }
+          } catch (redisErr) {
+            console.error("[Surge Tracking] Failed to track sales velocity:", redisErr);
+          }
+        }
+        // ----------------------------------------------
       }
     } else if (payload.type === "invoice.paid") {
       const invoice = payload.data.object;
       const stripeInvoiceId = invoice.id;
-      
-      console.log(`[Stripe Webhook] Received invoice.paid event for Stripe Invoice ID: ${stripeInvoiceId}`);
+
+      console.log(
+        `[Stripe Webhook] Received invoice.paid event for Stripe Invoice ID: ${stripeInvoiceId}`,
+      );
 
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -85,7 +147,8 @@ serve(async (req) => {
         .from("sponsor_pitches")
         .update({ status: "Funds Received" })
         .eq("id", sponsorInvoice.pitch_id)
-        .select(`
+        .select(
+          `
           id,
           request_id,
           sponsorship_campaigns (
@@ -94,7 +157,8 @@ serve(async (req) => {
           funding_requests (
             club_id
           )
-        `)
+        `,
+        )
         .single();
 
       if (errUpdatePitch || !pitch) {
@@ -108,15 +172,13 @@ serve(async (req) => {
       const amountDollars = (sponsorInvoice.amount_cents / 100.0).toFixed(2);
 
       if (clubId) {
-        const { error: errTx } = await supabase
-          .from("club_transactions")
-          .insert({
-            club_id: clubId,
-            amount: parseFloat(amountDollars),
-            transaction_type: "INCOME",
-            category: "Sponsorship",
-            description: `Sponsorship Funds Received from ${companyName}`,
-          });
+        const { error: errTx } = await supabase.from("club_transactions").insert({
+          club_id: clubId,
+          amount: parseFloat(amountDollars),
+          transaction_type: "INCOME",
+          category: "Sponsorship",
+          description: `Sponsorship Funds Received from ${companyName}`,
+        });
 
         if (errTx) {
           console.error("Failed to insert club credit transaction:", errTx);

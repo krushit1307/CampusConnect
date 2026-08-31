@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import { PrivacyConsentMiddleware } from "@/components/Auth/PrivacyConsentMiddleware";
 
 export interface WithAuthProps {
   user: User;
@@ -100,7 +101,11 @@ export function withAuth<P extends object>(
       return null;
     }
 
-    return <WrappedComponent {...(props as P)} user={user} />;
+    return (
+      <PrivacyConsentMiddleware userId={user.id}>
+        <WrappedComponent {...(props as P)} user={user} />
+      </PrivacyConsentMiddleware>
+    );
   };
 
   WithAuthComponent.displayName = `WithAuth(${

@@ -55,7 +55,7 @@ export const InteractiveEventRoiCalculator: React.FC<InteractiveEventRoiCalculat
   initialInputs,
 }) => {
   const [inputs, setInputs] = useState<EventFinancialInputs>(
-    initialInputs || getDefaultEventFinancialInputs(eventId),
+    initialInputs || getDefaultEventFinancialInputs(eventId)
   );
 
   const [activeTab, setActiveTab] = useState("calculator");
@@ -245,8 +245,7 @@ export const InteractiveEventRoiCalculator: React.FC<InteractiveEventRoiCalculat
               <div className="mt-1 flex items-center gap-1 font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400">
                 <Sparkles className="h-3 w-3" />
                 <span>
-                  Safety Buffer: {analysis.marginOfSafetyTickets} tickets (
-                  {analysis.marginOfSafetyPercent}%)
+                  Safety Buffer: {analysis.marginOfSafetyTickets} tickets ({analysis.marginOfSafetyPercent}%)
                 </span>
               </div>
             </div>
@@ -344,8 +343,7 @@ export const InteractiveEventRoiCalculator: React.FC<InteractiveEventRoiCalculat
                     Expected Turnout / Attendance Rate
                   </label>
                   <span className="font-mono text-sm font-black text-emerald-600">
-                    {Math.round(inputs.expectedAttendanceRate * 100)}% (
-                    {analysis.projectedAttendees} students)
+                    {Math.round(inputs.expectedAttendanceRate * 100)}% ({analysis.projectedAttendees} students)
                   </span>
                 </div>
                 <input
@@ -496,8 +494,8 @@ export const InteractiveEventRoiCalculator: React.FC<InteractiveEventRoiCalculat
                       {sc.scenarioName === "pessimistic"
                         ? "🌧️ Worst Case (50% Turnout)"
                         : sc.scenarioName === "base"
-                          ? "🎯 Expected Case (" + sc.attendanceRate + "% Turnout)"
-                          : "🚀 Sold Out (100% Turnout)"}
+                        ? "🎯 Expected Case (" + sc.attendanceRate + "% Turnout)"
+                        : "🚀 Sold Out (100% Turnout)"}
                     </span>
                     <span
                       className={`font-mono text-sm font-black ${

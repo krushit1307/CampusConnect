@@ -5,7 +5,7 @@
 //              ecological equivalency models, and impact export utilities.
 // =============================================================================
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import type {
   VehicleFuelType,
   GeoLocation,
@@ -31,42 +31,12 @@ export const EPA_EMISSIONS_FACTORS_GRAMS_PER_MILE: Record<VehicleFuelType, numbe
  * Common campus destinations & hubs for easy distance calculation presets.
  */
 export const CAMPUS_GEO_PRESETS: GeoLocation[] = [
-  {
-    label: "Main Student Union (Campus Hub)",
-    latitude: 37.7749,
-    longitude: -122.4194,
-    isCampusHub: true,
-  },
-  {
-    label: "North Campus Engineering Quad",
-    latitude: 37.7833,
-    longitude: -122.4167,
-    isCampusHub: true,
-  },
-  {
-    label: "Off-Campus Housing & Greek Row",
-    latitude: 37.765,
-    longitude: -122.432,
-    isCampusHub: false,
-  },
-  {
-    label: "Downtown Tech Park / Hackathon Center",
-    latitude: 37.7915,
-    longitude: -122.399,
-    isCampusHub: false,
-  },
-  {
-    label: "Regional Airport / Transit Center",
-    latitude: 37.6213,
-    longitude: -122.379,
-    isCampusHub: false,
-  },
-  {
-    label: "State Park / Outdoor Retreat Lodge",
-    latitude: 37.8816,
-    longitude: -122.578,
-    isCampusHub: false,
-  },
+  { label: "Main Student Union (Campus Hub)", latitude: 37.7749, longitude: -122.4194, isCampusHub: true },
+  { label: "North Campus Engineering Quad", latitude: 37.7833, longitude: -122.4167, isCampusHub: true },
+  { label: "Off-Campus Housing & Greek Row", latitude: 37.765, longitude: -122.432, isCampusHub: false },
+  { label: "Downtown Tech Park / Hackathon Center", latitude: 37.7915, longitude: -122.399, isCampusHub: false },
+  { label: "Regional Airport / Transit Center", latitude: 37.6213, longitude: -122.379, isCampusHub: false },
+  { label: "State Park / Outdoor Retreat Lodge", latitude: 37.8816, longitude: -122.578, isCampusHub: false },
 ];
 
 /**
@@ -76,7 +46,7 @@ export function calculateHaversineDistanceMiles(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number,
+  lon2: number
 ): number {
   const R = 3958.8; // Earth radius in miles
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -100,7 +70,7 @@ export function calculateHaversineDistanceMiles(
 export function calculateTripCarbonOffset(
   distanceMiles: number,
   riderCount: number, // number of passengers taking the ride (excluding driver)
-  vehicleType: VehicleFuelType = "gasoline_sedan",
+  vehicleType: VehicleFuelType = "gasoline_sedan"
 ): {
   co2SavedGrams: number;
   co2SavedPounds: number;
@@ -292,7 +262,7 @@ export function getClubEcoLeaderboard(trips: RideShareTrip[]): ClubEcoLeaderboar
 export function exportSustainabilityAuditCSV(
   summary: GlobalImpactSummary,
   trips: RideShareTrip[],
-  fileName: string = "campus_rideshare_carbon_offset_audit.csv",
+  fileName: string = "campus_rideshare_carbon_offset_audit.csv"
 ): void {
   const lines = [
     `CampusConnect Official ESG Sustainability & Carbon Offset Audit`,
@@ -307,7 +277,7 @@ export function exportSustainabilityAuditCSV(
     `Trip ID,Event Name,Club,Driver,Distance (mi),Riders,Vehicle Type,CO2 Saved (kg),Timestamp`,
     ...trips.map(
       (t) =>
-        `"${t.id}","${t.eventTitle || ""}","${t.clubName || ""}","${t.driverName}",${t.distanceMiles},${t.riderCount},"${t.vehicleType}",${t.co2SavedKg},"${t.completedAt}"`,
+        `"${t.id}","${t.eventTitle || ""}","${t.clubName || ""}","${t.driverName}",${t.distanceMiles},${t.riderCount},"${t.vehicleType}",${t.co2SavedKg},"${t.completedAt}"`
     ),
   ];
 
@@ -326,7 +296,7 @@ export function exportSustainabilityAuditCSV(
  * Save new completed ride-share offset to Supabase database.
  */
 export async function recordRideShareOffset(
-  trip: Omit<RideShareTrip, "id" | "completedAt">,
+  trip: Omit<RideShareTrip, "id" | "completedAt">
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const payload = {
