@@ -260,27 +260,36 @@ serve(async (req: Request) => {
     }
 
     if (hasRsvpd) {
-      // 1. Cancel RSVP: delete from RSVPs and waitlist
-      const { error: rsvpErr } = await supabase
-        .from("event_rsvps")
-        .delete()
-        .match({ event_id: eventId, user_id: user.id });
+// Cancel through the same transactional path used by the
+// main RSVP flow. This also releases the capacity slot exactly once
+// and allows the database trigger to promote the next waitlisted user.
+const { data: cancelResult, error: cancelError } = await supabase.rpc(
+  "cancel_event_rsvp",
+  {
+    p_event_id: eventId,
+    p_user_id: user.id,
+  },
+);
 
-      if (rsvpErr) {
-        throw rsvpErr;
-      }
+if (cancelError) {
+  throw cancelError;
+}
 
-      const { error: waitlistErr } = await supabase
-        .from("event_waitlist")
-        .delete()
-        .match({ event_id: eventId, user_id: user.id });
+if (!cancelResult?.success) {
+  return respond(
+    { error: cancelResult?.error || "Unable to cancel RSVP." },
+    409,
+  );
+}
 
-      if (waitlistErr) {
-        throw waitlistErr;
-      }
-
-      return respond({ success: true, status: "cancelled" }, 200);
-    } else {
+return respond(
+  {
+    success: true,
+    status: "cancelled",
+    wasAttending: cancelResult.was_attending,
+  },
+  200,
+);    } else {
       // 1.4 Automated Fraud Detection Pipeline (#4252)
       let fraudScore = 0;
       const email = user.email || "";
