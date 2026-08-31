@@ -20,6 +20,7 @@ import {
   type ThermostatReading,
   type ThermalAlert,
 } from "@/services/thermalOvercrowdingService";
+import { AcousticDensityTelemetry } from "@/components/facility/AcousticDensityTelemetry";
 
 interface Venue {
   id: string;
@@ -514,6 +515,10 @@ export default function FacilityDashboard() {
             </div>
           </div>
         </section>
+
+        {selectedVenueId && (
+          <AcousticDensityTelemetry venueId={selectedVenueId} />
+        )}
 
         {/* Today's Events Grid */}
         <section className="space-y-6">
