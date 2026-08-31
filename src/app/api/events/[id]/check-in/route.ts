@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEventCapacity, triggerEmergencyHalt, processCapacityDenialRefund } from '@/lib/bouncer/capacityControl';
 import { CheckInRequest, CheckInResponse } from '@/types/bouncer';
 import { createClient } from '@supabase/supabase-js';
-
+import { authorizeResourceAction } from '@/lib/auth/authorizeResourceAction';
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -13,9 +13,22 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
-        const eventId = params.id;
-        const body: CheckInRequest = await req.json();
+const eventId = params.id;
 
+const authorization = await authorizeResourceAction(
+    "event",
+    eventId,
+    "check_in",
+);
+
+if (!authorization.authorized) {
+    return NextResponse.json(
+        { error: authorization.error },
+        { status: authorization.status },
+    );
+}
+
+const body: CheckInRequest = await req.json();
         // 1. Check current capacity and halt status
         const capacity = await getEventCapacity(eventId);
 

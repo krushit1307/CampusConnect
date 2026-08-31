@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getEventWithVersion, addMultiSigApproval } from '@/lib/events/concurrency';
 import { MultiSigApprovalPayload } from '@/types/events';
-
+import { authorizeResourceAction } from '@/lib/auth/authorizeResourceAction';
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -13,9 +13,22 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
-        const eventId = params.id;
-        const body: MultiSigApprovalPayload = await req.json();
+const eventId = params.id;
 
+const authorization = await authorizeResourceAction(
+    "event",
+    eventId,
+    "cancel_event",
+);
+
+if (!authorization.authorized) {
+    return NextResponse.json(
+        { error: authorization.error },
+        { status: authorization.status },
+    );
+}
+
+const body: MultiSigApprovalPayload = await req.json();
         if (body.eventId !== eventId || body.action !== 'cancel') {
             return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 });
         }
