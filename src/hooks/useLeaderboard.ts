@@ -1,9 +1,9 @@
 // =============================================================================
 // Hook: useLeaderboard
 // Issue: #2971 - Develop a 'Cross-Club Leaderboard' (Gamification)
---Description: Fetches the current leaderboard scores and calculates the
--- "Trending" indicators by comparing current ranks with the previous week's 
---snapshot from the database.
+//Description: Fetches the current leaderboard scores and calculates the
+// "Trending" indicators by comparing current ranks with the previous week's 
+//snapshot from the database.
     // =============================================================================
 
     import { useState, useEffect } from 'react';

@@ -1,577 +1,373 @@
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
-import { useForm } from "react-hook-form";
-import Upload from "lucide-react/dist/esm/icons/upload";
-import Users from "lucide-react/dist/esm/icons/users";
-import FileText from "lucide-react/dist/esm/icons/file-text";
-import CreditCard from "lucide-react/dist/esm/icons/credit-card";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
-import Plus from "lucide-react/dist/esm/icons/plus";
-import Trash2 from "lucide-react/dist/esm/icons/trash-2";
-import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
-import Shield from "lucide-react/dist/esm/icons/shield";
-import Loader2 from "lucide-react/dist/esm/icons/loader-2";
-import { ImageCropUpload } from "@/components/ImageCropUpload";
-import { CascadingCategorySelect } from "@/components/Clubs/CascadingCategorySelect";
+import React, { useState, useEffect } from 'react';
+import { ClubOnboardingState, ExecutiveOfficer } from '@/types/clubOnboarding';
+import {
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  Sparkles,
+  Upload,
+  ShieldCheck,
+  Users,
+  FileText,
+  Calendar,
+  Layers,
+  Check,
+} from 'lucide-react';
 
 interface ClubOnboardingWizardProps {
-  club: {
-    id: string;
-    name: string;
-    slug: string;
-    description?: string | null;
-    logo_url?: string | null;
-    banner_url?: string | null;
-    category_id?: string | null;
-  };
-  onComplete: () => void;
+  clubSlug: string;
+  onFinish: (state: ClubOnboardingState) => void;
 }
 
-interface OnboardingFormData {
-  logo_url: string;
-  banner_url: string;
-  description: string;
-  category_id: string | null;
-  constitution_url: string;
-  invites: Array<{ email: string; role: string }>;
-}
+export function ClubOnboardingWizard({ clubSlug, onFinish }: ClubOnboardingWizardProps) {
+  const storageKey = `cc-onboarding-${clubSlug}`;
 
-export default function ClubOnboardingWizard({ club, onComplete }: ClubOnboardingWizardProps) {
-  const supabase = createClient();
-  const STORAGE_KEY = `club_onboarding_state_${club.id}`;
-
-  const [step, setStep] = useState(1);
-  const [logoUrl, setLogoUrl] = useState(club.logo_url || "");
-  const [bannerUrl, setBannerUrl] = useState(club.banner_url || "");
-  const [categoryId, setCategoryId] = useState<string | null>(club.category_id || null);
-  const [constitutionUrl, setConstitutionUrl] = useState("");
-  const [constitutionFile, setConstitutionFile] = useState<File | null>(null);
-  
-  // Invites state
-  const [invites, setInvites] = useState<Array<{ email: string; role: string }>>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("admin");
-
-  // Loading states
-  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Stripe integration
-  const [stripeConnected, setStripeConnected] = useState(false);
-  const [stripeAccountId, setStripeAccountId] = useState("");
-
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<OnboardingFormData>({
-    defaultValues: {
-      description: club.description || "",
-      logo_url: club.logo_url || "",
-      banner_url: club.banner_url || "",
-      category_id: club.category_id || null,
-      constitution_url: "",
-      invites: [],
-    }
-  });
-
-  const description = watch("description");
-
-  // Load from local storage if exists
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+  const [state, setState] = useState<ClubOnboardingState>(() => {
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        if (parsed.step) setStep(parsed.step);
-        if (parsed.logo_url) setLogoUrl(parsed.logo_url);
-        if (parsed.banner_url) setBannerUrl(parsed.banner_url);
-        if (parsed.description) setValue("description", parsed.description);
-        if (parsed.category_id) setCategoryId(parsed.category_id);
-        if (parsed.constitution_url) setConstitutionUrl(parsed.constitution_url);
-        if (parsed.invites) setInvites(parsed.invites);
-        if (parsed.stripeConnected) setStripeConnected(parsed.stripeConnected);
-        if (parsed.stripeAccountId) setStripeAccountId(parsed.stripeAccountId);
+        return JSON.parse(saved);
       } catch (e) {
-        console.error("Failed to restore onboarding state", e);
+        // Fallback to default
       }
     }
-  }, [STORAGE_KEY, setValue]);
-
-  // Save to local storage on state changes
-  const saveState = (nextStep: number) => {
-    const state = {
-      step: nextStep,
-      logo_url: logoUrl,
-      banner_url: bannerUrl,
-      description,
-      category_id: categoryId,
-      constitution_url: constitutionUrl,
-      invites,
-      stripeConnected,
-      stripeAccountId,
+    return {
+      currentStep: 1,
+      isCompleted: false,
+      clubName: 'Undergraduate Artificial Intelligence Society',
+      tagline: 'Empowering students through applied AI research & projects',
+      category: 'Technology & Computing',
+      primaryColor: '#84cc16',
+      missionStatement: 'To foster collaborative machine learning research and connect students with industry engineers.',
+      meetingSchedule: 'Wednesdays at 6:00 PM (Weekly in CS Hall 102)',
+      executives: [
+        { name: 'Alex Johnson', email: 'alex.j@university.edu', role: 'President' },
+        { name: 'Maya Lin', email: 'maya.l@university.edu', role: 'Vice President' },
+        { name: 'Marcus Thorne', email: 'marcus.t@university.edu', role: 'Treasurer' },
+      ],
+      constitutionUploaded: true,
+      constitutionFileName: 'UAIS_Constitution_2026.pdf',
+      firstEventDraft: {
+        title: 'Fall General Body Meeting & AI Project Showcase',
+        date: '2026-09-12',
+        location: 'Student Union Grand Ballroom',
+        description: 'Meet the executive board, enjoy free pizza, and join our semester hackathon teams!',
+      },
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  };
+  });
+
+  // Auto-save state to localStorage
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  }, [state, storageKey]);
+
+  const steps = [
+    { num: 1, title: 'Branding', icon: Sparkles },
+    { num: 2, title: 'Mission', icon: FileText },
+    { num: 3, title: 'Officers', icon: Users },
+    { num: 4, title: 'Bylaws', icon: ShieldCheck },
+    { num: 5, title: 'Kickoff', icon: Calendar },
+  ];
 
   const handleNext = () => {
-    if (step === 1 && (!logoUrl || !bannerUrl)) {
-      toast.warning("Please upload both a logo and banner for your club.");
-      return;
-    }
-    if (step === 2 && !description.trim()) {
-      toast.warning("Please provide a short description for your club.");
-      return;
-    }
-    if (step === 4 && !constitutionUrl && !constitutionFile) {
-      toast.warning("Uploading a Club Constitution PDF is mandatory.");
-      return;
-    }
-
-    const next = Math.min(step + 1, 5);
-    setStep(next);
-    saveState(next);
-  };
-
-  const handlePrev = () => {
-    const prev = Math.max(step - 1, 1);
-    setStep(prev);
-    saveState(prev);
-  };
-
-  // Add executive invitation to local list
-  const handleAddInvite = () => {
-    const trimmed = inviteEmail.trim().toLowerCase();
-    if (!trimmed) return;
-    if (invites.some((i) => i.email === trimmed)) {
-      toast.error("This email is already in the invite list.");
-      return;
-    }
-    setInvites([...invites, { email: trimmed, role: inviteRole }]);
-    setInviteEmail("");
-  };
-
-  const handleRemoveInvite = (email: string) => {
-    setInvites(invites.filter((i) => i.email !== email));
-  };
-
-  // Upload constitution PDF file
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== "application/pdf") {
-      toast.error("Only PDF files are allowed.");
-      return;
-    }
-
-    setConstitutionFile(file);
-    setIsUploadingPdf(true);
-
-    try {
-      const fileExt = "pdf";
-      const fileName = `${club.id}/constitution-${Date.now()}.${fileExt}`;
-
-      const { data, error: uploadError } = await supabase.storage
-        .from("club-constitutions")
-        .upload(fileName, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      // Generate public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("club-constitutions")
-        .getPublicUrl(fileName);
-
-      setConstitutionUrl(publicUrl);
-      toast.success("Constitution PDF uploaded successfully!");
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to upload constitution PDF.");
-    } finally {
-      setIsUploadingPdf(false);
+    if (state.currentStep < 5) {
+      setState({ ...state, currentStep: state.currentStep + 1 });
+    } else {
+      const finished = { ...state, isCompleted: true };
+      setState(finished);
+      onFinish(finished);
     }
   };
 
-  // Mock Stripe connection
-  const handleStripeConnect = () => {
-    setStripeConnected(true);
-    setStripeAccountId(`acct_mock_${Math.random().toString(36).substring(2, 10)}`);
-    toast.success("Stripe account connected successfully (Sandbox Mode)!");
-  };
-
-  const handleCompleteOnboarding = async () => {
-    setIsSubmitting(true);
-    try {
-      // 1. Update club details in the database
-      const { error: clubError } = await supabase
-        .from("clubs")
-        .update({
-          logo_url: logoUrl,
-          banner_url: bannerUrl,
-          description: description,
-          category_id: categoryId,
-          constitution_url: constitutionUrl,
-          stripe_account_id: stripeAccountId || null,
-          stripe_payouts_enabled: stripeConnected,
-          onboarding_completed: true,
-        })
-        .eq("id", club.id);
-
-      if (clubError) throw clubError;
-
-      // 2. Insert invites into club_invitations table
-      if (invites.length > 0) {
-        const inviteRecords = invites.map((inv) => ({
-          club_id: club.id,
-          email: inv.email,
-          role: inv.role,
-          status: "pending",
-        }));
-
-        const { error: inviteError } = await supabase
-          .from("club_invitations")
-          .insert(inviteRecords);
-
-        if (inviteError) {
-          console.error("Failed to insert invitations:", inviteError);
-          toast.warning("Club onboarding completed, but executive invitations could not be sent.");
-        }
-      }
-
-      toast.success("Welcome aboard! Club Onboarding Wizard completed.");
-      localStorage.removeItem(STORAGE_KEY);
-      onComplete();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "An error occurred during onboarding completion.");
-    } finally {
-      setIsSubmitting(false);
+  const handleBack = () => {
+    if (state.currentStep > 1) {
+      setState({ ...state, currentStep: state.currentStep - 1 });
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto neu-border bg-white border-4 border-black p-8 shadow-[8px_8px_0_0_#000000] relative">
-      {/* Wizard Header Progress Bar */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between border-b-4 border-black pb-4">
-          <div>
-            <span className="font-mono text-xs font-bold uppercase tracking-widest text-[#fb923c]">Club Onboarding</span>
-            <h2 className="font-display text-2xl font-black uppercase text-black mt-1">Setup: {club.name}</h2>
-          </div>
-          <span className="font-mono text-sm font-extrabold bg-[#dff25c] border-2 border-black px-3 py-1 text-black">
-            Step {step} of 5
-          </span>
-        </div>
+    <div className="bg-white border-2 border-black rounded-lg shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] overflow-hidden max-w-4xl mx-auto">
+      {/* Top Stepper Bar */}
+      <div className="bg-slate-50 border-b-2 border-black p-4">
+        <div className="flex items-center justify-between max-w-2xl mx-auto">
+          {steps.map((s, idx) => {
+            const Icon = s.icon;
+            const isCurrent = state.currentStep === s.num;
+            const isDone = state.currentStep > s.num || state.isCompleted;
 
-        {/* Dynamic Progress Indicator */}
-        <div className="w-full bg-cream border-2 border-black h-4 mt-6">
-          <div
-            className="bg-black h-full transition-all duration-300"
-            style={{ width: `${(step / 5) * 100}%` }}
-          />
+            return (
+              <React.Fragment key={s.num}>
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className={`w-10 h-10 rounded-full border-2 border-black flex items-center justify-center font-display font-black text-sm transition-all ${
+                      isDone
+                        ? 'bg-lime text-black'
+                        : isCurrent
+                        ? 'bg-black text-white ring-4 ring-lime'
+                        : 'bg-white text-gray-400'
+                    }`}
+                  >
+                    {isDone ? <Check size={18} /> : <Icon size={18} />}
+                  </div>
+                  <span
+                    className={`font-mono text-[11px] font-bold ${
+                      isCurrent ? 'text-black' : 'text-gray-500'
+                    }`}
+                  >
+                    {s.title}
+                  </span>
+                </div>
+                {idx < steps.length - 1 && (
+                  <div
+                    className={`flex-1 h-0.5 border-t-2 transition-colors ${
+                      state.currentStep > s.num ? 'border-black' : 'border-gray-300'
+                    }`}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
 
-      {/* Steps Content Area with Framer Motion slide transition */}
-      <div className="min-h-[350px] mb-8">
-        <AnimatePresence mode="wait">
-          {step === 1 && (
-            <motion.div
-              key="step-1"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
+      {/* Wizard Form Body */}
+      <div className="p-8 min-h-[380px] flex flex-col justify-between">
+        {/* Step 1: Branding & Identity */}
+        {state.currentStep === 1 && (
+          <div className="space-y-4">
+            <h3 className="font-display font-black text-2xl text-black">
+              Step 1: Club Identity & Brand Colors
+            </h3>
+            <p className="font-mono text-xs text-gray-600">
+              Establish your organization's official public name, tagline, and brand accent.
+            </p>
+
+            <div className="space-y-3 font-mono text-xs">
               <div>
-                <h3 className="font-display text-xl font-bold uppercase text-black flex items-center gap-2">
-                  <Upload className="h-5 w-5" /> Logo & Banner Assets
-                </h3>
-                <p className="font-mono text-xs text-muted-foreground mt-1">
-                  Upload visual assets to represent your club across the platform.
-                </p>
+                <label className="block font-bold uppercase text-gray-700 mb-1">Official Club Name</label>
+                <input
+                  type="text"
+                  value={state.clubName}
+                  onChange={(e) => setState({ ...state, clubName: e.target.value })}
+                  className="w-full p-2.5 border-2 border-black rounded bg-white font-bold"
+                />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                <div className="space-y-2">
-                  <label className="font-mono text-xs font-black uppercase block text-black">Club Logo</label>
-                  <ImageCropUpload
-                    aspect={1}
-                    bucket="club-banners"
-                    value={logoUrl}
-                    onUploaded={(url) => setLogoUrl(url)}
-                    hint="Upload logo image (1:1 aspect)"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="font-mono text-xs font-black uppercase block text-black">Club Banner</label>
-                  <ImageCropUpload
-                    aspect={16 / 9}
-                    bucket="club-banners"
-                    value={bannerUrl}
-                    onUploaded={(url) => setBannerUrl(url)}
-                    hint="Upload banner image (16:9 aspect)"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 2 && (
-            <motion.div
-              key="step-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
               <div>
-                <h3 className="font-display text-xl font-bold uppercase text-black flex items-center gap-2">
-                  <FileText className="h-5 w-5" /> Bio & Categories
-                </h3>
-                <p className="font-mono text-xs text-muted-foreground mt-1">
-                  Tell campus what your club does and choose appropriate search categories.
-                </p>
+                <label className="block font-bold uppercase text-gray-700 mb-1">One-line Tagline</label>
+                <input
+                  type="text"
+                  value={state.tagline}
+                  onChange={(e) => setState({ ...state, tagline: e.target.value })}
+                  className="w-full p-2.5 border-2 border-black rounded bg-white font-bold"
+                />
               </div>
 
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <label className="font-mono text-xs font-black uppercase block text-black">Club Bio / Description</label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setValue("description", e.target.value)}
-                    placeholder="Provide a short description of your club's missions, activities, and goals..."
-                    className="w-full border-2 border-black p-3 font-mono text-xs min-h-[120px] focus:outline-none focus:bg-lime/10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="font-mono text-xs font-black uppercase block text-black">Select Primary Category</label>
-                  <CascadingCategorySelect
-                    value={categoryId}
-                    onChange={(id) => setCategoryId(id)}
-                    className="border-2 border-black"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 3 && (
-            <motion.div
-              key="step-3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <div>
-                <h3 className="font-display text-xl font-bold uppercase text-black flex items-center gap-2">
-                  <Users className="h-5 w-5" /> Invite Executives & Members
-                </h3>
-                <p className="font-mono text-xs text-muted-foreground mt-1">
-                  Invite your executives (Vice President, Treasurer, Secretary) to co-manage the club.
-                </p>
-              </div>
-
-              <div className="space-y-4 pt-4">
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-2">
-                    <label className="font-mono text-xs font-black uppercase block text-black">Email Address</label>
-                    <input
-                      type="email"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      placeholder="exec@college.edu"
-                      className="w-full border-2 border-black p-2 font-mono text-xs focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="w-40 space-y-2">
-                    <label className="font-mono text-xs font-black uppercase block text-black">Role</label>
-                    <select
-                      value={inviteRole}
-                      onChange={(e) => setInviteRole(e.target.value)}
-                      className="w-full border-2 border-black p-2 font-mono text-xs bg-white"
-                    >
-                      <option value="admin">Administrator</option>
-                      <option value="member">Standard Member</option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleAddInvite}
-                    className="neu-border bg-[#dff25c] border-2 border-black p-2 text-black transition-all hover:scale-105 active:scale-95"
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold uppercase text-gray-700 mb-1">Category</label>
+                  <select
+                    value={state.category}
+                    onChange={(e) => setState({ ...state, category: e.target.value })}
+                    className="w-full p-2.5 border-2 border-black rounded bg-white font-bold"
                   >
-                    <Plus className="h-5 w-5" />
-                  </button>
+                    <option value="Technology & Computing">Technology & Computing</option>
+                    <option value="Academic & Professional">Academic & Professional</option>
+                    <option value="Arts & Creative">Arts & Creative</option>
+                    <option value="Community & Cultural">Community & Cultural</option>
+                  </select>
                 </div>
 
-                {invites.length > 0 && (
-                  <div className="border-2 border-black divide-y-2 divide-black">
-                    {invites.map((inv) => (
-                      <div key={inv.email} className="flex justify-between items-center p-3 bg-cream">
-                        <div>
-                          <p className="font-mono text-xs font-bold text-black">{inv.email}</p>
-                          <p className="font-mono text-[10px] text-gray-500 uppercase font-black">{inv.role}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveInvite(inv.email)}
-                          className="text-red-500 hover:scale-105"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                <div>
+                  <label className="block font-bold uppercase text-gray-700 mb-1">Brand Accent Color</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    {['#84cc16', '#3b82f6', '#ec4899', '#eab308', '#8b5cf6'].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setState({ ...state, primaryColor: c })}
+                        className={`w-7 h-7 rounded-full border-2 ${
+                          state.primaryColor === c ? 'border-black scale-110 ring-2 ring-black' : 'border-gray-300'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
                     ))}
                   </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {step === 4 && (
-            <motion.div
-              key="step-4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <div>
-                <h3 className="font-display text-xl font-bold uppercase text-black flex items-center gap-2">
-                  <Shield className="h-5 w-5" /> Mandatory Club Constitution
-                </h3>
-                <p className="font-mono text-xs text-muted-foreground mt-1">
-                  Upload your mandatory Club Constitution Bylaws in PDF format.
-                </p>
-              </div>
-
-              <div className="space-y-4 pt-4">
-                <div className="neu-border border-4 border-dashed border-black p-8 text-center bg-cream flex flex-col items-center justify-center space-y-4">
-                  <FileText className="h-12 w-12 text-black" />
-                  <div>
-                    <p className="font-mono text-xs font-bold text-black">
-                      {constitutionFile ? constitutionFile.name : "No PDF constitution file chosen"}
-                    </p>
-                    <p className="font-mono text-[10px] text-gray-400 mt-1">Limit 10MB · PDF format only</p>
-                  </div>
-                  
-                  <label className="neu-border bg-black text-cream font-mono text-xs font-bold uppercase px-4 py-2.5 cursor-pointer hover:bg-neutral-800 transition-all">
-                    Choose PDF File
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      onChange={handlePdfUpload}
-                      className="hidden"
-                    />
-                  </label>
                 </div>
-
-                {isUploadingPdf && (
-                  <div className="flex items-center justify-center gap-2 font-mono text-xs font-bold text-black">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Uploading PDF Constitution...
-                  </div>
-                )}
-
-                {constitutionUrl && !isUploadingPdf && (
-                  <div className="flex items-center gap-2 text-green-600 bg-green-50 border-2 border-green-300 p-3 font-mono text-xs font-bold">
-                    <CheckCircle2 className="h-5 w-5" /> Constitution uploaded and registered successfully.
-                  </div>
-                )}
               </div>
-            </motion.div>
-          )}
+            </div>
+          </div>
+        )}
 
-          {step === 5 && (
-            <motion.div
-              key="step-5"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
+        {/* Step 2: Mission & Charter */}
+        {state.currentStep === 2 && (
+          <div className="space-y-4">
+            <h3 className="font-display font-black text-2xl text-black">
+              Step 2: Mission Statement & Meeting Cadence
+            </h3>
+            <p className="font-mono text-xs text-gray-600">
+              Help prospective members understand what your club stands for and when meetings occur.
+            </p>
+
+            <div className="space-y-3 font-mono text-xs">
               <div>
-                <h3 className="font-display text-xl font-bold uppercase text-black flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" /> Stripe Payout Setup (Optional)
-                </h3>
-                <p className="font-mono text-xs text-muted-foreground mt-1">
-                  Connect your club bank account via Stripe Connect to collect dues or sell event tickets.
-                </p>
+                <label className="block font-bold uppercase text-gray-700 mb-1">Mission & Purpose</label>
+                <textarea
+                  rows={4}
+                  value={state.missionStatement}
+                  onChange={(e) => setState({ ...state, missionStatement: e.target.value })}
+                  className="w-full p-2.5 border-2 border-black rounded bg-white font-mono text-xs"
+                />
               </div>
 
-              <div className="space-y-6 pt-4">
-                <div className="neu-border border-2 border-black p-6 bg-cream space-y-4">
+              <div>
+                <label className="block font-bold uppercase text-gray-700 mb-1">Weekly Meeting Schedule & Location</label>
+                <input
+                  type="text"
+                  value={state.meetingSchedule}
+                  onChange={(e) => setState({ ...state, meetingSchedule: e.target.value })}
+                  className="w-full p-2.5 border-2 border-black rounded bg-white font-bold"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Executive Board */}
+        {state.currentStep === 3 && (
+          <div className="space-y-4">
+            <h3 className="font-display font-black text-2xl text-black">
+              Step 3: Executive Board Officers
+            </h3>
+            <p className="font-mono text-xs text-gray-600">
+              Assign Student Union administrative roles for your leadership team.
+            </p>
+
+            <div className="space-y-2.5 font-mono text-xs">
+              {state.executives.map((officer, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-slate-50 border-2 border-black rounded-lg flex items-center justify-between"
+                >
                   <div className="flex items-center gap-3">
-                    <CreditCard className="h-8 w-8 text-black" />
+                    <div className="w-8 h-8 rounded-full bg-lime border border-black flex items-center justify-center font-bold">
+                      {officer.name.charAt(0)}
+                    </div>
                     <div>
-                      <h4 className="font-mono text-sm font-bold text-black">Stripe Connected Payouts</h4>
-                      <p className="font-mono text-[10px] text-gray-500">Collect ticketing revenue directly.</p>
+                      <div className="font-bold text-black">{officer.name}</div>
+                      <div className="text-gray-500 text-[11px]">{officer.email}</div>
                     </div>
                   </div>
-                  
-                  {stripeConnected ? (
-                    <div className="flex items-center gap-2 text-green-600 font-mono text-xs font-bold">
-                      <CheckCircle2 className="h-5 w-5" /> Stripe Connected (Account ID: {stripeAccountId})
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleStripeConnect}
-                      className="neu-border bg-[#fb923c] border-2 border-black px-4 py-2 font-mono text-xs font-bold uppercase text-black hover:-translate-y-0.5 transition-transform"
-                    >
-                      Connect Stripe Account
-                    </button>
-                  )}
+                  <span className="px-2.5 py-0.5 bg-black text-white rounded font-bold uppercase text-[10px]">
+                    {officer.role}
+                  </span>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-                <div className="font-mono text-[10px] text-gray-400">
-                  * You can skip this step and configure payouts later in the club settings panel.
+        {/* Step 4: Constitution Upload */}
+        {state.currentStep === 4 && (
+          <div className="space-y-4">
+            <h3 className="font-display font-black text-2xl text-black">
+              Step 4: Constitution & Bylaws
+            </h3>
+            <p className="font-mono text-xs text-gray-600">
+              Upload your official Student Government approved constitution PDF.
+            </p>
+
+            <div className="p-8 border-2 border-dashed border-black rounded-lg bg-slate-50 text-center space-y-3">
+              <div className="w-12 h-12 bg-lime border-2 border-black rounded-full flex items-center justify-center mx-auto">
+                <FileText size={22} className="text-black" />
+              </div>
+              <div className="font-mono text-xs">
+                <div className="font-bold text-black text-sm">{state.constitutionFileName}</div>
+                <div className="text-emerald-700 font-bold mt-0.5">Verified Document Uploaded ✓</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Draft First Event */}
+        {state.currentStep === 5 && (
+          <div className="space-y-4">
+            <h3 className="font-display font-black text-2xl text-black">
+              Step 5: Draft Your First Kickoff Event
+            </h3>
+            <p className="font-mono text-xs text-gray-600">
+              Publish an inaugural welcome event so new students can RSVP immediately upon launch!
+            </p>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block font-bold uppercase text-gray-700 mb-1">Event Title</label>
+                <input
+                  type="text"
+                  value={state.firstEventDraft.title}
+                  onChange={(e) =>
+                    setState({
+                      ...state,
+                      firstEventDraft: { ...state.firstEventDraft, title: e.target.value },
+                    })
+                  }
+                  className="w-full p-2.5 border-2 border-black rounded bg-white font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold uppercase text-gray-700 mb-1">Kickoff Date</label>
+                  <input
+                    type="date"
+                    value={state.firstEventDraft.date}
+                    onChange={(e) =>
+                      setState({
+                        ...state,
+                        firstEventDraft: { ...state.firstEventDraft, date: e.target.value },
+                      })
+                    }
+                    className="w-full p-2.5 border-2 border-black rounded bg-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold uppercase text-gray-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={state.firstEventDraft.location}
+                    onChange={(e) =>
+                      setState({
+                        ...state,
+                        firstEventDraft: { ...state.firstEventDraft, location: e.target.value },
+                      })
+                    }
+                    className="w-full p-2.5 border-2 border-black rounded bg-white font-bold"
+                  />
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
+          </div>
+        )}
 
-      {/* Wizard Action Footer Controls */}
-      <div className="flex justify-between border-t-4 border-black pt-6">
-        <button
-          type="button"
-          onClick={handlePrev}
-          disabled={step === 1 || isSubmitting}
-          className="neu-border border-2 border-black px-4 py-2 font-mono text-xs font-bold uppercase text-black bg-white hover:-translate-y-0.5 transition-transform disabled:opacity-40 flex items-center gap-1.5"
-        >
-          <ChevronLeft size={16} /> Back
-        </button>
+        {/* Bottom Navigation Buttons */}
+        <div className="pt-6 border-t-2 border-slate-100 flex items-center justify-between font-mono text-xs">
+          <button
+            type="button"
+            disabled={state.currentStep === 1}
+            onClick={handleBack}
+            className="px-4 py-2.5 border-2 border-black rounded font-bold uppercase hover:bg-slate-100 disabled:opacity-30 flex items-center gap-1.5"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
 
-        {step < 5 ? (
           <button
             type="button"
             onClick={handleNext}
-            className="neu-border border-2 border-black px-6 py-2.5 font-mono text-xs font-bold uppercase text-black bg-[#dff25c] hover:-translate-y-0.5 transition-transform flex items-center gap-1.5"
+            className="neu-border bg-lime hover:bg-lime/90 px-6 py-2.5 font-black uppercase text-black flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:scale-95 transition-transform"
           >
-            Next <ChevronRight size={16} />
+            {state.currentStep === 5 ? 'Launch Club Dashboard' : 'Continue to Next Step'}
+            <ArrowRight size={14} />
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleCompleteOnboarding}
-            disabled={isSubmitting}
-            className="neu-border border-2 border-black px-6 py-2.5 font-mono text-xs font-bold uppercase text-cream bg-black hover:-translate-y-0.5 transition-transform disabled:opacity-40 flex items-center gap-1.5"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Completing...
-              </>
-            ) : (
-              <>
-                Finish Setup <CheckCircle2 size={16} />
-              </>
-            )}
-          </button>
-        )}
+        </div>
       </div>
     </div>
   );

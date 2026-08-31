@@ -176,7 +176,9 @@ BEGIN
 
         IF v_max_attendees IS NULL OR v_current_attending < v_max_attendees THEN
             UPDATE public.event_rsvps
-            SET status = 'attending', rsvp_at = NOW(), checked_in = FALSE
+            SET status = 'attending',
+attendance_state = 'confirmed',
+rsvp_at = NOW(), checked_in = FALSE
             WHERE event_id = p_event_id
               AND user_id = p_user_id
               AND status = 'cancelled';
@@ -219,7 +221,9 @@ BEGIN
         INSERT INTO public.event_rsvps (event_id, user_id, status, rsvp_at)
         VALUES (p_event_id, p_user_id, 'attending', NOW())
         ON CONFLICT (event_id, user_id) DO UPDATE
-            SET status = 'attending', rsvp_at = NOW(), checked_in = FALSE;
+            SET status = 'attending',
+attendance_state = 'confirmed',
+rsvp_at = NOW(), checked_in = FALSE;
         RETURN jsonb_build_object(
             'success', true,
             'status', 'attending'
@@ -281,12 +285,42 @@ BEGIN
 
     -- Mark as cancelled (preserves the audit trail; the unique
     -- partial index below allows the user to re-RSVP later).
-    UPDATE public.event_rsvps
-    SET status = 'cancelled', rsvp_at = NOW()
-    WHERE event_id = p_event_id
-      AND user_id = p_user_id
-      AND status IN ('attending', 'waitlisted');
+PERFORM set_config(
+  'app.attendance_state_transition',
+  'allowed',
+  true
+);
 
+UPDATE public.event_rsvps
+SET
+  status = 'cancelled',
+  attendance_state = 'cancelled',
+  checked_in = FALSE,
+  rsvp_at = NOW()
+WHERE event_id = p_event_id
+  AND user_id = p_user_id
+  AND status IN ('attending', 'waitlisted');
+
+INSERT INTO public.event_attendance_state_history (
+  rsvp_id,
+  from_state,
+  to_state,
+  changed_by,
+  reason
+)
+SELECT
+  id,
+  CASE
+    WHEN v_was_attending THEN 'confirmed'
+    ELSE 'rsvp'
+  END,
+  'cancelled',
+  p_user_id,
+  'RSVP cancellation'
+FROM public.event_rsvps
+WHERE event_id = p_event_id
+  AND user_id = p_user_id
+  AND status = 'cancelled';
     RETURN jsonb_build_object(
         'success', true,
         'was_attending', v_was_attending,
@@ -342,10 +376,34 @@ BEGIN
 
         IF v_promoted_rsvp_id IS NOT NULL THEN
             -- Promote the waitlisted RSVP to attending.
-            UPDATE public.event_rsvps
-            SET status = 'attending', rsvp_at = NOW()
-            WHERE id = v_promoted_rsvp_id;
+PERFORM set_config(
+  'app.attendance_state_transition',
+  'allowed',
+  true
+);
 
+UPDATE public.event_rsvps
+SET
+  status = 'attending',
+  attendance_state = 'confirmed',
+  checked_in = FALSE,
+  rsvp_at = NOW()
+WHERE id = v_promoted_rsvp_id;
+
+INSERT INTO public.event_attendance_state_history (
+  rsvp_id,
+  from_state,
+  to_state,
+  changed_by,
+  reason
+)
+VALUES (
+  v_promoted_rsvp_id,
+  'rsvp',
+  'confirmed',
+  NULL,
+  'Automatic waitlist promotion'
+);
             -- Fetch user + event details for the email webhook.
             SELECT p.email,
                    COALESCE(p.first_name, '') || ' ' || COALESCE(p.last_name, '')
@@ -442,7 +500,9 @@ BEGIN
 
         IF v_promoted_rsvp_id IS NOT NULL THEN
             UPDATE public.event_rsvps
-            SET status = 'attending', rsvp_at = NOW()
+            SET status = 'attending',
+attendance_state = 'confirmed',
+rsvp_at = NOW()
             WHERE id = v_promoted_rsvp_id;
 
             SELECT p.email,

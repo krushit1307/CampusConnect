@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: PermissionsMatrix
---Issue: #2896 - Implement Role - Based Access Control(RBAC) UI for Club Executives
---Description: Renders a grid of toggles for every available permission in
-    --the system.Groups them by category and prevents the removal of critical
---permissions from system roles(like President).
+//Issue: #2896 - Implement Role - Based Access Control(RBAC) UI for Club Executives
+//Description: Renders a grid of toggles for every available permission in
+    //the system.Groups them by category and prevents the removal of critical
+//permissions from system roles(like President).
 // =============================================================================
 
 import React, { useState, useEffect } from 'react';

@@ -1,8 +1,8 @@
 // =============================================================================
 // Hook: useMentorshipDirectory
 // Issue: #2963 - Build an 'Alumni Mentorship' Matching Module
---Description: Fetches and filters the alumni mentor directory.Handles
---pagination, search queries, and capacity availability checks.
+//Description: Fetches and filters the alumni mentor directory.Handles
+//pagination, search queries, and capacity availability checks.
     // =============================================================================
 
     import { useState, useEffect, useCallback } from 'react';

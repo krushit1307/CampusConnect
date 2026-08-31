@@ -62,21 +62,26 @@ interface TransformResult {
 function transformRecord(table: string, record: Record<string, unknown>): MeiliDocument | null {
   switch (table) {
     case "events":
-      return {
-        id: String(record.id),
-        title: String(record.title ?? ""),
-        description: String(record.description ?? ""),
-        location: String(record.location ?? ""),
-        event_date: String(record.event_date ?? ""),
-        start_date: String(record.start_date ?? ""),
-        end_date: String(record.end_date ?? ""),
-        club_id: String(record.club_id ?? ""),
-        banner_url: String(record.banner_url ?? ""),
-        short_id: String(record.short_id ?? ""),
-        max_attendees: Number(record.max_attendees ?? 0),
-        status: String(record.status ?? "scheduled"),
-        created_at: String(record.created_at ?? ""),
-        // Meilisearch doesn't have a separate "boost" field, but
+return {
+  id: String(record.id),
+  title: String(record.title ?? ""),
+  description: String(record.description ?? ""),
+  location: String(record.location ?? ""),
+  event_date: String(record.event_date ?? ""),
+  start_date: String(record.start_date ?? ""),
+  end_date: String(record.end_date ?? ""),
+  club_id: String(record.club_id ?? ""),
+  banner_url: String(record.banner_url ?? ""),
+  short_id: String(record.short_id ?? ""),
+  max_attendees: Number(record.max_attendees ?? 0),
+  status: String(record.status ?? "scheduled"),
+  deleted_at: record.deleted_at
+    ? String(record.deleted_at)
+    : null,
+  _sync_version: Number(
+    record.search_sync_version ?? record.version ?? 1,
+  ),
+  created_at: String(record.created_at ?? ""),        // Meilisearch doesn't have a separate "boost" field, but
         // we can weight by including the title twice in a
         // `_search_boost` field if needed. For now, the searchable
         // attributes order in the index settings handles ranking.
@@ -175,7 +180,51 @@ async function deleteFromMeili(indexName: string, documentIds: string[]): Promis
     );
   }
 }
+async function isStaleEventUpdate(
+  supabase: ReturnType<typeof createClient>,
+  payload: WebhookPayload,
+): Promise<boolean> {
+  if (payload.table !== "events") {
+    return false;
+  }
 
+  const record = payload.record ?? payload.old_record;
+  const recordId = record?.id;
+
+  if (!recordId) {
+    return false;
+  }
+
+  const incomingVersion = Number(
+    record?.search_sync_version ?? record?.version ?? 1,
+  );
+
+  const { data: currentEvent, error } = await supabase
+    .from("events")
+    .select("version, search_sync_version")
+    .eq("id", String(recordId))
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Unable to verify event search version: ${error.message}`,
+    );
+  }
+
+  -- If the event was hard-deleted, the DELETE operation is still
+  -- valid because there is no newer database row to protect.
+  if (!currentEvent) {
+    return false;
+  }
+
+  const currentVersion = Number(
+    currentEvent.search_sync_version ??
+      currentEvent.version ??
+      1,
+  );
+
+  return incomingVersion < currentVersion;
+}
 /**
  * Write a failed sync to the dead-letter queue table so the
  * meilisearch-dlq-retry scheduled function can pick it up.
@@ -185,17 +234,28 @@ async function writeToDlq(
   payload: WebhookPayload,
   error: string,
 ): Promise<void> {
-  const { error: insertError } = await supabase.from("meilisearch_dlq").insert({
+const record = payload.record ?? payload.old_record;
+
+const { error: insertError } = await supabase
+  .from("meilisearch_dlq")
+  .insert({
     table_name: payload.table,
-    record_id: payload.record?.id ?? payload.old_record?.id ?? "unknown",
+    record_id: record?.id ?? "unknown",
     operation: payload.type,
+    sync_version:
+      payload.table === "events"
+        ? Number(
+            record?.search_sync_version ??
+              record?.version ??
+              1,
+          )
+        : null,
     payload: payload as unknown as Record<string, unknown>,
     error_message: error,
     retry_count: 0,
     created_at: new Date().toISOString(),
     next_retry_at: new Date(Date.now() + 60_000).toISOString(),
   });
-
   if (insertError) {
     console.error("[meilisearch-sync] Failed to write to DLQ:", insertError);
   }
@@ -246,30 +306,73 @@ Deno.serve(async (req: Request) => {
 
   const indexName = payload.table; // index name = table name
 
-  try {
-    if (payload.type === "DELETE") {
-      const recordId = payload.old_record?.id;
-      if (recordId) {
-        await deleteFromMeili(indexName, [String(recordId)]);
-      }
-    } else {
-      // INSERT or UPDATE
-      if (!payload.record) {
-        return new Response(JSON.stringify({ error: "Missing record for INSERT/UPDATE" }), {
+try {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  if (await isStaleEventUpdate(supabase, payload)) {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        synced: false,
+        skipped: true,
+        reason: "stale_event_version",
+      }),
+      {
+        headers: {
+          ...CORS_HEADERS,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+  }
+
+  if (payload.type === "DELETE") {
+    const recordId = payload.old_record?.id;
+
+    if (recordId) {
+      await deleteFromMeili(indexName, [String(recordId)]);
+    }
+  } else {
+    if (!payload.record) {
+      return new Response(
+        JSON.stringify({
+          error: "Missing record for INSERT/UPDATE",
+        }),
+        {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
-      }
-      const document = transformRecord(payload.table, payload.record);
-      if (!document) {
-        return new Response(
-          JSON.stringify({ success: true, skipped: true, reason: "No transformer for table" }),
-          { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-        );
-      }
-      await pushToMeili(indexName, [document]);
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type": "application/json",
+          },
+        },
+      );
     }
 
+    const document = transformRecord(
+      payload.table,
+      payload.record,
+    );
+
+    if (!document) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "No transformer for table",
+        }),
+        {
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+
+    await pushToMeili(indexName, [document]);
+  }
     return new Response(
       JSON.stringify({
         success: true,

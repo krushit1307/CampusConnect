@@ -9,6 +9,8 @@ import { SupabaseYjsProvider } from "@/lib/supabase/yjsProvider";
 import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import Users from "lucide-react/dist/esm/icons/users";
 import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import { ColorBlindnessSimulationOverlay } from "@/components/events/ColorBlindnessSimulationOverlay";
 
 interface CollaborativeDescriptionEditorProps {
   eventId: string;
@@ -28,6 +30,7 @@ export default function CollaborativeDescriptionEditor({
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [activeUsers, setActiveUsers] = useState<string[]>([]);
+  const [showSimulator, setShowSimulator] = useState(false);
 
   const docRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<SupabaseYjsProvider | null>(null);
@@ -210,12 +213,14 @@ export default function CollaborativeDescriptionEditor({
           </button>
           <button
             type="button"
-            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-            className={`px-2.5 py-1 border border-black font-mono text-xs font-bold transition-all ${
-              editor?.isActive("orderedList") ? "bg-black text-white" : "bg-white hover:bg-gray-100"
+            onClick={() => setShowSimulator(!showSimulator)}
+            className={`px-2.5 py-1 border-2 border-black font-mono text-xs font-bold uppercase transition-all shadow-[1px_1px_0_0_#000] flex items-center gap-1 ${
+              showSimulator ? "bg-purple-400 text-black" : "bg-purple-100 hover:bg-purple-200 text-purple-950"
             }`}
+            data-testid="editor-colorblind-simulator-toggle"
           >
-            1. List
+            <Eye className="h-3.5 w-3.5" />
+            {showSimulator ? "Close CVD Simulator" : "CVD Simulator 👁️"}
           </button>
         </div>
 
@@ -226,16 +231,28 @@ export default function CollaborativeDescriptionEditor({
         </div>
       </div>
 
-      {/* Editor Content Area */}
-      <div className="p-3 min-h-[160px] font-mono text-sm leading-relaxed prose prose-sm max-w-none focus:outline-hidden">
-        <EditorContent editor={editor} />
-      </div>
+      {/* Real-Time Color Blindness Simulation Overlay */}
+      {showSimulator ? (
+        <div className="p-3 bg-purple-50 border-t-2 border-black">
+          <ColorBlindnessSimulationOverlay>
+            <div className="p-3 min-h-[160px] font-mono text-sm leading-relaxed prose prose-sm max-w-none focus:outline-hidden bg-white border-2 border-black">
+              <EditorContent editor={editor} />
+            </div>
+          </ColorBlindnessSimulationOverlay>
+        </div>
+      ) : (
+        /* Editor Content Area */
+        <div className="p-3 min-h-[160px] font-mono text-sm leading-relaxed prose prose-sm max-w-none focus:outline-hidden">
+          <EditorContent editor={editor} />
+        </div>
+      )}
 
       {/* Connection notice */}
       <div className="px-3 py-1.5 bg-sky/10 border-t border-black/10 flex items-center gap-1.5 font-mono text-[10px] text-gray-500">
         <AlertCircle className="h-3 w-3" />
         <span>Syncing to Supabase Realtime channel</span>
       </div>
+
 
       {/* Inline styles for collaborative caret rendering */}
       <style>{`

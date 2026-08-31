@@ -1,11 +1,11 @@
 // =============================================================================
 // Component: QuickEscapeButton
---Issue: #3562 - Build an 'Interactive Campus "Safe Space" Directory'
---Description: A critical digital safety feature standard on domestic violence
---and safety sites.Instantly redirects the browser to a neutral site(like
---Google or a weather site) and replaces the history state so the user can
---quickly hide that they were viewing sensitive resources.
--- =============================================================================
+//Issue: #3562 - Build an 'Interactive Campus "Safe Space" Directory'
+//Description: A critical digital safety feature standard on domestic violence
+//and safety sites.Instantly redirects the browser to a neutral site(like
+//Google or a weather site) and replaces the history state so the user can
+//quickly hide that they were viewing sensitive resources.
+// =============================================================================
 
 import React, { useCallback, useEffect } from 'react';
 

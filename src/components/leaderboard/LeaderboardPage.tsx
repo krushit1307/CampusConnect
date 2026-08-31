@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: LeaderboardPage
---Issue: #2971 - Develop a 'Cross-Club Leaderboard'(Gamification)
---Description: The main page layout for the Cross - Club Leaderboard.
---Combines the animated Podium for the top 3 clubs and the detailed
---LeaderboardTable for the rest.
+//Issue: #2971 - Develop a 'Cross-Club Leaderboard'(Gamification)
+//Description: The main page layout for the Cross - Club Leaderboard.
+//Combines the animated Podium for the top 3 clubs and the detailed
+//LeaderboardTable for the rest.
 // =============================================================================
 
 import React from 'react';

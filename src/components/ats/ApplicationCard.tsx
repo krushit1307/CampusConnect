@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: ApplicationCard
---Issue: #2978 - Build a 'Club Application & Tryout' Workflow
---Description: Renders an individual applicant card for the Kanban board.
---Supports "Blind Review" mode which redacts the applicant's name and photo 
---to prevent unconscious bias during the initial screening phase.
+//Issue: #2978 - Build a 'Club Application & Tryout' Workflow
+//Description: Renders an individual applicant card for the Kanban board.
+//Supports "Blind Review" mode which redacts the applicant's name and photo 
+//to prevent unconscious bias during the initial screening phase.
 // =============================================================================
 
 import React from 'react';

@@ -17,17 +17,18 @@ export interface MerchCartState {
   getItems: () => MerchVariantCart[];
 }
 
-export const useMerchCartStore = create<MerchCartState>(
+export const useMerchCartStore = create<MerchCartState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       items: [],
 
       addItem: (variantId, quantity = 1) =>
         set((s) => {
           const existingIndex = s.items.findIndex((item) => item.variantId === variantId);
           if (existingIndex >= 0) {
-            const newItems = [...s.items];
-            newItems[existingIndex].quantity += quantity;
+            const newItems = s.items.map((item, idx) =>
+              idx === existingIndex ? { ...item, quantity: item.quantity + quantity } : item,
+            );
             return { items: newItems };
           }
           return { items: [...s.items, { variantId, quantity }] };
@@ -37,8 +38,9 @@ export const useMerchCartStore = create<MerchCartState>(
         set((s) => {
           const existingIndex = s.items.findIndex((item) => item.variantId === variantId);
           if (existingIndex >= 0) {
-            const newItems = [...s.items];
-            newItems[existingIndex].quantity += 1;
+            const newItems = s.items.map((item, idx) =>
+              idx === existingIndex ? { ...item, quantity: item.quantity + 1 } : item,
+            );
             return { items: newItems };
           }
           return { items: [...s.items, { variantId, quantity: 1 }] };
@@ -48,32 +50,31 @@ export const useMerchCartStore = create<MerchCartState>(
         set((s) => {
           const existingIndex = s.items.findIndex((item) => item.variantId === variantId);
           if (existingIndex >= 0) {
-            const newItems = [...s.items];
-            newItems[existingIndex].quantity -= 1;
-            if (newItems[existingIndex].quantity <= 0) {
-              const filtered = newItems.filter((item) => item.variantId !== variantId);
-              return { items: filtered };
+            const currentItem = s.items[existingIndex];
+            if (currentItem.quantity <= 1) {
+              return { items: s.items.filter((item) => item.variantId !== variantId) };
             }
+            const newItems = s.items.map((item, idx) =>
+              idx === existingIndex ? { ...item, quantity: item.quantity - 1 } : item,
+            );
             return { items: newItems };
           }
           return { items: s.items };
         }),
 
       removeItem: (variantId) =>
-        set({
+        set((s) => ({
           items: s.items.filter((item) => item.variantId !== variantId),
-        }),
+        })),
 
       clearCart: () => set({ items: [] }),
 
       getTotalQuantity: () => {
-        // Access state via get() outside this closure in components
-        return 0;
+        return get().items.reduce((total, item) => total + item.quantity, 0);
       },
 
       getItems: () => {
-        // Access state via get() outside this closure in components
-        return [];
+        return get().items;
       },
     }),
 

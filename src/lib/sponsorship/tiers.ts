@@ -18,7 +18,7 @@ export interface SponsorshipTier {
     created_at: string;
 }
 
-export type NewSponsorshipTier = Pick
+export type NewSponsorshipTier = Pick<
     SponsorshipTier,
     'name' | 'price' | 'perks_json' | 'available_quantity' | 'is_active'
 >;
