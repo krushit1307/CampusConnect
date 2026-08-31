@@ -10,11 +10,11 @@ const supabase = createClient(
  * Fetches real-time weather data from NOAA API (mocked for this implementation).
  * In production, this would be a Chainlink External Adapter or dedicated Oracle node.
  */
-export async function fetchNOAAWeatherData(lat: number, lon: number): Promise<number> {
+export async function fetchNOAAWeatherProbability(lat: number, lon: number): Promise<number> {
     // Mock NOAA API response
     // In production: const response = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
-    const mockPrecipitationInches = 1.25; // Simulating a hurricane/heavy rain event
-    return mockPrecipitationInches;
+    const mockProbability = 75; // Simulating 75% TWAP rain probability
+    return mockProbability;
 }
 
 /**
@@ -39,13 +39,13 @@ export async function evaluateAndTriggerPayouts(): Promise<PayoutResult[]> {
 
     for (const policy of policies) {
         try {
-            // 2. Ping Oracle for weather data at the specific GPS coordinates
-            const precipitation = await fetchNOAAWeatherData(policy.latitude, policy.longitude);
+            // 2. Ping Oracle for weather probability at the specific GPS coordinates
+            const twapProbability = await fetchNOAAWeatherProbability(policy.latitude, policy.longitude);
 
-            // 3. Check parametric condition: precipitation > 1.0 inches
-            if (precipitation > 1.0) {
+            // 3. Check parametric condition: TWAP rain probability > 60%
+            if (twapProbability > 60) {
                 // 4. Trigger autonomous payout (mocked blockchain interaction)
-                // In production: await contract.reportWeatherAndTrigger(policy.eventId, Math.round(precipitation * 100));
+                // In production: await contract.reportWeatherAndTrigger(policy.eventId);
 
                 const mockTxHash = `0x${Math.random().toString(16).substr(2, 40)}`;
 
@@ -69,7 +69,7 @@ export async function evaluateAndTriggerPayouts(): Promise<PayoutResult[]> {
                     eventId: policy.eventId,
                     payoutAmount: policy.coverageAmount,
                     transactionHash: mockTxHash,
-                    message: `Payout of $${policy.coverageAmount} triggered due to ${precipitation}" precipitation.`,
+                    message: `Payout of $${policy.coverageAmount} triggered due to ${twapProbability}% 24h TWAP rain probability.`,
                 });
             }
         } catch (err) {
