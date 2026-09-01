@@ -19,6 +19,9 @@ import { showAnnouncementToast } from "@/lib/announcements/sse";
 import { SkipToContent } from "@/components/SkipToContent";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
 import { GlobalAudioPlayer } from "@/components/audio/GlobalAudioPlayer";
+import { useContinuousAuth } from "@/hooks/useContinuousAuth";
+import { LockScreen } from "@/components/Safety/LockScreen";
+import { CalibrationOverlay } from "@/components/Safety/CalibrationOverlay";
 
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
@@ -65,6 +68,7 @@ export default function Layout() {
   }, [i18n.language]);
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Maintain lightweight auth state
@@ -75,6 +79,7 @@ export default function Layout() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       setUserId(session?.user?.id || null);
+      setUserEmail(session?.user?.email || null);
 
       if (event === "SIGNED_IN" && session) {
         const checkedKey = `device_checked_${session.user.id}`;
@@ -123,6 +128,9 @@ export default function Layout() {
 
   // Enable SSE announcement stream for authenticated users only
   useAnnouncementStream(userId);
+
+  // Real-time continuous authentication & emergency door lock
+  const safety = useContinuousAuth(userId, userEmail);
 
   // Keyboard shortcut (Shift + /)
   useEffect(() => {
@@ -177,61 +185,26 @@ export default function Layout() {
           <OfflineBanner />
           <TopProgressBar />
           <SessionExpiryModal />
- feature/2986-event-audio-player
- feature/2986-event-audio-player
- feature/2986-event-audio-player
-
- feature/3010-membership-bundles
- feature/3010-membership-bundles
- main
-
- feature/3014-referral-leaderboard
- main
           <ImpersonationBanner />
           <GlobalAudioPlayer />
-
- main
-
           <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
           <PWAInstallPrompt />
+          {safety.calibrating && <CalibrationOverlay progress={safety.anomalyConfidence} />}
+          {safety.locked && <LockScreen email={userEmail} onUnlock={safety.unlock} />}
 
           <main id="main-content" className="flex-1 w-full h-full min-h-screen">
             <Outlet />
           </main>
 
- feature/2986-event-audio-player
- feature/2986-event-audio-player
- feature/2986-event-audio-player
-
- feature/3010-membership-bundles
- feature/3010-membership-bundles
- main
-
- feature/3014-referral-leaderboard
- main
           <Toaster richColors />
-
           <Toaster />
- main
           <ScrollToTop />
           <RadialFAB />
           {userId && <FloatingChat />}
           <CommandPalette />
         </WebRTCProvider>
       </TooltipProvider>
- feature/2986-event-audio-player
- feature/2986-event-audio-player
- feature/2986-event-audio-player
-
- feature/3010-membership-bundles
- feature/3010-membership-bundles
- main
-
- feature/3014-referral-leaderboard
- main
-
       <ImpersonationBanner />
- main
     </>
   );
 }

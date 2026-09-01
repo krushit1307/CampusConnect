@@ -5,6 +5,7 @@ import { localizedPath } from "@/lib/i18n";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 import { ThemeToggle } from "../ThemeToggle";
+import { SafetyStatusBadge } from "../Safety/SafetyStatusBadge";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 import { BookmarksPanel } from "@/components/BookmarksPanel";
 import { createClient } from "@/lib/supabase/client";
@@ -271,6 +272,7 @@ export function Navbar() {
 
           <ThemeToggle />
 
+          {user && <SafetyStatusBadge />}
           {user && <NavbarNotificationDropdown />}
           {user && (
             <button

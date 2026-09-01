@@ -2,6 +2,7 @@ import { useNavigate, useBlocker, Link } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { SiteShell } from "@/components/site/SiteShell";
+import { DuressSetupDialog } from "@/components/Safety/DuressSetupDialog";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import Camera from "lucide-react/dist/esm/icons/camera";
 import Check from "lucide-react/dist/esm/icons/check";
@@ -1493,6 +1494,20 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </Panel>
+
+          <Panel title="Safety & Emergency">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-bold text-black uppercase mb-1">Continuous Authentication</h3>
+                <p className="font-mono text-xs text-muted-foreground mb-4">
+                  The app continuously verifies your identity using your device&apos;s motion
+                  signature. If a critical anomaly is detected, your session locks automatically and
+                  campus security can be alerted. Configure your covert duress PIN below.
+                </p>
+              </div>
+              {user && <DuressSetupDialog userId={user.id} />}
             </div>
           </Panel>
 
