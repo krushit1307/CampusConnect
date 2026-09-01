@@ -1,5 +1,6 @@
 import os
 import boto3
+import secrets
 from fastapi import APIRouter, Request, Header, HTTPException
 
 router = APIRouter()
@@ -10,13 +11,25 @@ IP_SET_NAME = os.getenv("WAF_BOT_IP_SET_NAME", "MitigatedHoneyPotAttackers")
 IP_SET_ID = os.getenv("WAF_BOT_IP_SET_ID", "mock-ip-set-id")
 WAF_SCOPE = "CLOUDFRONT"  # Or 'REGIONAL' depending on backend entry mapping
 
+# Dynamic honeypot token registry
+active_honeypot_tokens = set()
+
+def generate_dynamic_early_bird_url() -> str:
+    """
+    Generates a dynamic secret Early Bird URL with a unique cryptographic token
+    to inject into HTML comments or hidden form inputs for scraper trapping.
+    """
+    token = secrets.token_urlsafe(16)
+    active_honeypot_tokens.add(token)
+    return f"/api/v1/tickets/early-bird-secret-vip-link-do-not-click?token={token}"
+
 @router.get("/api/v1/tickets/early-bird-secret-vip-link-do-not-click")
 async def early_bird_honeypot_trap(request: Request, user_agent: str = Header(None)):
     """
     Hidden honeypot endpoint intended solely for scraper bots. 
     Intercepts telemetry, compiles JA4/TLS signatures, and blocks upstream proxy cells.
     """
-    client_ip = request.client.host
+    client_ip = request.client.host if request.client else "127.0.0.1"
     
     # 1. Extract structural HTTP signature characteristics for ML vectorization
     # Savvy scrapers change fingerprints but fail to mask low-level network stacks
