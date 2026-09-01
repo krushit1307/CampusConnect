@@ -128,6 +128,7 @@ const GlobalCalendar = lazy(() => import("./routes/calendar"));
 const Feed = lazy(() => import("./routes/feed"));
 const EventsMapPage = lazy(() => import("./routes/events.map"));
 const AcousticWayfindingRoute = lazy(() => import("./routes/events.acoustic-wayfinding"));
+const SpatialWayfindingRoute = lazy(() => import("./routes/events.spatial-wayfinding"));
 const VipTransportRoute = lazy(() => import("./routes/events.vip-transport"));
 const InteractiveCampusMap = lazy(() => import("./routes/events.interactive-map"));
 const EventKiosk = lazy(() => import("./routes/events.$eventId.kiosk"));
@@ -163,11 +164,8 @@ const EventFloorplan = lazy(() => import("./routes/events.$eventId.floorplan"));
 const EventZoneCheckIn = lazy(() => import("./routes/events.$eventId.zones.$zoneId.check-in"));
 const LostFound = lazy(() => import("./routes/lost-found"));
 const LibraryBookFinder = lazy(() => import("./pages/LibraryBookFinder"));
-const Leaderboard = lazy(() =>
-  import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
-);
-const StudyGroupFinderPage = lazy(() => import("./pages/StudyGroupFinder"));
 const Leaderboard = lazy(() => import("./routes/leaderboard"));
+const StudyGroupFinderPage = lazy(() => import("./pages/StudyGroupFinder"));
 const Recap = lazy(() => import("./routes/recap"));
 const NetworkPage = lazy(() => import("@/pages/NetworkPage"));
 const ReviveClubPage = lazy(() => import("@/pages/ReviveClub"));
@@ -204,7 +202,6 @@ const EventRecommendationEngine = lazy(
 const CampusShuttleTracker = lazy(() => import("./pages/CampusShuttleTracker"));
 const CourseReviews = lazy(() => import("./pages/CourseReviews"));
 const CampusParkingSpotFinder = lazy(() => import("./pages/CampusParkingSpotFinder"));
-const LibraryBookFinder = lazy(() => import("./pages/LibraryBookFinder"));
 const Wrapped2026 = lazy(() => import("./routes/wrapped.2026"));
 const SkillSwapMarketplace = lazy(() => import("./routes/skill-swap"));
 const CampusWellnessHub = lazy(() => import("./pages/wellness/CampusWellnessHub"));
@@ -545,6 +542,7 @@ const router = createBrowserRouter(
 
               <Route path="/events/map" element={<EventsMapPage />} />
               <Route path="/events/acoustic-wayfinding" element={<AcousticWayfindingRoute />} />
+              <Route path="/events/spatial-wayfinding" element={<SpatialWayfindingRoute />} />
 
               {/* Maps */}
               <Route path="/map" element={<MapPage />} />
