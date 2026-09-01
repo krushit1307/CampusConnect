@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 
 /**
  * Routes that must never trigger the compliance redirect. The compliance
@@ -21,6 +21,21 @@ const IGNORED_PREFIXES = ["/print", "/verify", "/compliance-check"];
 const checkCache = new Map<string, { userId: string; value: boolean }>();
 const CACHE_TTL_MS = 60_000;
 
+async function hasPendingConstitutionRatification(accessToken: string): Promise<boolean> {
+  try {
+    const fnUrl = `${import.meta.env.VITE_SUPABASE_URL || ""}/functions/v1/constitution-ratification-status`;
+    const response = await fetch(fnUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return false;
+    const body = (await response.json()) as { needs_ratification?: boolean };
+    return body.needs_ratification === true;
+  } catch {
+    // Do not lock users out when the status endpoint is temporarily unavailable.
+    return false;
+  }
+}
+
 /**
  * Global router guard for #3188. When a signed-in club executive holds an
  * active role with an outstanding (unsigned) bylaws signature, they are
@@ -28,7 +43,6 @@ const CACHE_TTL_MS = 60_000;
  * access anything else.
  */
 export function ComplianceCheckGuard() {
-  const supabase = createClient();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -51,6 +65,15 @@ export function ComplianceCheckGuard() {
       if (!session?.user) return;
 
       const userId = session.user.id;
+      if (await hasPendingConstitutionRatification(session.access_token)) {
+        const redirectTo = `${pathname}${location.search}`;
+        navigate(
+          `/compliance-check?mode=ratification&redirectTo=${encodeURIComponent(redirectTo)}`,
+          { replace: true },
+        );
+        return;
+      }
+
       const cached = checkCache.get(userId);
       if (!cached || cached.userId !== userId) {
         // Check outstanding signatures via the edge function.

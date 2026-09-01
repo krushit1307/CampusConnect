@@ -27,3 +27,15 @@ model FederatedTrustDomain {
 
   tenant          CampusTenant @relation("TenantTrust", fields: [tenantId], references: [id])
 }
+
+model RSVP {
+  id              String   @id @default(uuid())
+  eventId         String
+  userId          String
+  status          String   @default("VALID") // VALID, USED, CANCELLED
+  jwtToken        String   @db.Text
+  createdAt       DateTime @default(now())
+  scannedAt       DateTime?
+
+  @@unique([eventId, userId])
+}

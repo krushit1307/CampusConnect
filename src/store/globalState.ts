@@ -15,6 +15,18 @@ export {
   setUnreadMessagesCountSignal,
   resetCacheSlice,
 } from "./createCacheSlice";
+export {
+  safetyLockSignal,
+  setSafetyLockSignal,
+  threatLevelSignal,
+  setThreatLevelSignal,
+  calibrationStatusSignal,
+  setCalibrationStatusSignal,
+  resetSafetySlice,
+  type ThreatLevel,
+  type CalibrationStatus,
+  type SafetyLockState,
+} from "./createSafetySlice";
 
 // ─── Internal imports ─────────────────────────────────────────────────
 import { createReactiveObject } from "../lib/signals";
@@ -22,8 +34,9 @@ import type { UserProfile } from "./createAuthSlice";
 import { createAuthSlice, type AuthSlice } from "./createAuthSlice";
 import { createUISlice, type UISlice } from "./createUISlice";
 import { createCacheSlice, type CacheSlice } from "./createCacheSlice";
+import { createSafetySlice, type SafetySlice } from "./createSafetySlice";
 
-export type Store = AuthSlice & UISlice & CacheSlice;
+export type Store = AuthSlice & UISlice & CacheSlice & SafetySlice;
 
 // ─── Types ────────────────────────────────────────────────────────────
 export interface GlobalState {
@@ -33,6 +46,9 @@ export interface GlobalState {
   unreadMessagesCount: number;
   activeTab: string;
   isSidebarOpen: boolean;
+  safetyLock: SafetySlice["safetyLock"];
+  threatLevel: SafetySlice["threatLevel"];
+  calibrationStatus: SafetySlice["calibrationStatus"];
 }
 
 const getInitialStoredTheme = (): "light" | "dark" | "system" | "high-contrast" => {
@@ -58,6 +74,9 @@ export const globalState = createReactiveObject<GlobalState>({
   unreadMessagesCount: 0,
   activeTab: "overview",
   isSidebarOpen: true,
+  safetyLock: { isLocked: false, duressFlag: false },
+  threatLevel: "normal",
+  calibrationStatus: "idle",
 });
 
 // ─── Bounded store (slices pattern) ──────────────────────────────────
@@ -73,8 +92,9 @@ function createStore(): Store {
   const authSlice = createAuthSlice(set as Parameters<typeof createAuthSlice>[0]);
   const uiSlice = createUISlice(set as Parameters<typeof createUISlice>[0]);
   const cacheSlice = createCacheSlice(set as Parameters<typeof createCacheSlice>[0]);
+  const safetySlice = createSafetySlice(set as Parameters<typeof createSafetySlice>[0]);
 
-  state = { ...authSlice, ...uiSlice, ...cacheSlice };
+  state = { ...authSlice, ...uiSlice, ...cacheSlice, ...safetySlice };
   state.theme = getInitialStoredTheme();
 
   return state;
@@ -110,9 +130,22 @@ export function setActiveTab(tab: string): void {
   store.setActiveTab(tab);
 }
 
+export function setSafetyLock(state: SafetySlice["safetyLock"]): void {
+  store.setSafetyLock(state);
+}
+
+export function setThreatLevel(level: ThreatLevel): void {
+  store.setThreatLevel(level);
+}
+
+export function setCalibrationStatus(status: CalibrationStatus): void {
+  store.setCalibrationStatus(status);
+}
+
 export function resetGlobalState(): void {
   store.resetAuthSlice();
   store.resetUISlice();
   store.resetCacheSlice();
+  store.resetSafetySlice();
   globalState.isSidebarOpen = true;
 }

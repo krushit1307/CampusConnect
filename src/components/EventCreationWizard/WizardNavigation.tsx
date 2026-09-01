@@ -7,7 +7,7 @@ import { Button } from "../ui/button";
 import { WIZARD_STEPS } from "../../lib/eventWizardSchema";
 import { useEventWizardStore } from "../../store/useEventWizardStore";
 import { cn } from "../../lib/utils";
-
+import { requiresCompliancePermit } from "../../utils/eventComplianceChecker";
 /**
  * The footer navigation bar for the wizard: Back / Next / Submit.
  *
@@ -31,9 +31,15 @@ export function WizardNavigation({ onSubmit }: WizardNavigationProps) {
   const isSubmitting = useEventWizardStore((s) => s.isSubmitting);
   const isComplete = useEventWizardStore((s) => s.isComplete);
 
+  const formData = useEventWizardStore((s) => s.formData);
   const isFirstStep = step === 0;
   const isLastStep = step === WIZARD_STEPS.length - 1;
-
+  const blockedByCompliance =
+    requiresCompliancePermit({
+      capacity: formData.capacity,
+      category: formData.category,
+      tags: formData.tags,
+    }) && !formData.compliancePermitUrl;
   if (isComplete) {
     return null;
   }
@@ -55,9 +61,8 @@ export function WizardNavigation({ onSubmit }: WizardNavigationProps) {
         <Button
           type="button"
           onClick={onSubmit}
-          disabled={isSubmitting || !canAdvance()}
-          className="gap-1"
-        >
+          disabled={isSubmitting || !canAdvance() || blockedByCompliance}
+          className="gap-1"        >
           {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

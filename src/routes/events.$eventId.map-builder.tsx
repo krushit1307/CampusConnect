@@ -11,6 +11,7 @@ import Maximize2 from "lucide-react/dist/esm/icons/maximize-2";
 import Layout from "lucide-react/dist/esm/icons/layout";
 import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Users from "lucide-react/dist/esm/icons/users";
 
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
@@ -20,6 +21,7 @@ import {
   isAccessibilityNode,
   type MapNodeType,
 } from "@/lib/accessibilityMap";
+import { CrowdSimulationOverlay } from "@/components/events/crowdSimulation/CrowdSimulationOverlay";
 
 // Snap coordinates helper
 const snapToGrid = (val: number, gridSize: number): number => {
@@ -112,6 +114,7 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     elevator: "bg-blue-200",
     ramp: "bg-blue-300",
     restroom: "bg-cyan-200",
+    Quiet_Space: "bg-violet-100",
   };
 
   const borders: Record<MapNodeType, string> = {
@@ -124,6 +127,7 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     elevator: "border-blue-800",
     ramp: "border-blue-900",
     restroom: "border-cyan-800",
+    Quiet_Space: "border-violet-700",
   };
 
   // Custom mouse resize handler
@@ -172,13 +176,20 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     >
       {/* Rotation Visual Indicator */}
       <div
-        className="w-full h-full flex flex-col items-center justify-center"
-        style={{ transform: `rotate(${element.rotation}deg)` }}
+        className="flex h-full w-full flex-col items-center justify-center overflow-hidden"
+        style={{ transform: `rotate(${-element.rotation}deg)` }}
       >
-        <span className="font-mono text-[10px] font-extrabold uppercase leading-none break-all p-1">
-          {element.label}
-        </span>
-        <span className="font-mono text-[8px] opacity-75 mt-0.5 uppercase tracking-wider leading-none">
+        <div className="flex items-center gap-1">
+          {element.requiredTicketTierId && (
+            <span title="VIP Table" className="text-yellow-500 drop-shadow-md">
+              ★
+            </span>
+          )}
+          <span className="truncate px-0.5 font-mono text-[9px] font-black uppercase leading-tight md:text-[10px]">
+            {element.label || `${element.type.toUpperCase()}`}
+          </span>
+        </div>
+        <span className="mt-0.5 text-[7px] font-bold uppercase leading-none tracking-wider text-gray-500">
           {element.type}
         </span>
       </div>
@@ -256,6 +267,10 @@ export default function CampusMapBuilder() {
 
   const [loading, setLoading] = useState(true);
   const [eventTitle, setEventTitle] = useState("");
+  const [showCrowdSim, setShowCrowdSim] = useState(false);
+  const [ticketTiers, setTicketTiers] = useState<
+    { id: string; name: string; is_early_bird: boolean }[]
+  >([]);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Load layout from database (relational tables: venue_maps and map_nodes)
@@ -274,6 +289,12 @@ export default function CampusMapBuilder() {
         if (eventError) throw eventError;
         setEventTitle(eventData?.title || "Event Builder");
 
+        const { data: tiersData } = await supabase
+          .from("ticket_tiers")
+          .select("id, name, is_early_bird")
+          .eq("event_id", eventId);
+        if (tiersData) setTicketTiers(tiersData);
+
         // Fetch venue map details
         const { data: mapData, error: mapError } = await supabase
           .from("venue_maps")
@@ -288,7 +309,7 @@ export default function CampusMapBuilder() {
           const { data: nodesData, error: nodesError } = await supabase
             .from("map_nodes")
             .select(
-              "id, entity_name, type, x_coord, y_coord, width, height, rotation, accessibility_notes",
+              "id, entity_name, type, x_coord, y_coord, width, height, rotation, accessibility_notes, required_ticket_tier_id",
             )
             .eq("map_id", mapData.id);
 
@@ -305,6 +326,7 @@ export default function CampusMapBuilder() {
             height: Math.round((Number(node.height) / 100) * 600),
             rotation: node.rotation,
             accessibilityNotes: node.accessibility_notes || "",
+            requiredTicketTierId: node.required_ticket_tier_id || undefined,
           }));
 
           setElements(loadedElements);
@@ -504,6 +526,7 @@ export default function CampusMapBuilder() {
           height: (el.height / 600) * 100,
           rotation: el.rotation,
           accessibility_notes: el.accessibilityNotes || null,
+          required_ticket_tier_id: el.requiredTicketTierId || null,
         }));
 
         const { error: insertNodesError } = await supabase.from("map_nodes").insert(nodesToInsert);
@@ -564,6 +587,15 @@ export default function CampusMapBuilder() {
             </div>
 
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowCrowdSim(!showCrowdSim)}
+                data-testid="toggle-crowd-sim-btn"
+                className={`flex items-center gap-2 border-2 border-black px-4 py-2 font-mono text-sm font-bold uppercase shadow-[3px_3px_0_0_#000] active:translate-x-0.5 active:translate-y-0.5 ${
+                  showCrowdSim ? "bg-amber-300 hover:bg-amber-400" : "bg-sky hover:bg-sky-400"
+                }`}
+              >
+                <Users size={16} /> {showCrowdSim ? "Hide Crowd Sim" : "Crowd Flow Sim"}
+              </button>
               <button
                 onClick={saveLayoutToDatabase}
                 className="flex items-center gap-2 border-2 border-black bg-lime px-4 py-2 font-mono text-sm font-bold uppercase shadow-[3px_3px_0_0_#000] hover:bg-emerald-400 active:translate-x-0.5 active:translate-y-0.5"
@@ -639,6 +671,12 @@ export default function CampusMapBuilder() {
                       defaultWidth={60}
                       defaultHeight={60}
                     />
+                    <PaletteItem
+                      type="Quiet_Space"
+                      label="Quiet Room"
+                      defaultWidth={80}
+                      defaultHeight={60}
+                    />
                   </div>
                 </div>
 
@@ -700,6 +738,27 @@ export default function CampusMapBuilder() {
                           />
                         </label>
                       )}
+                      {(selectedElement.type === "table" || selectedElement.type === "booth") && (
+                        <div>
+                          <span className="font-bold">Required VIP Ticket:</span>
+                          <select
+                            value={selectedElement.requiredTicketTierId || ""}
+                            onChange={(e) =>
+                              updateElement(selectedElement.id, {
+                                requiredTicketTierId: e.target.value || undefined,
+                              })
+                            }
+                            className="w-full mt-1 border-2 border-black p-1 bg-white text-xs"
+                          >
+                            <option value="">None (General Admission)</option>
+                            {ticketTiers.map((tier) => (
+                              <option key={tier.id} value={tier.id}>
+                                {tier.name} {tier.is_early_bird ? "(Early Bird)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div className="flex gap-2 pt-1">
                         <button
                           onClick={handleRotateSelected}
@@ -720,7 +779,16 @@ export default function CampusMapBuilder() {
               </div>
 
               {/* Grid Canvas Area */}
-              <div className="flex flex-col items-center justify-start lg:col-span-3">
+              <div className="flex flex-col items-center justify-start lg:col-span-3 space-y-4">
+                {showCrowdSim && (
+                  <CrowdSimulationOverlay
+                    layoutElements={elements}
+                    width={canvasWidth}
+                    height={canvasHeight}
+                    onClose={() => setShowCrowdSim(false)}
+                  />
+                )}
+
                 <DroppableCanvas>
                   {elements.map((element) => (
                     <CanvasElement key={element.id} element={element} />

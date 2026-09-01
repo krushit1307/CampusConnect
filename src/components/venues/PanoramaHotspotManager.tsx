@@ -1,10 +1,10 @@
 // =============================================================================
 // Component: PanoramaHotspotManager
---Issue: #3232 - Build an 'Interactive Venue 360-Tour' Embed
---Description: Manages the rendering of interactive 3D "Hotspots"(information 
---icons) within the Photo Sphere Viewer.Allows venue managers to place
---markers over specific features(e.g., power outlets, AV equipment) that
---display tooltips when clicked.
+//Issue: #3232 - Build an 'Interactive Venue 360-Tour' Embed
+//Description: Manages the rendering of interactive 3D "Hotspots"(information 
+//icons) within the Photo Sphere Viewer.Allows venue managers to place
+//markers over specific features(e.g., power outlets, AV equipment) that
+//display tooltips when clicked.
     // =============================================================================
 
     import { useEffect, useRef } from 'react';

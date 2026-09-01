@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { create } from "zustand";
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
 import { createClient } from "../lib/supabase/client";

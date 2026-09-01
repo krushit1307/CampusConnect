@@ -1,9 +1,9 @@
 // =============================================================================
 // Utility: Discount Calculator & Pricing Engine
---Issue: #2902 - Implement 'Group Discounts' for Event Ticketing
---Description: Pure utility functions to calculate dynamic pricing based on
---ticket quantity and configured discount rules.Handles edge cases like
---remaining capacity and "Add X more to unlock discount" prompts.
+// Issue: #2902 - Implement 'Group Discounts' for Event Ticketing
+// Description: Pure utility functions to calculate dynamic pricing based on
+// ticket quantity and configured discount rules.Handles edge cases like
+// remaining capacity and "Add X more to unlock discount" prompts.
 // =============================================================================
 
 export interface DiscountRule {

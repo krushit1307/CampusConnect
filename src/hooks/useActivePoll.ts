@@ -203,6 +203,37 @@ export function useActivePoll(eventId: string, userId: string | undefined) {
     };
   }, [activePoll?.id, eventId, fetchPollAndResults, fetchVoteCounts]);
 
+  const closePoll = useCallback(async () => {
+    if (!activePoll) return;
+
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from("polls")
+      .update({ is_active: false })
+      .eq("id", activePoll.id);
+
+    if (error) {
+      console.error("Failed to close poll:", error.message);
+      throw error;
+    }
+
+    // Broadcast so all viewers refetch and hide the overlay
+    const channel = supabase.channel(`poll_launch_${eventId}`);
+    await channel.send({
+      type: "broadcast",
+      event: "poll_launch",
+      payload: { pollId: activePoll.id, action: "close" },
+    });
+    supabase.removeChannel(channel);
+
+    // Locally clear
+    setActivePoll(null);
+    setOptions([]);
+    setVoteCounts({});
+    setUserVote(null);
+  }, [activePoll, eventId]);
+
   const vote = useCallback(
     async (optionId: string) => {
       if (!userId || !activePoll || userVote || isVoting) return;
@@ -239,6 +270,7 @@ export function useActivePoll(eventId: string, userId: string | undefined) {
     isLoading,
     isVoting,
     vote,
+    closePoll,
     refetch: fetchPollAndResults,
   };
 }

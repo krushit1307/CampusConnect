@@ -1,7 +1,8 @@
-import { useNavigate, useBlocker } from "react-router-dom";
+import { useNavigate, useBlocker, Link } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { SiteShell } from "@/components/site/SiteShell";
+import { DuressSetupDialog } from "@/components/Safety/DuressSetupDialog";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import Camera from "lucide-react/dist/esm/icons/camera";
 import Check from "lucide-react/dist/esm/icons/check";
@@ -9,12 +10,14 @@ import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import X from "lucide-react/dist/esm/icons/x";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import CreditCard from "lucide-react/dist/esm/icons/credit-card";
+import Download from "lucide-react/dist/esm/icons/download";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { Switch } from "@/components/ui/switch";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -40,6 +43,8 @@ import {
 } from "@/components/ui/form";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { AutoTaggingSettings } from "@/components/AutoTaggingSettings";
+import { VendorPortfolioEditor } from "@/components/vendors/VendorPortfolioEditor";
+import { LinkedInSkillSyncPanel } from "@/components/profile/LinkedInSkillSyncPanel";
 import { useTheme } from "@/components/theme-provider";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
@@ -94,6 +99,7 @@ export default function SettingsPage() {
   const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
   const [personalEmail, setPersonalEmail] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isRequestingArchive, setIsRequestingArchive] = useState(false);
   const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
   const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [borderThickness, setBorderThickness] = useState(4);
@@ -104,6 +110,31 @@ export default function SettingsPage() {
   const [quietHoursEnd, setQuietHoursEnd] = useState("07:00");
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
+
+  // --- Dietary Restrictions state ---
+  const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
+  const [dietaryInput, setDietaryInput] = useState("");
+  const dietaryInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddDietary = () => {
+    const trimmed = dietaryInput.trim();
+    if (trimmed && !dietaryRestrictions.includes(trimmed)) {
+      setDietaryRestrictions((prev) => [...prev, trimmed]);
+    }
+    setDietaryInput("");
+    dietaryInputRef.current?.focus();
+  };
+
+  const handleDietaryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddDietary();
+    }
+  };
+
+  const handleRemoveDietary = (item: string) => {
+    setDietaryRestrictions((prev) => prev.filter((d) => d !== item));
+  };
 
   // --- Skills tags state ---
   const [skills, setSkills] = useState<string[]>([]);
@@ -426,6 +457,7 @@ export default function SettingsPage() {
       phoneNumber: "",
       role: "student",
       expectedGraduationDate: "",
+      preferredCurrency: "USD",
     },
   });
   const {
@@ -480,7 +512,15 @@ export default function SettingsPage() {
         phoneNumber: profile?.phone_number || "",
         role: (profile?.role as any) || "student",
         expectedGraduationDate: profile?.expected_graduation_date || "",
+        preferredCurrency: profile?.preferred_currency || "USD",
+        showOnLeaderboard: profile?.show_on_leaderboard !== false,
       });
+
+      // Hydrate dietary restrictions from profile (text[])
+      if (Array.isArray(profile?.dietary_restrictions)) {
+        setDietaryRestrictions(profile.dietary_restrictions as string[]);
+      }
+
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
         setSkills(profile.skills as string[]);
@@ -596,6 +636,8 @@ export default function SettingsPage() {
       // Update profiles table (including skills text[])
       const dedupedSkills = [...new Set(skills.map((s) => s.trim()).filter(Boolean))];
 
+      const dedupedDietary = [...new Set(dietaryRestrictions.map((s) => s.trim()).filter(Boolean))];
+
       // 1. Build dirty payload and strictly validate against allowlist
       const rawPayload = {
         avatar_theme: values.avatarTheme || null,
@@ -606,7 +648,10 @@ export default function SettingsPage() {
         linkedin_url: values.linkedinUrl || null,
         phone_number: values.phoneNumber || null,
         skills: dedupedSkills,
+        dietary_restrictions: dedupedDietary,
         expected_graduation_date: values.expectedGraduationDate || null,
+        preferred_currency: values.preferredCurrency,
+        show_on_leaderboard: values.showOnLeaderboard,
         course_codes: [
           ...new Set(
             courseCodes.map((courseCode) => courseCode.trim().toUpperCase()).filter(Boolean),
@@ -751,6 +796,27 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+          {/* ------------------------------- */}
+          <Panel title="Integrations">
+            <div className="mb-6 border-2 border-black bg-lime/10 p-4 font-mono text-sm">
+              <p className="font-bold text-black uppercase mb-2">Spotify</p>
+              <p className="text-xs text-gray-700 mb-4">
+                Connect your Spotify account to easily export song requests from your events to
+                playlists.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  // In a real implementation, this would trigger an OAuth flow with Supabase or a custom endpoint
+                  // supabase.auth.signInWithOAuth({ provider: 'spotify', options: { scopes: 'playlist-modify-public playlist-modify-private' } })
+                  toast.info("Spotify OAuth configuration required.");
+                }}
+                className="neu-border flex items-center gap-2 bg-[#1DB954] text-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95"
+              >
+                Link Spotify Profile
+              </button>
+            </div>
+          </Panel>
           {/* ------------------------------- */}
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
@@ -930,6 +996,34 @@ export default function SettingsPage() {
 
                 <FormField
                   control={form.control}
+                  name="preferredCurrency"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="eyebrow font-bold text-black">
+                        Price display currency
+                      </FormLabel>
+                      <FormControl>
+                        <select
+                          {...field}
+                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          aria-describedby="preferred-currency-help"
+                        >
+                          {SUPPORTED_CURRENCIES.map((currency) => (
+                            <option key={currency.code} value={currency.code}>
+                              {currency.code} — {currency.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <p id="preferred-currency-help" className="font-mono text-xs text-black/60">
+                        Ticket estimates use this currency when available. Checkout remains in USD.
+                      </p>
+                      <FormMessage className="font-mono text-xs text-destructive" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -987,16 +1081,52 @@ export default function SettingsPage() {
                 <FormField
                   control={form.control}
                   name="bio"
+                  render={({ field }) => {
+                    const bioValue = field.value || "";
+                    const isLimitReached = bioValue.length >= 150;
+
+                    return (
+                      <FormItem className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="eyebrow font-bold text-black">Bio</FormLabel>
+                          <span
+                            aria-label="Character limit"
+                            className={`font-mono text-xs font-bold transition-colors ${
+                              isLimitReached ? "text-red-600" : "text-muted-foreground"
+                            }`}
+                          >
+                            {bioValue.length}/150 characters
+                          </span>
+                        </div>
+                        <FormControl>
+                          <input
+                            {...field}
+                            maxLength={150}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    );
+                  }}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="showOnLeaderboard"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold text-black">Bio</FormLabel>
+                    <FormItem className="flex items-center justify-between gap-4 border-b-2 border-black pb-4 pt-2">
+                      <div>
+                        <FormLabel className="eyebrow font-bold text-black">
+                          Show on Public Leaderboard
+                        </FormLabel>
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          Display your gamification points on the campus-wide leaderboard.
+                        </p>
+                      </div>
                       <FormControl>
-                        <input
-                          {...field}
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
                       </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
                     </FormItem>
                   )}
                 />
@@ -1053,6 +1183,8 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+
+                {user && <LinkedInSkillSyncPanel userId={user.id} skills={skills} />}
 
                 <div className="space-y-2 border-t-2 border-black pt-5">
                   <p className="eyebrow font-bold text-black">Courses for study matching</p>
@@ -1117,6 +1249,10 @@ export default function SettingsPage() {
                 </div>
               </form>
             </Form>
+          </Panel>
+
+          <Panel title="Vendor Portfolio">
+            <VendorPortfolioEditor />
           </Panel>
 
           <Panel title="Appearance">
@@ -1320,13 +1456,58 @@ export default function SettingsPage() {
                   Manage your data, request exports of your personal information, or permanently
                   delete your account and all associated data.
                 </p>
-                <Link
-                  to="/settings/data"
-                  className="inline-block neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
-                >
-                  Manage Data & Privacy
-                </Link>
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    to="/settings/data"
+                    className="inline-block neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+                  >
+                    Manage Data & Privacy
+                  </Link>
+                  <button
+                    type="button"
+                    disabled={isRequestingArchive || !user}
+                    onClick={async () => {
+                      if (!user) return;
+                      setIsRequestingArchive(true);
+                      try {
+                        const { error } = await supabase.functions.invoke("request-gdpr-sar");
+                        if (error) throw error;
+                        toast.success(
+                          "Your data archive is being prepared. You will receive a secure download link by email within 30 days.",
+                        );
+                      } catch (err: unknown) {
+                        toast.error(
+                          err instanceof Error ? err.message : "Failed to request data archive",
+                        );
+                      } finally {
+                        setIsRequestingArchive(false);
+                      }
+                    }}
+                    className="neu-border neu-press inline-flex items-center gap-2 bg-lime px-4 py-2 font-mono text-xs font-bold uppercase text-black disabled:opacity-50"
+                  >
+                    {isRequestingArchive ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    Request My Data Archive
+                  </button>
+                </div>
               </div>
+            </div>
+          </Panel>
+
+          <Panel title="Safety & Emergency">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-bold text-black uppercase mb-1">Continuous Authentication</h3>
+                <p className="font-mono text-xs text-muted-foreground mb-4">
+                  The app continuously verifies your identity using your device&apos;s motion
+                  signature. If a critical anomaly is detected, your session locks automatically and
+                  campus security can be alerted. Configure your covert duress PIN below.
+                </p>
+              </div>
+              {user && <DuressSetupDialog userId={user.id} />}
             </div>
           </Panel>
 

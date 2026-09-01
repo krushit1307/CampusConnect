@@ -20,9 +20,11 @@ import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimel
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import { ProfileBadgeGallery } from "@/components/gamification/ProfileBadgeGallery";
 import { ProfileGamificationStats } from "@/components/gamification/ProfileGamificationStats";
+import { PoapTrophyCase } from "@/components/gamification/PoapTrophyCase";
 import { ProgressRing } from "@/components/profile/ProgressRing";
 import { useState, useEffect } from "react";
 import { SharedClubsSection } from "@/components/profile/SharedClubsSection";
+import { SkillEndorsementsSection } from "@/components/profile/SkillEndorsementsSection";
 import { getSharedClubs } from "@/lib/sharedClubs";
 import { ReportDialog } from "@/components/ReportDialog";
 import { AlertTriangle } from "lucide-react";
@@ -67,7 +69,8 @@ export default function Profile() {
           college,
           bio,
           skills,
-          linkedin_url
+          linkedin_url,
+          wallet_address
         `,
         )
         .eq("handle", handle!)
@@ -363,6 +366,14 @@ export default function Profile() {
             />
           )}
 
+          {/* ── NEW (Issue #3677): Verified Skill Endorsements Section ───── */}
+          <SkillEndorsementsSection
+            profileId={profile.id}
+            profileHandle={profile.handle || ""}
+            profileName={profile.full_name || profile.handle || "This user"}
+            isOwnProfile={Boolean(currentUser?.id && currentUser.id === profile.id)}
+          />
+
           {/* Upcoming Events Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-xl font-bold font-display">
@@ -484,6 +495,7 @@ export default function Profile() {
           {/* Custom Interactive Badges Section */}
           <ProfileGamificationStats userId={profile.id} isOwnProfile={!isViewingOtherProfile} />
           <ProfileBadgeGallery userId={profile.id} />
+          <PoapTrophyCase userId={profile.id} isOwnProfile={!isViewingOtherProfile} />
           {/* Activity History Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-xl font-bold font-display">
