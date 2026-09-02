@@ -726,6 +726,78 @@ export function ManageTicketTiers({ eventId }: { eventId: string }) {
     toast.success("Unlock URL copied to clipboard!");
   };
 
+  const handleCreateSecretTier = async () => {
+    if (!secretFormData.name || secretFormData.name.trim() === "") {
+      toast.error("Secret tier name is required");
+      return;
+    }
+    if (secretFormData.max_uses <= 0) {
+      toast.error("Max uses must be greater than 0");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result: CreateSecretTierResult = await createSecretTier(
+        eventId,
+        secretFormData.name,
+        Math.round(secretFormData.price * 100), // convert to cents
+        secretFormData.capacity,
+        secretFormData.max_uses,
+        secretFormData.expires_at || undefined,
+      );
+
+      if (result.success) {
+        toast.success(`Secret tier created! Unlock URL: ${result.unlock_url}`);
+        setShowSecretForm(false);
+        setSecretFormData({
+          name: "",
+          price: 0,
+          capacity: null,
+          max_uses: 5,
+          expires_at: "",
+        });
+        // Refresh tiers
+        const { data } = await supabase
+          .from("ticket_tiers")
+          .select(
+            "id, name, price, capacity, start_date, end_date, is_secret, unlock_hash, uses_remaining, max_uses",
+          )
+          .eq("event_id", eventId)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        if (data) {
+          setTiers(
+            data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              price: t.price / 100,
+              capacity: t.capacity,
+              start_date: t.start_date ? t.start_date.slice(0, 16) : "",
+              end_date: t.end_date ? t.end_date.slice(0, 16) : "",
+              is_secret: t.is_secret,
+              unlock_hash: t.unlock_hash,
+              max_uses: t.max_uses,
+              uses_remaining: t.uses_remaining,
+            })),
+          );
+        }
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create secret tier");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyUnlockUrl = (unlockHash: string) => {
+    const url = `${window.location.origin}/events/${eventId}?unlock_hash=${unlockHash}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Unlock URL copied to clipboard!");
+  };
+
   const updateTier = (index: number, field: keyof TicketTier, value: any) => {
     const newTiers = [...tiers];
     newTiers[index] = { ...newTiers[index], [field]: value };
