@@ -219,6 +219,7 @@ const DynamicEarlyBirdAnalyticsRoute = lazy(
 const AchievementsPage = lazy(() => import("@/pages/AchievementsPage"));
 const ProjectHubRoute = lazy(() => import("./routes/project-hub"));
 const EventFeedbackPage = lazy(() => import("@/pages/EventFeedbackPage"));
+const VenueIntelligenceRoute = lazy(() => import("./routes/venue-intelligence"));
 const JuryReviewRoute = lazy(() => import("./routes/jury.review.$caseId"));
 const SponsorZkLeadsRoute = lazy(() => import("./routes/sponsor.zk-leads"));
 const AdminAutoGraderMonitorRoute = lazy(() => import("./routes/admin.auto-grader-monitor"));
@@ -636,6 +637,9 @@ const router = createBrowserRouter(
 
               {/* Gallery */}
               <Route path="/gallery" element={<GalleryPage />} />
+
+              {/* Venue Intelligence */}
+              <Route path="/venue-intelligence" element={<VenueIntelligenceRoute />} />
 
               {/* Event Feedback Analytics */}
               <Route path="/event-feedback" element={<EventFeedbackAnalytics />} />
