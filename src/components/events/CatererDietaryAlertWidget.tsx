@@ -98,16 +98,28 @@ export function CatererDietaryAlertWidget({ eventId }: CatererDietaryAlertWidget
               <span className="text-xs font-mono text-red-300 flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" /> Awaiting Caterer Response
               </span>
-              {pendingAlerts[0] && (
-                <button
-                  type="button"
-                  onClick={() => handleSimulateAcknowledge(pendingAlerts[0].token)}
-                  data-testid="simulate-acknowledge-btn"
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold rounded-lg text-slate-200 transition-colors"
-                >
-                  Mark Caterer Acknowledged
-                </button>
-              )}
+              <div className="flex gap-2">
+                {pendingAlerts[0] && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleSimulateAcknowledge(pendingAlerts[0].token)}
+                      data-testid="simulate-acknowledge-btn"
+                      className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold rounded-lg text-slate-200 transition-colors"
+                    >
+                      Acknowledge
+                    </button>
+                    <a
+                      href={`/caterer/alert/${pendingAlerts[0].token}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 border border-indigo-400 text-xs font-bold rounded-lg text-white transition-colors flex items-center gap-1"
+                    >
+                      Open Portal
+                    </a>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -128,17 +140,24 @@ export function CatererDietaryAlertWidget({ eventId }: CatererDietaryAlertWidget
                 ✅ Caterer Health Alert Acknowledged
               </h4>
               {acknowledgedAlerts.map((alert) => (
-                <p
-                  key={alert.id}
-                  className="text-xs md:text-sm font-semibold text-emerald-100 mt-0.5"
-                >
-                  Caterer ({alert.caterer_email}) acknowledged severe {alert.dietary_tag} alert for{" "}
-                  {alert.attendee_name} at{" "}
-                  {alert.acknowledged_at
-                    ? new Date(alert.acknowledged_at).toLocaleTimeString()
-                    : "10:45 AM"}
-                  .
-                </p>
+                <div key={alert.id} className="mt-1 flex items-center justify-between gap-4">
+                  <p className="text-xs md:text-sm font-semibold text-emerald-100">
+                    Caterer ({alert.caterer_email}) acknowledged severe {alert.dietary_tag} alert
+                    for {alert.attendee_name} at{" "}
+                    {alert.acknowledged_at
+                      ? new Date(alert.acknowledged_at).toLocaleTimeString()
+                      : "10:45 AM"}
+                    .
+                  </p>
+                  <a
+                    href={`/caterer/alert/${alert.token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 border border-emerald-500 text-xs font-bold rounded text-white transition-colors flex items-center shrink-0"
+                  >
+                    Open Portal
+                  </a>
+                </div>
               ))}
             </div>
           </div>

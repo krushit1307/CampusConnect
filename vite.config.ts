@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { defineConfig } from "vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -5,6 +6,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { fileURLToPath } from "url";
 import { copyLibFiles } from "@builder.io/partytown/utils";
+// @ts-ignore
 import { partytownSnippet } from "@builder.io/partytown/integration";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -182,6 +184,9 @@ export default defineConfig({
     rolldownOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes("node_modules/lucide-react")) {
+            return "lucide-icons";
+          }
           if (id.includes("node_modules")) {
             if (id.includes("recharts") || id.includes("echarts") || id.includes("chart.js")) {
               return "chunk-admin-charts";
@@ -190,17 +195,6 @@ export default defineConfig({
               return "vendor-react";
             }
             return "vendor";
-          }
-        },
-      },
-    },
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules/lucide-react")) {
-            return "lucide-icons";
           }
         },
       },

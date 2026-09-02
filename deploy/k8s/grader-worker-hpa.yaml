@@ -1,0 +1,40 @@
+# deploy/k8s/grader-worker-hpa.yaml
+# Issue #5131: Automated "Event Series" GitHub Classroom Auto-Grader Load Balancer
+# Autoscales worker pods from 0/1 up to 50 based on SQS Queue depth (500 submission spike target)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: grader-worker-sqs-autoscaler
+  namespace: campusconnect-autograder
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: campusconnect-grader-worker
+  minReplicaCount: 1
+  maxReplicaCount: 50
+  cooldownPeriod: 300
+  pollingInterval: 15
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 50
+              periodSeconds: 60
+  triggers:
+    - type: aws-sqs-queue
+      metadata:
+        queueURL: https://sqs.us-east-1.amazonaws.com/123456789012/campusconnect-grader-submissions-queue
+        queueLength: "10" # Target 10 submissions per worker pod (50 pods for 500 spike)
+        awsRegion: us-east-1
+      authenticationRef:
+        name: keda-aws-credentials

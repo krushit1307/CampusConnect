@@ -30,9 +30,8 @@ const BATCH_SIZE = 1000;
 const TABLES = [
   {
     name: "events",
-    columns:
-      "id, title, description, location, event_date, start_date, end_date, club_id, banner_url, short_id, max_attendees, status, created_at",
-  },
+columns:
+  "id, title, description, location, event_date, start_date, end_date, club_id, banner_url, short_id, max_attendees, status, deleted_at, version, search_sync_version, created_at",  },
   {
     name: "clubs",
     columns: "id, name, slug, description, category, member_count, logo_url, created_at",
@@ -101,9 +100,14 @@ Deno.serve(async (req: Request) => {
             banner_url: String(row.banner_url ?? ""),
             short_id: String(row.short_id ?? ""),
             max_attendees: Number(row.max_attendees ?? 0),
-            status: String(row.status ?? "scheduled"),
-            created_at: String(row.created_at ?? ""),
-          };
+status: String(row.status ?? "scheduled"),
+deleted_at: row.deleted_at
+  ? String(row.deleted_at)
+  : null,
+_sync_version: Number(
+  row.search_sync_version ?? row.version ?? 1,
+),
+created_at: String(row.created_at ?? ""),          };
         }
         if (table.name === "clubs") {
           return {

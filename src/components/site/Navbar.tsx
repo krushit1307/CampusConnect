@@ -5,6 +5,7 @@ import { localizedPath } from "@/lib/i18n";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 import { ThemeToggle } from "../ThemeToggle";
+import { SafetyStatusBadge } from "../Safety/SafetyStatusBadge";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 import { BookmarksPanel } from "@/components/BookmarksPanel";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +16,8 @@ import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import Bookmark from "lucide-react/dist/esm/icons/bookmark";
 import Search from "lucide-react/dist/esm/icons/search";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
+import { useProfileCompleteness } from "@/hooks/useProfileCompleteness";
+import { ProfileCompletionAvatar } from "./ProfileCompletionAvatar";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 import { openCommandPalette } from "@/lib/commandPalette";
 import {
@@ -41,6 +44,7 @@ export function Navbar() {
   const { t, i18n } = useTranslation();
   const currentPath = location.pathname;
   const supabase = createClient();
+  const { data: completionPercentage } = useProfileCompleteness(user?.id ?? null);
 
   const navigate = useNavigate();
 
@@ -68,6 +72,25 @@ export function Navbar() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
+
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setUserRole(null);
+      return;
+    }
+    supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setUserRole(data.role);
+        }
+      });
+  }, [user, supabase]);
 
   const links = [
     {
@@ -102,7 +125,19 @@ export function Navbar() {
       to: localizedPath(i18n.language, "/messages"),
       label: t("navbar.messages"),
     },
+    {
+      to: localizedPath(i18n.language, "/api-playground"),
+      label: "Playground",
+    },
   ];
+
+  const dynamicLinks = [...links];
+  if (userRole === "facility_manager" || userRole === "system_admin") {
+    dynamicLinks.push({
+      to: localizedPath(i18n.language, "/facility-dashboard"),
+      label: "Facility",
+    });
+  }
 
   const landingLinks = [
     { href: "#features", label: t("navbar.features") },
@@ -204,7 +239,7 @@ export function Navbar() {
             ))}
 
           {/* Route links */}
-          {links.map((link) => {
+          {dynamicLinks.map((link) => {
             const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");
 
             return (
@@ -237,6 +272,7 @@ export function Navbar() {
 
           <ThemeToggle />
 
+          {user && <SafetyStatusBadge />}
           {user && <NavbarNotificationDropdown />}
           {user && (
             <button
@@ -254,13 +290,10 @@ export function Navbar() {
           ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="User menu"
-                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
-                >
-                  {user.email?.[0]?.toUpperCase() ?? "U"}
-                </button>
+                <ProfileCompletionAvatar
+                  initials={user.email?.[0]?.toUpperCase() ?? "U"}
+                  percentage={completionPercentage}
+                />
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end" className="w-56">
@@ -342,13 +375,10 @@ export function Navbar() {
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="User menu"
-                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
-              >
-                {user.email?.[0]?.toUpperCase() ?? "U"}
-              </button>
+              <ProfileCompletionAvatar
+                initials={user.email?.[0]?.toUpperCase() ?? "U"}
+                percentage={completionPercentage}
+              />
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-56">
@@ -415,7 +445,7 @@ export function Navbar() {
                 </a>
               ))}
 
-            {links.map((link) => {
+            {dynamicLinks.map((link) => {
               const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");
 
               return (

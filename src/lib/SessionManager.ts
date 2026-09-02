@@ -1,4 +1,8 @@
-type AuthEvent = { type: "LOGOUT" } | { type: "TOKEN_REFRESHED"; payload: { token: string } };
+type AuthEvent =
+  | { type: "LOGOUT" }
+  | { type: "TOKEN_REFRESHED"; payload: { token: string } }
+  | { type: "EMERGENCY_LOCK"; payload: { reason: string; duressFlag?: boolean } }
+  | { type: "LOCK_RELEASED"; payload: { userId: string } };
 
 export class SessionManager {
   private static instance: SessionManager;
@@ -7,6 +11,8 @@ export class SessionManager {
 
   private onLogoutCallback?: () => void;
   private onTokenUpdateCallback?: (token: string) => void;
+  private onEmergencyLockCallback?: (reason: string, duressFlag: boolean) => void;
+  private onLockReleasedCallback?: (userId: string) => void;
 
   // Private constructor ensures it can only be instantiated from within (Singleton)
   private constructor() {
@@ -23,9 +29,16 @@ export class SessionManager {
   }
 
   // Register callbacks so React hooks can react to background events
-  public setCallbacks(onLogout: () => void, onTokenUpdate: (token: string) => void) {
+  public setCallbacks(
+    onLogout: () => void,
+    onTokenUpdate: (token: string) => void,
+    onEmergencyLock?: (reason: string, duressFlag: boolean) => void,
+    onLockReleased?: (userId: string) => void,
+  ) {
     this.onLogoutCallback = onLogout;
     this.onTokenUpdateCallback = onTokenUpdate;
+    this.onEmergencyLockCallback = onEmergencyLock;
+    this.onLockReleasedCallback = onLockReleased;
   }
 
   private setupChannelListener() {
@@ -37,6 +50,12 @@ export class SessionManager {
       } else if (data.type === "TOKEN_REFRESHED") {
         console.log("[SessionManager] New token received from Leader tab.");
         this.onTokenUpdateCallback?.(data.payload.token);
+      } else if (data.type === "EMERGENCY_LOCK") {
+        console.log("[SessionManager] Emergency lock received from another tab.");
+        this.onEmergencyLockCallback?.(data.payload.reason, data.payload.duressFlag ?? false);
+      } else if (data.type === "LOCK_RELEASED") {
+        console.log("[SessionManager] Lock released received from another tab.");
+        this.onLockReleasedCallback?.(data.payload.userId);
       }
     };
   }
@@ -82,6 +101,24 @@ export class SessionManager {
       this.channel.postMessage({ type: "TOKEN_REFRESHED", payload: { token } });
       this.onTokenUpdateCallback?.(token); // Execute locally
     }
+  }
+
+  /**
+   * Broadcasts an emergency lock across all tabs. Call this when the
+   * continuous-authentication system detects a critical anomaly.
+   */
+  public broadcastEmergencyLock(reason: string, duressFlag = false) {
+    this.channel.postMessage({ type: "EMERGENCY_LOCK", payload: { reason, duressFlag } });
+    this.onEmergencyLockCallback?.(reason, duressFlag);
+  }
+
+  /**
+   * Broadcasts a lock-release (unlock) across all tabs after successful
+   * re-authentication.
+   */
+  public broadcastLockReleased(userId: string) {
+    this.channel.postMessage({ type: "LOCK_RELEASED", payload: { userId } });
+    this.onLockReleasedCallback?.(userId);
   }
 
   public destroy() {

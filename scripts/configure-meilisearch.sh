@@ -31,11 +31,11 @@ curl -s -X PATCH "$HOST/indexes/events/settings" \
     "displayedAttributes": [
       "id", "title", "description", "location", "event_date",
       "start_date", "end_date", "club_id", "banner_url",
-      "short_id", "max_attendees", "status", "created_at"
-    ],
-    "sortableAttributes": ["event_date", "created_at", "max_attendees"],
-    "filterableAttributes": ["club_id", "status"],
-    "rankingRules": [
+"short_id", "max_attendees", "status", "deleted_at",
+"_sync_version", "created_at"
+],
+"sortableAttributes": ["event_date", "created_at", "max_attendees"],
+"filterableAttributes": ["club_id", "status", "deleted_at"],    "rankingRules": [
       "words",
       "typo",
       "proximity",

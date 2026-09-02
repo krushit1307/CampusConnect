@@ -125,7 +125,8 @@ export function useKioskMode(eventId: string): UseKioskModeReturn {
     };
   }, []);
 
-  // Process QR Code Scan  const processScan = useCallback(
+  // Process QR Code Scan
+  const processScan = useCallback(
     async (qrData: string) => {
       // Aggressive debouncing to prevent scanning the same code 50 times in a second
       if (debounceRef.current) return;
